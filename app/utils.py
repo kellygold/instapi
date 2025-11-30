@@ -85,6 +85,19 @@ def download_photos(photo_urls, source):
         else:
             print(f"{filename} already exists, skipping.")
 
+def get_display_mode():
+    """Get current display mode from file."""
+    mode_paths = [
+        os.path.expanduser("~/.display_mode"),
+        "/home/instapi/.display_mode",
+        os.path.join(os.path.dirname(__file__), "..", ".display_mode")
+    ]
+    for mode_file in mode_paths:
+        if os.path.exists(mode_file):
+            with open(mode_file) as f:
+                return f.read().strip()
+    return "hdmi"  # default
+
 def download_and_return_paths(photo_urls, source):
     """Download photos and return their local paths for slideshow usage."""
     if "credentials" not in device_state:
@@ -96,6 +109,11 @@ def download_and_return_paths(photo_urls, source):
     if not os.path.exists(subdir):
         os.makedirs(subdir, exist_ok=True)
 
+    # Check if we should watermark (USB mode only - HDMI has persistent QR overlay)
+    display_mode = get_display_mode()
+    should_watermark = display_mode == "usb"
+    print(f"Display mode: {display_mode}, watermarking: {should_watermark}")
+
     returned_paths = []
     for i, photo_url in enumerate(photo_urls):
         filename = f"{source}_{i}.jpg"
@@ -106,8 +124,9 @@ def download_and_return_paths(photo_urls, source):
                 with open(photo_path, "wb") as img_file:
                     img_file.write(resp.content)
                 print(f"{filename} downloaded successfully in {source} folder.")
-                # Add QR watermark to photo
-                add_qr_watermark(photo_path)
+                # Add QR watermark only in USB mode (HDMI has persistent overlay)
+                if should_watermark:
+                    add_qr_watermark(photo_path)
             else:
                 print(f"Failed to download {filename}, status code: {resp.status_code}")
         else:
