@@ -1,0 +1,157 @@
+import os
+import time
+import requests
+from config import (
+    device_state,
+    PHOTOS_DIR,
+    PICKER_API_BASE_URL
+)
+
+def parse_time_value(value, default):
+    """Parse a time value like '5s' or '1800s' and return an integer in seconds."""
+    v = ''.join(ch for ch in value if ch.isdigit())
+    try:
+        return int(v)
+    except ValueError:
+        return default
+
+def download_photos(photo_urls, source):
+    """Download photos into static/photos/<source>/ directory."""
+    if "credentials" not in device_state:
+        print("No credentials, cannot download.")
+        return
+
+    headers = {"Authorization": f"Bearer {device_state['credentials']['token']}"}
+    subdir = os.path.join(PHOTOS_DIR, source)
+    if not os.path.exists(subdir):
+        os.makedirs(subdir, exist_ok=True)
+
+    for i, photo_url in enumerate(photo_urls):
+        filename = f"{source}_{i}.jpg"
+        photo_path = os.path.join(subdir, filename)
+        if not os.path.exists(photo_path):
+            resp = requests.get(photo_url, headers=headers)
+            if resp.status_code == 200:
+                with open(photo_path, "wb") as img_file:
+                    img_file.write(resp.content)
+                print(f"{filename} downloaded successfully in {source} folder.")
+            else:
+                print(f"Failed to download {filename}, status code: {resp.status_code}")
+        else:
+            print(f"{filename} already exists, skipping.")
+
+def download_and_return_paths(photo_urls, source):
+    """Download photos and return their local paths for slideshow usage."""
+    if "credentials" not in device_state:
+        print("No credentials, cannot download.")
+        return []
+
+    headers = {"Authorization": f"Bearer {device_state['credentials']['token']}"}
+    subdir = os.path.join(PHOTOS_DIR, source)
+    if not os.path.exists(subdir):
+        os.makedirs(subdir, exist_ok=True)
+
+    returned_paths = []
+    for i, photo_url in enumerate(photo_urls):
+        filename = f"{source}_{i}.jpg"
+        photo_path = os.path.join(subdir, filename)
+        if not os.path.exists(photo_path):
+            resp = requests.get(photo_url, headers=headers)
+            if resp.status_code == 200:
+                with open(photo_path, "wb") as img_file:
+                    img_file.write(resp.content)
+                print(f"{filename} downloaded successfully in {source} folder.")
+            else:
+                print(f"Failed to download {filename}, status code: {resp.status_code}")
+        else:
+            print(f"{filename} already exists, skipping.")
+        returned_paths.append(f"/static/photos/{source}/{filename}")
+    return returned_paths
+
+def fetch_and_download_picker_photos(session_id):
+    """
+    Fetch photos from the picker session and download them.
+    Called by poll_for_media_items once mediaItemsSet is true.
+    """
+    if "credentials" not in device_state:
+        print("No credentials, cannot download.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {device_state['credentials']['token']}",
+        "Content-Type": "application/json",
+    }
+    media_items_url = f"{PICKER_API_BASE_URL}/mediaItems?sessionId={session_id}"
+    resp_items = requests.get(media_items_url, headers=headers)
+    if resp_items.status_code == 200:
+        media_items_data = resp_items.json()
+        listed_items = media_items_data.get("mediaItems", [])
+        picker_photo_urls = []
+        for item in listed_items:
+            if "mediaFile" in item and "baseUrl" in item["mediaFile"]:
+                # Request a large-enough resolution
+                picker_photo_urls.append(item["mediaFile"]["baseUrl"] + "=w2048-h1024")
+
+        picker_paths = download_and_return_paths(picker_photo_urls, "picker")
+
+        photo_list = device_state.get("photo_urls", [])
+        photo_list.extend(picker_paths)
+        device_state["photo_urls"] = photo_list
+    else:
+        print("Failed to list media items from picker:", resp_items.status_code, resp_items.text)
+
+def fetch_picker_photos():
+    """
+    If needed, fetch media items from the Photo Picker session in a single shot.
+    Used by finalize_selection if the user never triggered the poller or we want a re-fetch.
+    """
+    session_id = device_state.get("picking_session_id")
+    if not session_id:
+        return []
+    headers = {
+        "Authorization": f"Bearer {device_state['credentials']['token']}",
+        "Content-Type": "application/json",
+    }
+    session_url = f"{PICKER_API_BASE_URL}/sessions/{session_id}"
+    resp = requests.get(session_url, headers=headers)
+    if resp.status_code == 200:
+        session_data = resp.json()
+        if session_data.get("mediaItemsSet"):
+            media_items_url = f"{PICKER_API_BASE_URL}/mediaItems?sessionId={session_id}"
+            resp_items = requests.get(media_items_url, headers=headers)
+            if resp_items.status_code == 200:
+                media_items_data = resp_items.json()
+                listed_items = media_items_data.get("mediaItems", [])
+                picker_photo_urls = []
+                for item in listed_items:
+                    if "mediaFile" in item and "baseUrl" in item["mediaFile"]:
+                        picker_photo_urls.append(item["mediaFile"]["baseUrl"] + "=w2048-h1024")
+                return picker_photo_urls
+    return []
+
+def poll_for_media_items(poll_interval, poll_timeout):
+    """Poll the picker session until media items are set or timeout."""
+    session_id = device_state.get("picking_session_id")
+    if not session_id:
+        print("No session ID found for polling.")
+        return
+
+    headers = {"Authorization": f"Bearer {device_state['credentials']['token']}"}
+    start_time = time.time()
+    while time.time() - start_time < poll_timeout:
+        time.sleep(poll_interval)
+        url = f"{PICKER_API_BASE_URL}/sessions/{session_id}"
+        resp = requests.get(url, headers=headers)
+        if resp.status_code == 200:
+            session_data = resp.json()
+            if session_data.get("mediaItemsSet"):
+                fetch_and_download_picker_photos(session_id)
+                device_state["photos_chosen"] = True
+                device_state["done"] = True
+                print("Picker photos fetched and done state set to True.")
+                break
+        else:
+            print("Error polling session:", resp.status_code, resp.text)
+    else:
+        print("Timeout reached while polling for media items.")
+

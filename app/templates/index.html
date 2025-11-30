@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>InstaPi - Sign In</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        /* QR code responsive styling */
+        .qr-code {
+            max-width:75%; /* Scale QR code relative to the container */
+            height: auto; /* Maintain aspect ratio */
+            margin: 20px auto; /* Center within its container */
+        }
+
+        /* Adjust QR code for very small screens */
+        @media (max-width: 600px) {
+            .qr-code {
+                max-width: 75%; /* Smaller QR code for narrow screens */
+                margin: 10px auto;
+            }
+        }
+
+        /* Adjust QR code for very large screens */
+        @media (min-width: 1200px) {
+            .qr-code {
+                max-width: 75%; /* Slightly smaller on wide screens */
+            }
+        }
+    </style>
+</head>
+<body class="black-background white-text">
+    <div class="responsive-container">
+        <div class="logo-container">
+            <img src="/static/instapi_logo_full.jpg" alt="Instapi Logo" class="logo-header">
+        </div>
+        <div class="content-container">
+            <h1>Step 1: Sign In</h1>
+            <p>Scan the QR code below with your phone to sign in with Google.</p>
+            <img src="/auth_qr" alt="Sign-in QR Code" class="qr-code">
+            <p>If you have a mouse/keyboard, you can also <a href="{{ auth_url }}" target="_blank">click here to sign in</a>.</p>
+        </div>
+    </div>
+
+    <script>
+        setInterval(async () => {
+            const response = await fetch("/auth_status", { credentials: 'include' });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.authenticated === true) {
+                    window.location.href = "/wait_for_photos";
+                }
+            }
+        }, 5000);
+    </script>
+</body>
+</html>

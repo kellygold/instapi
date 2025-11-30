@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>InstaPi - Success!</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(180deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .success-ring {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.05));
+            border: 3px solid #4CAF50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            animation: scaleIn 0.5s ease-out;
+        }
+
+        .success-ring .checkmark {
+            font-size: 50px;
+            animation: popIn 0.4s ease-out 0.2s both;
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0); }
+            to { transform: scale(1); }
+        }
+
+        h1 {
+            font-size: 2em;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #4CAF50, #8BC34A);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #888;
+            font-size: 1.1em;
+            margin-bottom: 40px;
+        }
+
+        .frame-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 25px;
+        }
+
+        .frame-icon {
+            font-size: 50px;
+            margin-bottom: 15px;
+        }
+
+        .frame-text {
+            color: #aaa;
+            font-size: 1em;
+            line-height: 1.5;
+        }
+
+        .action-btn {
+            display: block;
+            width: 100%;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 14px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            box-shadow: 0 4px 20px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: #888;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .btn-ghost:hover {
+            background: rgba(255,255,255,0.05);
+            color: #aaa;
+        }
+
+        .close-hint {
+            color: #555;
+            font-size: 0.85em;
+            margin-top: 25px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-ring">
+            <span class="checkmark">✓</span>
+        </div>
+
+        <h1>You're All Set!</h1>
+        <p class="subtitle">Photos are loading on your frame</p>
+
+        <div class="frame-card">
+            <div class="frame-icon">🖼️</div>
+            <p class="frame-text">
+                Your photo frame is now displaying your selected photos. Enjoy your memories!
+            </p>
+        </div>
+
+        <a href="/choose_mode" class="action-btn btn-primary">
+            + Add More Photos
+        </a>
+
+        <button class="action-btn btn-ghost" onclick="window.close()">
+            Close This Page
+        </button>
+
+        <p class="close-hint">
+            Bookmark this page to easily add photos later
+        </p>
+    </div>
+</body>
+</html>

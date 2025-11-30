@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Continue Setup</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="black-background white-text">
+    <div class="responsive-container">
+        <div class="logo-container">
+            <img src="/static/instapi_logo_full.jpg" alt="Instapi Logo" class="logo-header">
+        </div>
+        <div class="content-container">
+            <h1>Continue Setup on Your Phone</h1>
+            <p>Please scan the QR code below with your phone to choose how to add photos.</p>
+            <img src="/choose_mode_qr" alt="Choose Mode QR Code" class="qr-code">
+            <p>After selecting photos/albums on your phone, this frame will update automatically.</p>
+        </div>
+    </div>
+
+    <script>
+        async function pollForCompletion() {
+            try {
+                const response = await fetch('/check_session_status', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.ready === true) {
+                        window.location.href = '/slideshow';
+                    }
+                }
+            } catch (error) {
+                console.error("Error checking session status:", error);
+            }
+        }
+
+        // Poll every 5 seconds
+        setInterval(pollForCompletion, 5000);
+    </script>
+</body>
+</html>

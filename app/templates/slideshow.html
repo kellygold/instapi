@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Slideshow</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        body {
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+
+        .fullscreen-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #photo {
+            max-width: 100vw;
+            max-height: 100vh;
+            object-fit: contain;
+            position: relative;
+            z-index: 1;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+            z-index: 2;
+        }
+
+        /* Add Photos QR Corner */
+        .qr-corner {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 10px;
+            opacity: 0.3;
+            transition: opacity 0.3s ease;
+            cursor: pointer;
+        }
+
+        .qr-corner:hover {
+            opacity: 1;
+        }
+
+        .qr-corner img {
+            width: 80px;
+            height: 80px;
+            border-radius: 5px;
+        }
+
+        .qr-corner .qr-label {
+            color: white;
+            font-size: 10px;
+            text-align: center;
+            margin-top: 5px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .qr-corner:hover .qr-label {
+            opacity: 1;
+        }
+    </style>
+    <script>
+        let photos = [];
+        const interval = 5000;
+        let cycleTimeout;
+
+        async function fetchNextPhotos(count = 1) {
+            try {
+                const response = await fetch(`/get_next_photos?count=${count}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    return data;
+                } else {
+                    console.error("Failed to fetch next photos:", response.status);
+                    return [];
+                }
+            } catch (error) {
+                console.error("Error fetching next photos:", error);
+                return [];
+            }
+        }
+
+        async function preloadImage(url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = url;
+            });
+        }
+
+        async function cyclePhoto() {
+            if (photos.length === 0) {
+                console.log("No photos available. Fetching more...");
+                photos = await fetchNextPhotos(2);
+                if (photos.length === 0) {
+                    console.log("Still no photos available. Retrying later.");
+                    cycleTimeout = setTimeout(cyclePhoto, interval);
+                    return;
+                }
+            }
+
+            const photo = document.getElementById("photo");
+            const overlay = document.getElementById("overlay");
+
+            const nextUrl = photos.shift();
+            console.log(`Switching to photo: ${nextUrl}`);
+
+            const preloaded = await preloadImage(nextUrl);
+            if (!preloaded) {
+                console.error("Failed to preload image:", nextUrl);
+                cycleTimeout = setTimeout(cyclePhoto, interval);
+                return;
+            }
+
+            overlay.style.opacity = 1;
+
+            setTimeout(() => {
+                photo.src = nextUrl;
+                overlay.style.opacity = 0;
+                console.log("Image displayed:", nextUrl);
+                fetchNextPhotos(1).then((newPhotos) => {
+                    photos.push(...newPhotos);
+                });
+            }, 1000);
+
+            cycleTimeout = setTimeout(cyclePhoto, interval);
+        }
+
+        window.onload = async function () {
+            photos = await fetchNextPhotos(2);
+            if (photos.length > 0) {
+                const photo = document.getElementById("photo");
+                photo.src = photos.shift();
+                console.log("Initial photo displayed.");
+                setTimeout(cyclePhoto, interval);
+            } else {
+                console.log("No photos to show at all.");
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="fullscreen-container">
+        <img id="photo" alt="Photo">
+        <div id="overlay"></div>
+        
+        <!-- Add Photos QR Code -->
+        <div class="qr-corner" title="Scan to add more photos">
+            <img src="/choose_mode_qr" alt="Add Photos">
+            <div class="qr-label">+ Add Photos</div>
+        </div>
+    </div>
+</body>
+</html>

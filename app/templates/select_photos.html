@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>InstaPi - Waiting for Photos</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+            overflow: hidden;
+        }
+
+        .loading-container {
+            text-align: center;
+            animation: fadeIn 1s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo-pulse {
+            width: 200px;
+            height: auto;
+            border-radius: 20px;
+            animation: pulse 2s ease-in-out infinite;
+            margin-bottom: 30px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+        }
+
+        .status-text {
+            font-size: 1.5em;
+            color: #fff;
+            margin-bottom: 20px;
+            font-weight: 300;
+        }
+
+        .loading-dots {
+            display: inline-flex;
+            gap: 8px;
+            margin-bottom: 40px;
+        }
+
+        .loading-dots span {
+            width: 12px;
+            height: 12px;
+            background: #4CAF50;
+            border-radius: 50%;
+            animation: bounce 1.4s ease-in-out infinite;
+        }
+
+        .loading-dots span:nth-child(1) { animation-delay: 0s; }
+        .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+            40% { transform: translateY(-15px); opacity: 1; }
+        }
+
+        .qr-section {
+            background: rgba(255,255,255,0.05);
+            padding: 25px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            max-width: 350px;
+            margin: 0 auto;
+        }
+
+        .qr-section img {
+            width: 180px;
+            height: 180px;
+            border-radius: 10px;
+            background: white;
+            padding: 10px;
+        }
+
+        .qr-label {
+            color: #aaa;
+            font-size: 0.9em;
+            margin-top: 15px;
+            line-height: 1.5;
+        }
+
+        .qr-url {
+            color: #4CAF50;
+            font-size: 0.75em;
+            word-break: break-all;
+            margin-top: 10px;
+        }
+
+        .photo-count {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            margin-bottom: 30px;
+            display: none;
+        }
+
+        .photo-count.visible {
+            display: inline-block;
+            animation: popIn 0.5s ease-out;
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0); }
+            to { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-container">
+        <img src="/static/instapi_logo_full.jpg" alt="InstaPi" class="logo-pulse">
+        
+        <div class="status-text" id="status-text">Waiting for photos</div>
+        
+        <div class="loading-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+
+        <div class="photo-count" id="photo-count"></div>
+
+        <div class="qr-section">
+            <img src="/choose_mode_qr" alt="Add Photos QR Code">
+            <p class="qr-label">
+                📱 Scan to select photos<br>
+                <small>or continue on your phone</small>
+            </p>
+            <p class="qr-url">{{ choose_mode_url }}</p>
+        </div>
+    </div>
+
+    <script>
+        let lastPhotoCount = 0;
+
+        async function pollForCompletion() {
+            try {
+                const response = await fetch('/check_session_status', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Update photo count if available
+                    if (data.photo_count && data.photo_count > 0) {
+                        const countEl = document.getElementById('photo-count');
+                        countEl.textContent = `✓ ${data.photo_count} photos selected`;
+                        countEl.classList.add('visible');
+                        
+                        if (data.photo_count !== lastPhotoCount) {
+                            document.getElementById('status-text').textContent = 'Loading photos...';
+                            lastPhotoCount = data.photo_count;
+                        }
+                    }
+                    
+                    if (data.ready === true) {
+                        document.getElementById('status-text').textContent = 'Starting slideshow!';
+                        setTimeout(() => {
+                            window.location.href = '/slideshow';
+                        }, 1000);
+                    }
+                }
+            } catch (error) {
+                console.error("Error checking session status:", error);
+            }
+        }
+
+        // Poll every 3 seconds
+        setInterval(pollForCompletion, 3000);
+        pollForCompletion(); // Initial check
+    </script>
+</body>
+</html>

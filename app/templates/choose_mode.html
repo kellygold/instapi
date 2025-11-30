@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>InstaPi - Select Photos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(180deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: white;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        .logo {
+            width: 100px;
+            height: 100px;
+            border-radius: 22px;
+            margin-bottom: 15px;
+            box-shadow: 0 10px 40px rgba(76, 175, 80, 0.3);
+        }
+
+        .brand {
+            font-size: 1.8em;
+            font-weight: 700;
+            background: linear-gradient(135deg, #4CAF50, #8BC34A);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .tagline {
+            color: #888;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .step-indicator {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .step-number {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        .step-title {
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .step-desc {
+            color: #aaa;
+            font-size: 0.9em;
+            line-height: 1.5;
+            margin-left: 40px;
+        }
+
+        .main-btn {
+            display: block;
+            width: 100%;
+            padding: 18px 24px;
+            border: none;
+            border-radius: 16px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            box-shadow: 0 4px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(76, 175, 80, 0.5);
+        }
+
+        .btn-primary:disabled {
+            background: #333;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.08);
+            color: #ccc;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.12);
+        }
+
+        .loading-state {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(76, 175, 80, 0.15);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            color: #4CAF50;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 0.95em;
+            margin-top: 15px;
+        }
+
+        .status-badge.ready {
+            background: rgba(76, 175, 80, 0.2);
+            border-color: #4CAF50;
+        }
+
+        .divider {
+            height: 1px;
+            background: rgba(255,255,255,0.1);
+            margin: 25px 0;
+        }
+
+        .helper-text {
+            text-align: center;
+            color: #666;
+            font-size: 0.85em;
+            margin-top: 20px;
+        }
+
+        .icon-circle {
+            width: 50px;
+            height: 50px;
+            background: rgba(76, 175, 80, 0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            font-size: 1.5em;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="/static/instapi_logo_full.jpg" alt="InstaPi" class="logo">
+            <div class="brand">InstaPi</div>
+            <div class="tagline">Your digital photo frame</div>
+        </div>
+
+        <!-- Step 1: Select Photos -->
+        <div class="card" id="select-card">
+            <div class="step-indicator">
+                <div class="step-number">1</div>
+                <div class="step-title">Select Your Photos</div>
+            </div>
+            <p class="step-desc">
+                Choose photos from your Google Photos library to display on your frame.
+            </p>
+            
+            <div style="margin-top: 20px;">
+                <a href="#" id="picker-btn" class="main-btn btn-primary" style="pointer-events: none; opacity: 0.7;">
+                    <span class="loading-state">
+                        <span class="spinner"></span>
+                        <span>Preparing...</span>
+                    </span>
+                </a>
+            </div>
+            
+            <div id="status-container"></div>
+        </div>
+
+        <!-- Step 2: Finish -->
+        <div class="card" id="finish-card">
+            <div class="step-indicator">
+                <div class="step-number">2</div>
+                <div class="step-title">Start Your Frame</div>
+            </div>
+            <p class="step-desc">
+                After selecting photos, tap below to start the slideshow on your frame.
+            </p>
+            
+            <div style="margin-top: 20px;">
+                <button class="main-btn btn-secondary" id="done-btn">
+                    Begin Slideshow
+                </button>
+            </div>
+        </div>
+
+        <p class="helper-text">
+            Photos will display on your connected frame
+        </p>
+    </div>
+
+    <script>
+    // Auto-generate picker URL on page load
+    async function initPicker() {
+        const btn = document.getElementById("picker-btn");
+        
+        const formData = new FormData();
+        formData.append("choice", "specific");
+
+        try {
+            const resp = await fetch("/choose_mode_action", {
+                method: "POST",
+                body: formData
+            });
+
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.picker_url) {
+                    btn.href = data.picker_url;
+                    btn.style.pointerEvents = "auto";
+                    btn.style.opacity = "1";
+                    btn.innerHTML = "📸 Select Photos from Google";
+                }
+            } else {
+                btn.innerHTML = "Error - Refresh to retry";
+            }
+        } catch (error) {
+            console.error("Error:", error);
+            btn.innerHTML = "Error - Refresh to retry";
+        }
+    }
+
+    // Check for selected photos
+    async function checkStatus() {
+        const resp = await fetch('/user_selection_status');
+        const container = document.getElementById('status-container');
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data.photos_chosen) {
+                container.innerHTML = '<div class="status-badge ready fade-in">✓ Photos selected!</div>';
+                document.getElementById("done-btn").classList.remove("btn-secondary");
+                document.getElementById("done-btn").classList.add("btn-primary");
+            }
+        }
+    }
+
+    document.getElementById("done-btn").addEventListener("click", () => {
+        window.location.href = '/done';
+    });
+
+    // Initialize
+    initPicker();
+    checkStatus();
+    setInterval(checkStatus, 3000);
+    </script>
+</body>
+</html>
