@@ -34,18 +34,22 @@ def auth_status():
 
 @app.route("/")
 def index():
-    """Always start fresh auth - generate new auth URL."""
-    # Clear any old state for fresh start
-    device_state.clear()
+    """Show setup page, or redirect to slideshow if photos ready."""
+    # If photos are already ready, go to slideshow
+    if device_state.get("done") and device_state.get("photo_urls"):
+        return redirect(url_for("slideshow"))
     
-    flow = Flow.from_client_secrets_file(
-        "secrets.json",
-        scopes=SCOPES,
-        redirect_uri=REDIRECT_URI
-    )
-    auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
-    device_state["auth_url"] = auth_url
-    return render_template("index.html", auth_url=auth_url)
+    # Generate new auth URL if needed
+    if "auth_url" not in device_state:
+        flow = Flow.from_client_secrets_file(
+            "secrets.json",
+            scopes=SCOPES,
+            redirect_uri=REDIRECT_URI
+        )
+        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
+        device_state["auth_url"] = auth_url
+    
+    return render_template("index.html", auth_url=device_state["auth_url"])
 
 
 @app.route("/auth")

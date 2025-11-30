@@ -542,6 +542,17 @@
 
     <script>
         setInterval(async () => {
+            // First check if photos are ready (done state)
+            const statusResp = await fetch("/check_session_status", { credentials: 'include' });
+            if (statusResp.ok) {
+                const statusData = await statusResp.json();
+                if (statusData.ready && statusData.photo_count > 0) {
+                    window.location.href = "/slideshow";
+                    return;
+                }
+            }
+            
+            // Otherwise check if authenticated but not done yet
             const response = await fetch("/auth_status", { credentials: 'include' });
             if (response.ok) {
                 const data = await response.json();
