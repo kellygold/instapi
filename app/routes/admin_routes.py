@@ -76,6 +76,18 @@ def git_pull():
     try:
         # Get the repo root (parent of app directory)
         repo_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        print(f"[GIT PULL] Starting git pull in: {repo_root}")
+        
+        # First check current branch and status
+        status_result = subprocess.run(
+            ["/usr/bin/git", "status", "--short"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        print(f"[GIT PULL] Current status: {status_result.stdout.strip() or 'clean'}")
+        
         result = subprocess.run(
             ["/usr/bin/git", "pull"],
             cwd=repo_root,
@@ -84,11 +96,18 @@ def git_pull():
             timeout=30,
             env={**os.environ, "PATH": "/usr/bin:/bin:/usr/local/bin"}
         )
+        
+        print(f"[GIT PULL] Return code: {result.returncode}")
+        print(f"[GIT PULL] stdout: {result.stdout}")
+        if result.stderr:
+            print(f"[GIT PULL] stderr: {result.stderr}")
+        
         if result.returncode == 0:
             return jsonify({"success": True, "output": result.stdout})
         else:
             return jsonify({"success": False, "error": result.stderr or result.stdout})
     except Exception as e:
+        print(f"[GIT PULL] Exception: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 
