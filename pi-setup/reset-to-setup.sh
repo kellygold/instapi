@@ -5,6 +5,11 @@
 # Set PATH since web app context has minimal PATH
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
+# Set HOME if not set (web app context)
+if [ -z "$HOME" ]; then
+    export HOME=$(getent passwd $(whoami) | cut -d: -f6)
+fi
+
 set -e
 
 # Get script directory to find paths dynamically
@@ -15,6 +20,8 @@ REPO_DIR="$(dirname "$SCRIPT_DIR")"
 IMG_FILE="$HOME/usb_drive.img"
 MOUNT_POINT="$HOME/usb_mount"
 QR_PLACEHOLDER="$SCRIPT_DIR/qr-placeholder.jpg"
+
+echo "HOME=$HOME"
 
 echo "Resetting USB image to setup QR..."
 echo "Script dir: $SCRIPT_DIR"
