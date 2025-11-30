@@ -12,4 +12,4 @@ app/secrets.json
 
 # Downloaded photos
 app/static/photos/*
-!app/static/photos/.gitkeep
+!app/static/photos/.gitkeepstatic/photos_backup/
