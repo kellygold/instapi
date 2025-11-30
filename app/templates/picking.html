@@ -67,25 +67,14 @@
         <h1>Select Your Photos</h1>
         <p class="status" id="status">Click the button to select your photos</p>
         <div class="spinner" id="spinner" style="display: none;"></div>
-        <button class="btn" id="openBtn" onclick="openPicker()">Open Photo Picker</button>
+        <a href="{{ picker_url }}/autoclose" target="_blank" class="btn" id="openBtn" onclick="pickerOpened()">Open Photo Picker</a>
     </div>
 
     <script>
-        // Add /autoclose so Google closes the popup when done
-        const pickerUrl = "{{ picker_url }}/autoclose";
-        let pickerWindow = null;
-
-        // User clicks button - this IS a user gesture so popup should work
-        function openPicker() {
-            pickerWindow = window.open(pickerUrl, 'GooglePhotosPicker', 'width=900,height=700,scrollbars=yes');
-            
-            if (pickerWindow) {
-                document.getElementById('status').textContent = 'Select photos in the popup, this page will update automatically...';
-                document.getElementById('spinner').style.display = 'block';
-                document.getElementById('openBtn').textContent = 'Reopen Picker';
-            } else {
-                alert('Popup was blocked! Please allow popups for this site and try again.');
-            }
+        function pickerOpened() {
+            document.getElementById('status').textContent = 'Select photos in the new tab, this page will update automatically...';
+            document.getElementById('spinner').style.display = 'block';
+            document.getElementById('openBtn').textContent = 'Reopen Picker';
         }
 
         // Poll for completion
@@ -95,10 +84,6 @@
                 if (resp.ok) {
                     const data = await resp.json();
                     if (data.ready && data.photo_count > 0) {
-                        // Close picker if still open
-                        if (pickerWindow && !pickerWindow.closed) {
-                            pickerWindow.close();
-                        }
                         document.getElementById('status').textContent = 'Photos ready! Loading slideshow...';
                         window.location.href = '/slideshow';
                     }
