@@ -462,11 +462,18 @@
                 font-size: 1.1em;
             }
 
-            /* Hide decorative elements */
-            .floating-photos, .particles, .scanlines {
+            /* Hide decorative elements and scan message */
+            .floating-photos, .particles, .scanlines, .status {
                 display: none;
             }
+
+            /* Show mobile text, hide desktop text */
+            .desktop-text { display: none; }
+            .mobile-text { display: inline; }
         }
+
+        /* Default: show desktop text, hide mobile text */
+        .mobile-text { display: none; }
     </style>
 </head>
 <body>
@@ -529,7 +536,7 @@
                 <span>Waiting for you to scan...</span>
             </div>
 
-            <a href="{{ auth_url }}" class="touch-link">Or tap here to set up →</a>
+            <a href="{{ auth_url }}" class="touch-link"><span class="desktop-text">Or tap</span><span class="mobile-text">Tap</span> here to set up →</a>
         </div>
     </div>
 
