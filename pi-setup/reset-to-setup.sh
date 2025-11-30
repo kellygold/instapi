@@ -2,6 +2,9 @@
 # Reset USB image to show only QR placeholder
 # This is called by admin panel to go back to setup screen on USB photo frames
 
+# Set PATH since web app context has minimal PATH
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
 set -e
 
 # Get script directory to find paths dynamically
