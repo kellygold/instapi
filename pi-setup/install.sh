@@ -70,6 +70,11 @@ pip install -r requirements.txt
 # Make scripts executable
 chmod +x "$INSTALL_DIR/pi-setup/"*.sh
 
+# Install sudoers rules for admin panel
+echo "🔐 Setting up admin permissions..."
+sudo cp "$INSTALL_DIR/pi-setup/instapi-sudoers" /etc/sudoers.d/instapi
+sudo chmod 440 /etc/sudoers.d/instapi
+
 # ==========================================
 # MODE-SPECIFIC SETUP (only if mode specified)
 # ==========================================

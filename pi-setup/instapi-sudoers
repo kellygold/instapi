@@ -1,0 +1,15 @@
+# Allow instapi web app to control services without password
+# Install with: sudo cp instapi-sudoers /etc/sudoers.d/instapi
+
+# Allow controlling instapi services
+%sudo ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart instapi
+%sudo ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart instapi-kiosk
+%sudo ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart usb-gadget
+
+# Allow USB gadget operations
+%sudo ALL=(ALL) NOPASSWD: /sbin/modprobe g_mass_storage *
+%sudo ALL=(ALL) NOPASSWD: /sbin/modprobe -r g_mass_storage
+
+# Allow mounting USB image
+%sudo ALL=(ALL) NOPASSWD: /bin/mount -o loop *
+%sudo ALL=(ALL) NOPASSWD: /bin/umount *
