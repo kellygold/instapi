@@ -12,25 +12,8 @@ from utils import (
 )
 import requests
 
-@app.route("/choose_mode")
-def choose_mode():
-    """User picks photos using Google Photo Picker."""
-    if "credentials" not in device_state:
-        return "Not authenticated", 401
-    return render_template("choose_mode.html")
-
-
-@app.route("/choose_mode_action", methods=["POST"])
-def choose_mode_action():
-    """Handle photo picker request."""
-    choice = request.form.get("choice")
-    if choice == "specific":
-        return create_session_api()
-    else:
-        return jsonify({"error": "Invalid choice"}), 400
-
-
-def create_session_api():
+@app.route("/launch_picker")
+def launch_picker():
     """Create a Photo Picker session and start polling."""
     if "credentials" not in device_state:
         return jsonify({"error": "Not authenticated"}), 401
@@ -61,9 +44,10 @@ def create_session_api():
         )
         thread.start()
 
-        return jsonify({"picker_url": device_state["picker_url"]})
+        # Redirect directly to Google's picker
+        return redirect(device_state["picker_url"])
     else:
-        return jsonify({"error": f"Failed to create session: {response.status_code}"}), 500
+        return f"Failed to create picker session: {response.status_code}", 500
 
 
 @app.route("/finalize_selection", methods=["POST"])

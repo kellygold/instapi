@@ -31,18 +31,18 @@ def auth_status():
 
 @app.route("/")
 def index():
-    """Display a QR code for the user to sign in."""
-    if "credentials" in device_state:
-        return redirect(url_for("wait_for_photos"))
-    else:
-        flow = Flow.from_client_secrets_file(
-            "secrets.json",
-            scopes=SCOPES,
-            redirect_uri=REDIRECT_URI
-        )
-        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
-        device_state["auth_url"] = auth_url
-        return render_template("index.html", auth_url=auth_url)
+    """Always start fresh auth - generate new auth URL."""
+    # Clear any old state for fresh start
+    device_state.clear()
+    
+    flow = Flow.from_client_secrets_file(
+        "secrets.json",
+        scopes=SCOPES,
+        redirect_uri=REDIRECT_URI
+    )
+    auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
+    device_state["auth_url"] = auth_url
+    return render_template("index.html", auth_url=auth_url)
 
 
 @app.route("/auth_qr")
@@ -60,7 +60,7 @@ def auth_qr():
 
 @app.route("/oauth2callback")
 def oauth2callback():
-    """OAuth2 callback after user signs in with Google."""
+    """OAuth2 callback - immediately create picker session."""
     flow = Flow.from_client_secrets_file(
         "secrets.json",
         scopes=SCOPES,
@@ -70,21 +70,12 @@ def oauth2callback():
         flow.fetch_token(authorization_response=request.url)
         credentials = flow.credentials
 
-        # Handle expiry
-        expiry_time = credentials.expiry
-        if not isinstance(expiry_time, datetime):
-            expiry_time = datetime.utcnow() + timedelta(seconds=credentials.expiry)
-
         device_state["credentials"] = {
             "token": credentials.token,
-            "refresh_token": credentials.refresh_token,
-            "token_uri": credentials.token_uri,
-            "client_id": credentials.client_id,
-            "client_secret": credentials.client_secret,
-            "scopes": credentials.scopes,
-            "expiry_time": expiry_time,
         }
-        return render_template("choose_mode.html")
+        
+        # Immediately create picker session and redirect to picker
+        return redirect(url_for("launch_picker"))
     except Exception as e:
         print("Error exchanging token:", e)
         return "Failed to exchange token.", 500

@@ -286,8 +286,17 @@
                     btn.style.opacity = "1";
                     btn.innerHTML = "📸 Select Photos from Google";
                 }
+            } else if (resp.status === 401) {
+                // Token expired - need to re-auth
+                btn.href = "/";
+                btn.style.pointerEvents = "auto";
+                btn.style.opacity = "1";
+                btn.innerHTML = "🔑 Sign in again";
             } else {
-                btn.innerHTML = "Error - Refresh to retry";
+                btn.onclick = () => location.reload();
+                btn.style.pointerEvents = "auto";
+                btn.style.cursor = "pointer";
+                btn.innerHTML = "⚠️ Error - Tap to retry";
             }
         } catch (error) {
             console.error("Error:", error);
@@ -313,10 +322,9 @@
         window.location.href = '/done';
     });
 
-    // Initialize
+    // Initialize - only check status once, no polling needed
     initPicker();
     checkStatus();
-    setInterval(checkStatus, 3000);
     </script>
 </body>
 </html>

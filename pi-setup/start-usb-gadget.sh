@@ -2,14 +2,14 @@
 # Start USB Mass Storage Gadget
 # Called by systemd on boot
 
-# Get the actual user's home directory
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-USER_HOME="$(dirname "$(dirname "$SCRIPT_DIR")")"
+# Use $HOME for reliable path resolution
+USER_HOME="$HOME"
+INSTAPI_DIR="$USER_HOME/instapi"
 
 IMG_FILE="$USER_HOME/usb_drive.img"
 MOUNT_POINT="$USER_HOME/usb_mount"
-PHOTOS_DIR="$USER_HOME/instapi/app/static/photos"
-QR_PLACEHOLDER="$USER_HOME/instapi/pi-setup/qr-placeholder.jpg"
+PHOTOS_DIR="$INSTAPI_DIR/app/static/photos"
+QR_PLACEHOLDER="$INSTAPI_DIR/pi-setup/qr-placeholder.jpg"
 
 echo "Using paths: IMG=$IMG_FILE, MOUNT=$MOUNT_POINT"
 
