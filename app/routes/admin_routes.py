@@ -109,6 +109,26 @@ def restart_service():
         return jsonify({"success": False, "error": str(e)})
 
 
+@app.route("/admin/sync_usb", methods=["POST"])
+def sync_usb():
+    """Sync photos to USB drive (USB mode only)."""
+    try:
+        script_path = os.path.join(os.path.dirname(__file__), "..", "..", "pi-setup", "update-photos.sh")
+        result = subprocess.run(
+            ["/bin/bash", script_path],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        output = result.stdout + result.stderr
+        if result.returncode == 0:
+            return jsonify({"success": True, "message": "Photos synced to USB.", "output": output})
+        else:
+            return jsonify({"success": False, "error": "Sync failed", "output": output})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
 @app.route("/admin/reset", methods=["POST"])
 def reset_to_setup():
     """Reset to setup screen - behavior depends on display mode."""
@@ -140,9 +160,10 @@ def reset_to_setup():
                 text=True,
                 timeout=30
             )
+            output = result.stdout + result.stderr
             if result.returncode == 0:
-                return jsonify({"success": True, "mode": "usb", "message": "QR placeholder copied to USB. Photo frame should update shortly.", "redirect": False})
+                return jsonify({"success": True, "mode": "usb", "message": "QR placeholder copied to USB.", "output": output, "redirect": False})
             else:
-                return jsonify({"success": False, "mode": "usb", "error": result.stderr or "Script failed"})
+                return jsonify({"success": False, "mode": "usb", "error": result.stderr or "Script failed", "output": output})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})

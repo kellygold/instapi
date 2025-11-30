@@ -99,6 +99,11 @@
             padding: 12px 16px;
             border-radius: 8px;
             display: none;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 0.9em;
+            max-height: 300px;
+            overflow-y: auto;
         }
         .status-msg.success {
             display: block;
@@ -163,6 +168,9 @@
             <div class="btn-group">
                 <a href="/slideshow" class="btn btn-secondary">▶️ Start Slideshow</a>
                 <button class="btn btn-secondary" onclick="resetToSetup()">↩️ Reset to Setup</button>
+                {% if display_mode == 'usb' %}
+                <button class="btn btn-primary" onclick="syncUsb()">🔄 Sync to USB</button>
+                {% endif %}
             </div>
         </div>
 
@@ -218,12 +226,27 @@
                 const response = await fetch('/admin/reset', { method: 'POST' });
                 const data = await response.json();
                 if (data.success) {
-                    showStatus('✅ ' + data.message);
+                    showStatus('✅ ' + data.message + (data.output ? '\n' + data.output : ''));
                     if (data.redirect) {
                         setTimeout(() => window.location.href = '/', 1500);
                     }
                 } else {
-                    showStatus(data.error || 'Reset failed', true);
+                    showStatus((data.error || 'Reset failed') + (data.output ? '\n' + data.output : ''), true);
+                }
+            } catch (e) {
+                showStatus('Request failed: ' + e.message, true);
+            }
+        }
+
+        async function syncUsb() {
+            try {
+                showStatus('Syncing photos to USB...');
+                const response = await fetch('/admin/sync_usb', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    showStatus('✅ ' + data.message + (data.output ? '\n' + data.output : ''));
+                } else {
+                    showStatus((data.error || 'Sync failed') + (data.output ? '\n' + data.output : ''), true);
                 }
             } catch (e) {
                 showStatus('Request failed: ' + e.message, true);
