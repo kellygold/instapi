@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Generate a branded QR placeholder image for USB photo frames."""
+"""Generate a simple QR + logo placeholder image for USB photo frames."""
 
 import qrcode
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 import socket
 import os
 import sys
@@ -20,71 +20,45 @@ def get_ip():
     return ip
 
 def generate_qr_placeholder(output_path=None, url=None):
-    """Generate a branded QR code image."""
+    """Generate simple QR + logo image."""
     
     if url is None:
         ip = get_ip()
         url = f"http://{ip}:3000"
     
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     if output_path is None:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
         output_path = os.path.join(script_dir, "qr-placeholder.jpg")
     
     # Create canvas (landscape for photo frames)
     width, height = 1920, 1080
-    img = Image.new('RGB', (width, height), '#0a0a0a')
-    draw = ImageDraw.Draw(img)
+    img = Image.new('RGB', (width, height), '#0d1117')
     
     # Generate QR code
-    qr = qrcode.QRCode(box_size=12, border=2)
+    qr = qrcode.QRCode(box_size=14, border=2)
     qr.add_data(url)
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color="black", back_color="white")
     
-    # Size and position QR (left side, large)
-    qr_size = 600
+    # Size QR to be big and centered-left
+    qr_size = 700
     qr_img = qr_img.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
-    qr_x = width // 4 - qr_size // 2
-    qr_y = height // 2 - qr_size // 2
     
-    # Add white background with padding for QR
-    padding = 30
-    qr_bg = Image.new('RGB', (qr_size + padding*2, qr_size + padding*2), 'white')
-    img.paste(qr_bg, (qr_x - padding, qr_y - padding))
+    # Position QR (left-center)
+    qr_x = width // 3 - qr_size // 2
+    qr_y = (height - qr_size) // 2
     img.paste(qr_img, (qr_x, qr_y))
     
-    # Try to load fonts
-    try:
-        font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 72)
-        font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 36)
-        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 28)
-    except:
-        font_large = ImageFont.load_default()
-        font_medium = font_large
-        font_small = font_large
-    
-    # Right side text
-    text_x = width * 3 // 5
-    
-    # Title
-    draw.text((text_x, height // 3), "InstaPi", fill="#4ade80", font=font_large)
-    
-    # Subtitle
-    draw.text((text_x, height // 3 + 90), "Your digital photo frame", fill="#666666", font=font_medium)
-    
-    # Instructions
-    instructions = [
-        "1. Scan QR code with your phone",
-        "2. Sign in with Google", 
-        "3. Pick your photos"
-    ]
-    
-    y_offset = height // 2 + 20
-    for i, instruction in enumerate(instructions):
-        draw.text((text_x, y_offset + i * 50), instruction, fill="#cccccc", font=font_small)
-    
-    # URL at bottom
-    draw.text((width // 2, height - 60), url, fill="#666666", font=font_small, anchor="mm")
+    # Try to load and paste logo (right side)
+    logo_path = os.path.join(script_dir, "..", "app", "static", "instapi_logo_full.jpg")
+    if os.path.exists(logo_path):
+        logo = Image.open(logo_path)
+        # Scale logo to ~400px
+        logo_size = 400
+        logo.thumbnail((logo_size, logo_size), Image.Resampling.LANCZOS)
+        logo_x = width * 2 // 3 - logo.width // 2
+        logo_y = (height - logo.height) // 2
+        img.paste(logo, (logo_x, logo_y))
     
     # Save
     img.save(output_path, 'JPEG', quality=95)
