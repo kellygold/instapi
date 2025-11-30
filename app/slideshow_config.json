@@ -2,5 +2,5 @@
   "slide_duration": 3,
   "transition": "zoom",
   "shuffle": false,
-  "ken_burns": true
+  "ken_burns": false
 }

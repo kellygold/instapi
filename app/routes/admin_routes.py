@@ -27,13 +27,23 @@ def admin():
     # Check display mode
     display_mode = get_display_mode()
     
-    # Generate auth URL for "Pick New Photos" - use the current request's host
-    # This ensures it works with ngrok or any reverse proxy
-    # Force HTTPS for ngrok/production (Flask behind proxy reports http)
-    base_url = request.url_root.rstrip('/')
-    if 'ngrok' in base_url or 'localhost' not in base_url:
-        base_url = base_url.replace('http://', 'https://')
+    # Generate auth URL for "Pick New Photos"
+    # Check forwarded headers for ngrok/reverse proxy, fall back to request.url_root
+    forwarded_host = request.headers.get('X-Forwarded-Host') or request.headers.get('Host')
+    forwarded_proto = request.headers.get('X-Forwarded-Proto', 'http')
+    
+    if forwarded_host and 'ngrok' in forwarded_host:
+        # Behind ngrok - use forwarded headers
+        base_url = f"https://{forwarded_host}"
+    elif forwarded_host and 'localhost' not in forwarded_host:
+        # Behind some other proxy
+        base_url = f"{forwarded_proto}://{forwarded_host}"
+    else:
+        # Direct access
+        base_url = request.url_root.rstrip('/')
+    
     redirect_uri = base_url + '/oauth2callback'
+    print(f"DEBUG: Host={forwarded_host}, redirect_uri={redirect_uri}")
     flow = Flow.from_client_secrets_file(
         "secrets.json",
         scopes=SCOPES,

@@ -43,19 +43,19 @@
         #photo.slide-in { transform: translateX(0); opacity: 1; transition: all 0.8s ease-in-out; }
         #photo.slide-ready { transform: translateX(100%); opacity: 0; }
 
-        /* Zoom transition */
-        #photo.zoom-out { transform: scale(1.5); opacity: 0; transition: all 0.8s ease-in-out; }
-        #photo.zoom-in { transform: scale(1); opacity: 1; transition: all 0.8s ease-in-out; }
-        #photo.zoom-ready { transform: scale(0.8); opacity: 0; }
+        /* Zoom transition - smooth scale with longer duration */
+        #photo.zoom-out { transform: scale(0.8); opacity: 0; transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        #photo.zoom-in { transform: scale(1); opacity: 1; transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        #photo.zoom-ready { transform: scale(1.1); opacity: 0; }
 
-        /* Ken Burns Effect */
+        /* Ken Burns Effect - smooth slow pan and zoom */
         #photo.ken-burns {
-            animation: kenburns 15s ease-in-out infinite alternate;
+            animation: kenburns var(--slide-duration, 5s) ease-in-out forwards;
         }
 
         @keyframes kenburns {
             0% { transform: scale(1) translate(0, 0); }
-            100% { transform: scale(1.08) translate(-1.5%, -1%); }
+            100% { transform: scale(1.15) translate(-3%, -2%); }
         }
 
         /* No photos message */
@@ -154,6 +154,9 @@
                 transitionType = settings.transition || 'fade';
                 kenBurnsEnabled = settings.ken_burns || false;
                 
+                // Set CSS variable for Ken Burns duration
+                document.documentElement.style.setProperty('--slide-duration', `${settings.slide_duration || 5}s`);
+                
                 // Update Ken Burns on current photo
                 const photo = document.getElementById('photo');
                 if (kenBurnsEnabled) {
@@ -217,14 +220,14 @@
                     
                 case 'zoom':
                     photo.classList.add('zoom-out');
-                    await sleep(800);
+                    await sleep(1200);
                     photo.src = nextUrl;
                     photo.classList.remove('zoom-out');
                     photo.classList.add('zoom-ready');
                     await sleep(50);
                     photo.classList.remove('zoom-ready');
                     photo.classList.add('zoom-in');
-                    await sleep(800);
+                    await sleep(1200);
                     photo.classList.remove('zoom-in');
                     break;
                     
