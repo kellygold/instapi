@@ -2,14 +2,22 @@
 # Update photos on the USB drive
 # Called by Flask app after new photos are downloaded
 
-IMG_FILE="/home/pi/usb_drive.img"
-MOUNT_POINT="/home/pi/usb_mount"
-PHOTOS_DIR="/home/pi/instapi/app/static/photos"
+# Get the actual user's home directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+USER_HOME="$(dirname "$(dirname "$SCRIPT_DIR")")"
+
+IMG_FILE="$USER_HOME/usb_drive.img"
+MOUNT_POINT="$USER_HOME/usb_mount"
+PHOTOS_DIR="$USER_HOME/instapi/app/static/photos"
+QR_PLACEHOLDER="$USER_HOME/instapi/pi-setup/qr-placeholder.jpg"
 
 echo "Updating photos on USB drive..."
 
 # Stop the USB gadget (frame will briefly disconnect)
 sudo modprobe -r g_mass_storage 2>/dev/null || true
+
+# Create mount point if needed
+mkdir -p "$MOUNT_POINT"
 
 # Mount the disk image
 sudo mount -o loop "$IMG_FILE" "$MOUNT_POINT"
@@ -25,7 +33,9 @@ if [ -d "$PHOTOS_DIR" ] && [ -n "$(ls -A $PHOTOS_DIR 2>/dev/null)" ]; then
     echo "Copied $(ls -1 $MOUNT_POINT | wc -l) photos"
 else
     # No photos yet, show QR placeholder
-    cp /home/pi/instapi/pi-setup/qr-placeholder.jpg "$MOUNT_POINT"/
+    if [ -f "$QR_PLACEHOLDER" ]; then
+        cp "$QR_PLACEHOLDER" "$MOUNT_POINT"/
+    fi
     echo "No photos yet, showing QR code"
 fi
 
