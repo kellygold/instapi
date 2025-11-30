@@ -33,9 +33,11 @@ def generate_qr_placeholder(output_path=None, url=None):
     width, height = 1920, 1080
     
     # Try to use pre-made background, otherwise create solid
-    bg_path = os.path.join(script_dir, "background.jpg")
+    bg_path = os.path.join(script_dir, "background.png")
+    if not os.path.exists(bg_path):
+        bg_path = os.path.join(script_dir, "background.jpg")
     if os.path.exists(bg_path):
-        img = Image.open(bg_path).resize((width, height), Image.Resampling.LANCZOS)
+        img = Image.open(bg_path).convert('RGB').resize((width, height), Image.Resampling.LANCZOS)
     else:
         img = Image.new('RGB', (width, height), '#0d1117')
     
