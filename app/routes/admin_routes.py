@@ -29,7 +29,11 @@ def admin():
     
     # Generate auth URL for "Pick New Photos" - use the current request's host
     # This ensures it works with ngrok or any reverse proxy
-    redirect_uri = request.url_root.rstrip('/') + '/oauth2callback'
+    # Force HTTPS for ngrok/production (Flask behind proxy reports http)
+    base_url = request.url_root.rstrip('/')
+    if 'ngrok' in base_url or 'localhost' not in base_url:
+        base_url = base_url.replace('http://', 'https://')
+    redirect_uri = base_url + '/oauth2callback'
     flow = Flow.from_client_secrets_file(
         "secrets.json",
         scopes=SCOPES,
