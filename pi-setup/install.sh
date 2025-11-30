@@ -1,6 +1,11 @@
 #!/bin/bash
 # InstaPi Installation Script for Raspberry Pi
 # Supports both USB Gadget mode and HDMI Kiosk mode
+#
+# Usage: 
+#   ./install.sh         # Install all, configure later
+#   ./install.sh usb     # Install and configure USB mode
+#   ./install.sh hdmi    # Install and configure HDMI mode
 
 set -e
 
@@ -8,25 +13,17 @@ echo ""
 echo "🖼️  InstaPi Installer"
 echo "====================="
 echo ""
-echo "How is your Pi connected to the display?"
-echo ""
-echo "  1) USB  - Pi plugs into a photo frame's USB port"
-echo "           (Frame reads photos like a USB stick)"
-echo ""
-echo "  2) HDMI - Pi drives a screen directly"
-echo "           (Works with any monitor, TV, or Pi screen)"
-echo ""
-read -p "Choose [1/2]: " MODE_CHOICE
 
-case $MODE_CHOICE in
-    1) DISPLAY_MODE="usb" ;;
-    2) DISPLAY_MODE="hdmi" ;;
-    *) echo "Invalid choice. Defaulting to HDMI mode."; DISPLAY_MODE="hdmi" ;;
-esac
-
-echo ""
-echo "Selected: $DISPLAY_MODE mode"
-echo ""
+# Check if mode passed as argument
+DISPLAY_MODE=""
+if [ "$1" = "usb" ] || [ "$1" = "hdmi" ]; then
+    DISPLAY_MODE="$1"
+    echo "Mode: $DISPLAY_MODE (from argument)"
+elif [ -n "$1" ]; then
+    echo "Unknown mode: $1"
+    echo "Usage: ./install.sh [usb|hdmi]"
+    exit 1
+fi
 
 # Update system
 echo "📦 Updating system..."
@@ -40,17 +37,15 @@ sudo apt install -y \
     python3-venv \
     git
 
-# Install mode-specific dependencies
-if [ "$DISPLAY_MODE" = "usb" ]; then
-    sudo apt install -y dosfstools
-elif [ "$DISPLAY_MODE" = "hdmi" ]; then
-    sudo apt install -y --no-install-recommends \
-        xserver-xorg \
-        x11-xserver-utils \
-        xinit \
-        chromium-browser \
-        unclutter
-fi
+# Install ALL dependencies (both modes) - small footprint, no prompts
+echo "📦 Installing display dependencies..."
+sudo apt install -y dosfstools
+sudo apt install -y --no-install-recommends \
+    xserver-xorg \
+    x11-xserver-utils \
+    xinit \
+    chromium-browser \
+    unclutter
 
 # Clone or update repo
 INSTALL_DIR="$HOME/instapi"
@@ -75,7 +70,21 @@ pip install -r requirements.txt
 # Make scripts executable
 chmod +x "$INSTALL_DIR/pi-setup/"*.sh
 
-# Save the mode for later reference
+# ==========================================
+# MODE-SPECIFIC SETUP (only if mode specified)
+# ==========================================
+if [ -z "$DISPLAY_MODE" ]; then
+    echo ""
+    echo "✅ Base installation complete!"
+    echo ""
+    echo "To configure display mode, run one of:"
+    echo "  cd ~/instapi/pi-setup && ./install.sh usb"
+    echo "  cd ~/instapi/pi-setup && ./install.sh hdmi"
+    echo ""
+    exit 0
+fi
+
+# Save the mode
 echo "$DISPLAY_MODE" > "$INSTALL_DIR/.display_mode"
 
 # ==========================================

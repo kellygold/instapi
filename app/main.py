@@ -7,6 +7,7 @@ from config import PHOTOS_DIR
 # Import route files
 import routes.base_routes
 import routes.picker_routes
+import routes.admin_routes
 
 if __name__ == "__main__":
     # Clear photos directory on startup
