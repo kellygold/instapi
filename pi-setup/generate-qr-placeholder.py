@@ -47,8 +47,8 @@ def generate_qr_placeholder(output_path=None, url=None):
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color="black", back_color="white")
     
-    # QR size - 50% larger than original
-    qr_size = 630
+    # QR size - 25% larger
+    qr_size = 788
     qr_img = qr_img.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
     
     # Position QR in center of left half (where qr-wrapper is on web)
