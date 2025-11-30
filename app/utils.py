@@ -138,7 +138,7 @@ def sync_photos_to_usb():
         if os.path.exists(script_path):
             print(f"Syncing photos to USB drive via {script_path}...")
             result = subprocess.run(
-                ["sudo", "/bin/bash", script_path],
+                ["/usr/bin/sudo", "/bin/bash", script_path],
                 capture_output=True, text=True, timeout=120
             )
             print(f"USB sync stdout: {result.stdout}")
