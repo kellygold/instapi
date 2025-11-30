@@ -5,23 +5,21 @@
 # Set PATH since web app context has minimal PATH
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Set HOME if not set (web app context)
-if [ -z "$HOME" ]; then
-    export HOME=$(getent passwd $(whoami) | cut -d: -f6)
-fi
-
 set -e
+
+# Always use instapi user's home, not root's (since we run with sudo)
+USER_HOME="/home/instapi"
 
 # Get script directory to find paths dynamically
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Dynamic paths
-IMG_FILE="$HOME/usb_drive.img"
-MOUNT_POINT="$HOME/usb_mount"
+IMG_FILE="$USER_HOME/usb_drive.img"
+MOUNT_POINT="$USER_HOME/usb_mount"
 QR_PLACEHOLDER="$SCRIPT_DIR/qr-placeholder.jpg"
 
-echo "HOME=$HOME"
+echo "USER_HOME=$USER_HOME"
 
 echo "Resetting USB image to setup QR..."
 echo "Script dir: $SCRIPT_DIR"

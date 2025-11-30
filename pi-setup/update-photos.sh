@@ -5,13 +5,8 @@
 # Set PATH since web app context has minimal PATH
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Set HOME if not set (web app context)
-if [ -z "$HOME" ]; then
-    export HOME=$(getent passwd $(whoami) | cut -d: -f6)
-fi
-
-# Use $HOME for reliable path resolution
-USER_HOME="$HOME"
+# Always use instapi user's home, not root's (since we run with sudo)
+USER_HOME="/home/instapi"
 INSTAPI_DIR="$USER_HOME/instapi"
 
 IMG_FILE="$USER_HOME/usb_drive.img"
