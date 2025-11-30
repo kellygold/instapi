@@ -25,8 +25,11 @@ with open("secrets.json") as f:
 def auth_status():
     """Return JSON indicating if the user is authenticated."""
     if "credentials" not in device_state:
-        return jsonify({"authenticated": False}), 401
-    return jsonify({"authenticated": True}), 200
+        return jsonify({
+            "authenticated": False,
+            "message": "Waiting for authentication. Scan QR code and sign in with Google, or check your server secrets configuration."
+        })
+    return jsonify({"authenticated": True, "message": "Authenticated"})
 
 
 @app.route("/")

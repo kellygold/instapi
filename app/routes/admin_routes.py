@@ -130,16 +130,19 @@ def reset_to_setup():
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
-            return jsonify({"success": True, "message": "Kiosk restarting to setup screen"})
+            return jsonify({"success": True, "mode": "hdmi", "message": "Kiosk restarting to setup screen", "redirect": True})
         else:
-            # USB mode: run update-photos script to put QR placeholder on USB
+            # USB mode: run reset script to put QR placeholder on USB
             script_path = os.path.join(os.path.dirname(__file__), "..", "..", "pi-setup", "reset-to-setup.sh")
-            if os.path.exists(script_path):
-                subprocess.Popen(
-                    ["/bin/bash", script_path],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
-                )
-            return jsonify({"success": True, "message": "USB image reset to QR placeholder"})
+            result = subprocess.run(
+                ["/bin/bash", script_path],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode == 0:
+                return jsonify({"success": True, "mode": "usb", "message": "QR placeholder copied to USB. Photo frame should update shortly.", "redirect": False})
+            else:
+                return jsonify({"success": False, "mode": "usb", "error": result.stderr or "Script failed"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})

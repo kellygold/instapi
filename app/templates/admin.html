@@ -212,9 +212,22 @@
             setTimeout(() => location.reload(), 3000);
         }
 
-        function resetToSetup() {
-            apiCall('/admin/reset', '✅ Reset complete. Redirecting...');
-            setTimeout(() => window.location.href = '/', 1500);
+        async function resetToSetup() {
+            try {
+                showStatus('Resetting...');
+                const response = await fetch('/admin/reset', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    showStatus('✅ ' + data.message);
+                    if (data.redirect) {
+                        setTimeout(() => window.location.href = '/', 1500);
+                    }
+                } else {
+                    showStatus(data.error || 'Reset failed', true);
+                }
+            } catch (e) {
+                showStatus('Request failed: ' + e.message, true);
+            }
         }
     </script>
 </body>
