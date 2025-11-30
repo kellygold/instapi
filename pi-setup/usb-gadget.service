@@ -1,0 +1,13 @@
+[Unit]
+Description=USB Mass Storage Gadget for Photo Frame
+After=network.target instapi.service
+Wants=instapi.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/home/pi/instapi/pi-setup/start-usb-gadget.sh
+ExecStop=/home/pi/instapi/pi-setup/stop-usb-gadget.sh
+
+[Install]
+WantedBy=multi-user.target
