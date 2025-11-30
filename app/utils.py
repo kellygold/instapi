@@ -235,28 +235,55 @@ def fetch_picker_photos():
     return []
 
 def poll_for_media_items(poll_interval, poll_timeout):
-    """Poll the picker session until media items are set or timeout."""
+    """Poll the picker session until media items are set, timeout, or auth error."""
     session_id = device_state.get("picking_session_id")
     if not session_id:
-        print("No session ID found for polling.")
+        print("[POLL] No session ID found for polling.")
         return
 
     headers = {"Authorization": f"Bearer {device_state['credentials']['token']}"}
     start_time = time.time()
+    error_count = 0
+    max_errors = 3  # Stop after 3 consecutive errors
+    
+    print(f"[POLL] Starting polling for session {session_id[:20]}... (timeout: {poll_timeout}s)")
+    
     while time.time() - start_time < poll_timeout:
         time.sleep(poll_interval)
         url = f"{PICKER_API_BASE_URL}/sessions/{session_id}"
-        resp = requests.get(url, headers=headers)
+        
+        try:
+            resp = requests.get(url, headers=headers, timeout=10)
+        except Exception as e:
+            print(f"[POLL] Request exception: {e}")
+            error_count += 1
+            if error_count >= max_errors:
+                print("[POLL] Too many errors, stopping polling.")
+                break
+            continue
+            
         if resp.status_code == 200:
+            error_count = 0  # Reset on success
             session_data = resp.json()
             if session_data.get("mediaItemsSet"):
+                print("[POLL] Media items set! Downloading photos...")
                 fetch_and_download_picker_photos(session_id)
                 device_state["photos_chosen"] = True
                 device_state["done"] = True
-                print("Picker photos fetched and done state set to True.")
-                break
+                print("[POLL] Photos downloaded. Polling complete.")
+                return  # Success - stop polling
+        elif resp.status_code == 401:
+            print("[POLL] Token expired (401). Stopping polling.")
+            return  # Auth expired - stop polling
+        elif resp.status_code == 404:
+            print("[POLL] Session not found (404). Stopping polling.")
+            return  # Session gone - stop polling
         else:
-            print("Error polling session:", resp.status_code, resp.text)
-    else:
-        print("Timeout reached while polling for media items.")
+            print(f"[POLL] Error {resp.status_code}, will retry...")
+            error_count += 1
+            if error_count >= max_errors:
+                print("[POLL] Too many errors, stopping polling.")
+                return
+    
+    print("[POLL] Timeout reached, stopping polling.")
 
