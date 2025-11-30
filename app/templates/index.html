@@ -3,42 +3,457 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>InstaPi - Sign In</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <title>InstaPi</title>
     <style>
-        /* QR code responsive styling */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(-45deg, #0a0a0a, #1a472a, #0d3320, #000000);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            height: 100vh;
+            color: white;
+            overflow: hidden;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Floating polaroids */
+        .floating-photos {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .polaroid {
+            position: absolute;
+            width: 100px;
+            height: 120px;
+            background: white;
+            padding: 6px 6px 24px 6px;
+            border-radius: 4px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            animation: float 20s ease-in-out infinite;
+            opacity: 0.7;
+        }
+
+        .polaroid::before {
+            content: '';
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 2px;
+        }
+
+        /* 2 polaroids on the RIGHT side with color cycling */
+        .polaroid:nth-child(1) { right: 5%; top: 10%; animation-delay: 0s; transform: rotate(8deg); }
+        .polaroid:nth-child(1)::before { 
+            background: linear-gradient(135deg, #5f27cd, #48dbfb); 
+            animation: colorCycle1 8s ease-in-out infinite;
+        }
+        
+        .polaroid:nth-child(2) { right: 8%; bottom: 12%; animation-delay: -10s; transform: rotate(-12deg); }
+        .polaroid:nth-child(2)::before { 
+            background: linear-gradient(135deg, #ff9ff3, #f368e0); 
+            animation: colorCycle2 10s ease-in-out infinite;
+        }
+
+        @keyframes colorCycle1 {
+            0%, 100% { background: linear-gradient(135deg, #5f27cd, #48dbfb); }
+            25% { background: linear-gradient(135deg, #1dd1a1, #10ac84); }
+            50% { background: linear-gradient(135deg, #ff6b6b, #feca57); }
+            75% { background: linear-gradient(135deg, #74b9ff, #0984e3); }
+        }
+
+        @keyframes colorCycle2 {
+            0%, 100% { background: linear-gradient(135deg, #ff9ff3, #f368e0); }
+            33% { background: linear-gradient(135deg, #ffeaa7, #fdcb6e); }
+            66% { background: linear-gradient(135deg, #a29bfe, #6c5ce7); }
+        }
+
+        /* Scanline overlay for techy feel */
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 2;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0,0,0,0.03) 2px,
+                rgba(0,0,0,0.03) 4px
+            );
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(var(--r, -12deg)); }
+            25% { transform: translateY(-15px) rotate(calc(var(--r, -12deg) + 3deg)); }
+            75% { transform: translateY(-20px) rotate(calc(var(--r, -12deg) - 2deg)); }
+        }
+
+        /* Rising particles */
+        .particles {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: rise 10s ease-in infinite;
+            box-shadow: 0 0 10px currentColor;
+        }
+
+        /* Rainbow particles - more vibrant */
+        .particle:nth-child(1) { left: 5%; animation-delay: 0s; background: #4ade80; color: #4ade80; }
+        .particle:nth-child(2) { left: 15%; animation-delay: 1s; background: #22d3ee; color: #22d3ee; }
+        .particle:nth-child(3) { left: 25%; animation-delay: 2s; background: #f472b6; color: #f472b6; }
+        .particle:nth-child(4) { left: 35%; animation-delay: 3s; background: #facc15; color: #facc15; }
+        .particle:nth-child(5) { left: 45%; animation-delay: 4s; background: #60a5fa; color: #60a5fa; }
+        .particle:nth-child(6) { left: 55%; animation-delay: 5s; background: #a78bfa; color: #a78bfa; }
+        .particle:nth-child(7) { left: 65%; animation-delay: 6s; background: #fb923c; color: #fb923c; }
+        .particle:nth-child(8) { left: 75%; animation-delay: 7s; background: #f87171; color: #f87171; }
+        .particle:nth-child(9) { left: 85%; animation-delay: 8s; background: #34d399; color: #34d399; }
+        .particle:nth-child(10) { left: 92%; animation-delay: 9s; background: #38bdf8; color: #38bdf8; }
+
+        @keyframes rise {
+            0% { bottom: -10px; opacity: 0; transform: scale(0); }
+            10% { opacity: 1; transform: scale(1); }
+            90% { opacity: 0.8; }
+            100% { bottom: 100%; opacity: 0; transform: scale(0.5); }
+        }
+
+        .screen {
+            position: relative;
+            z-index: 1;
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+        }
+
+        /* Left: QR - THE HERO */
+        .qr-side {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+        }
+
+        .qr-wrapper {
+            background: white;
+            border-radius: 24px;
+            padding: 10px;
+            position: relative;
+            animation: qrPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes qrPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.017); }
+        }
+
+        /* Rainbow border glow - 50% thinner */
+        .qr-wrapper::before {
+            content: '';
+            position: absolute;
+            inset: -3px;
+            border-radius: 35px;
+            background: linear-gradient(60deg, #ff6b6b, #feca57, #1dd1a1, #48dbfb, #a78bfa, #ff6b6b, #feca57);
+            background-size: 300% 300%;
+            animation: rainbowBorder 3.5s linear infinite;
+            z-index: -1;
+            filter: blur(10px);
+            opacity: 0.9;
+        }
+
+        /* Second glow layer */
+        .qr-wrapper::after {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 33px;
+            background: linear-gradient(60deg, #a78bfa, #48dbfb, #1dd1a1, #feca57, #ff6b6b, #a78bfa);
+            background-size: 300% 300%;
+            animation: rainbowBorder 3.5s linear infinite reverse;
+            z-index: -1;
+            filter: blur(3px);
+            opacity: 0.7;
+        }
+
+        @keyframes rainbowBorder {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 300% 50%; }
+        }
+
         .qr-code {
-            max-width:75%; /* Scale QR code relative to the container */
-            height: auto; /* Maintain aspect ratio */
-            margin: 20px auto; /* Center within its container */
+            width: 55vh;
+            height: 55vh;
+            display: block;
         }
 
-        /* Adjust QR code for very small screens */
-        @media (max-width: 600px) {
-            .qr-code {
-                max-width: 75%; /* Smaller QR code for narrow screens */
-                margin: 10px auto;
-            }
+        /* Right: Info */
+        .info-side {
+            padding: 60px 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
         }
 
-        /* Adjust QR code for very large screens */
-        @media (min-width: 1200px) {
-            .qr-code {
-                max-width: 75%; /* Slightly smaller on wide screens */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            margin-bottom: 50px;
+        }
+
+        .logo {
+            width: 100px;
+            height: 100px;
+            border-radius: 22px;
+            box-shadow: 0 8px 40px rgba(76, 175, 80, 0.4);
+            animation: logoPulse 3s ease-in-out infinite, logoFloat 4s ease-in-out infinite;
+        }
+
+        @keyframes logoPulse {
+            0%, 100% { box-shadow: 0 8px 40px rgba(76, 175, 80, 0.4); }
+            50% { box-shadow: 0 8px 60px rgba(76, 175, 80, 0.7), 0 0 80px rgba(76, 175, 80, 0.3); }
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .brand-text .brand {
+            font-size: 4em;
+            font-weight: 700;
+            background: linear-gradient(90deg, #4ade80, #22d3ee, #a78bfa, #4ade80);
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 4s linear infinite;
+            line-height: 1;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 300% 50%; }
+        }
+
+        .brand-text .tagline {
+            color: #666;
+            font-size: 1.5em;
+            margin-top: 5px;
+        }
+
+        .steps {
+            margin-bottom: 50px;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 28px;
+        }
+
+        .step-num {
+            width: 52px;
+            height: 52px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.5em;
+            flex-shrink: 0;
+            animation: stepHue 6s ease-in-out infinite;
+        }
+
+        .step:nth-child(1) .step-num { animation-delay: 0s; }
+        .step:nth-child(2) .step-num { animation-delay: 2s; }
+        .step:nth-child(3) .step-num { animation-delay: 4s; }
+
+        @keyframes stepHue {
+            0%, 100% { filter: hue-rotate(0deg); }
+            50% { filter: hue-rotate(40deg); }
+        }
+
+        .step-text {
+            font-size: 1.6em;
+            color: #e0e0e0;
+        }
+
+        /* Stagger entrance */
+        .step {
+            animation: slideIn 0.6s ease-out backwards;
+        }
+        .step:nth-child(1) { animation-delay: 0.2s; }
+        .step:nth-child(2) { animation-delay: 0.4s; }
+        .step:nth-child(3) { animation-delay: 0.6s; }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            font-size: 1.4em;
+            color: #4CAF50;
+            animation: slideIn 0.6s ease-out 0.8s backwards;
+        }
+
+        .touch-link {
+            display: inline-block;
+            margin-top: 30px;
+            color: #888;
+            text-decoration: none;
+            font-size: 1.1em;
+            padding: 12px 24px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            animation: slideIn 0.6s ease-out 1s backwards;
+        }
+
+        .touch-link:hover {
+            color: #4CAF50;
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+        }
+
+        .pulse-ring {
+            width: 18px;
+            height: 18px;
+            background: #4CAF50;
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .pulse-ring::before {
+            content: '';
+            position: absolute;
+            inset: -6px;
+            border: 3px solid #4CAF50;
+            border-radius: 50%;
+            animation: ping 1.5s ease-out infinite;
+        }
+
+        @keyframes ping {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.8); opacity: 0; }
+        }
+
+        /* Tablet/portrait fallback */
+        @media (max-width: 1024px), (max-aspect-ratio: 1/1) {
+            .screen {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
             }
+
+            .qr-side { padding: 40px; }
+            
+            .qr-code {
+                width: 45vw;
+                height: 45vw;
+                max-width: 350px;
+                max-height: 350px;
+            }
+
+            .info-side {
+                padding: 30px 40px;
+                text-align: center;
+            }
+
+            .header { justify-content: center; }
+            .step { justify-content: center; }
+            .status { justify-content: center; }
+            .brand-text .brand { font-size: 2.5em; }
+            .brand-text .tagline { font-size: 1.1em; }
+            .step-text { font-size: 1.2em; }
         }
     </style>
 </head>
-<body class="black-background white-text">
-    <div class="responsive-container">
-        <div class="logo-container">
-            <img src="/static/instapi_logo_full.jpg" alt="Instapi Logo" class="logo-header">
+<body>
+    <!-- Scanlines overlay -->
+    <div class="scanlines"></div>
+
+    <!-- Floating polaroids -->
+    <div class="floating-photos">
+        <div class="polaroid"></div>
+        <div class="polaroid"></div>
+    </div>
+
+    <!-- Rising particles -->
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
+    <div class="screen">
+        <div class="qr-side">
+            <div class="qr-wrapper">
+                <img src="/auth_qr" alt="Scan" class="qr-code">
+            </div>
         </div>
-        <div class="content-container">
-            <h1>Step 1: Sign In</h1>
-            <p>Scan the QR code below with your phone to sign in with Google.</p>
-            <img src="/auth_qr" alt="Sign-in QR Code" class="qr-code">
-            <p>If you have a mouse/keyboard, you can also <a href="{{ auth_url }}" target="_blank">click here to sign in</a>.</p>
+
+        <div class="info-side">
+            <div class="header">
+                <img src="/static/instapi_logo_full.jpg" alt="InstaPi" class="logo">
+                <div class="brand-text">
+                    <div class="brand">InstaPi</div>
+                    <div class="tagline">Your digital photo frame</div>
+                </div>
+            </div>
+
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num">1</div>
+                    <div class="step-text">📱 Scan with your phone</div>
+                </div>
+                <div class="step">
+                    <div class="step-num">2</div>
+                    <div class="step-text">🔐 Sign in with Google</div>
+                </div>
+                <div class="step">
+                    <div class="step-num">3</div>
+                    <div class="step-text">🖼️ Pick your photos</div>
+                </div>
+            </div>
+
+            <div class="status">
+                <div class="pulse-ring"></div>
+                <span>Waiting for you to scan...</span>
+            </div>
+
+            <a href="{{ auth_url }}" class="touch-link">Or tap here to set up →</a>
         </div>
     </div>
 
@@ -48,10 +463,10 @@
             if (response.ok) {
                 const data = await response.json();
                 if (data.authenticated === true) {
-                    window.location.href = "/wait_for_photos";
+                    window.location.href = "/launch_picker";
                 }
             }
-        }, 5000);
+        }, 3000);
     </script>
 </body>
 </html>
