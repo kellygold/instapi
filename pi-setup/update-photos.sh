@@ -25,13 +25,26 @@ sudo mount -o loop "$IMG_FILE" "$MOUNT_POINT"
 # Clear old photos
 rm -f "$MOUNT_POINT"/*.jpg "$MOUNT_POINT"/*.jpeg "$MOUNT_POINT"/*.png 2>/dev/null || true
 
-# Copy new photos
-if [ -d "$PHOTOS_DIR" ] && [ -n "$(ls -A $PHOTOS_DIR 2>/dev/null)" ]; then
-    cp "$PHOTOS_DIR"/*.jpg "$MOUNT_POINT"/ 2>/dev/null || true
-    cp "$PHOTOS_DIR"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null || true
-    cp "$PHOTOS_DIR"/*.png "$MOUNT_POINT"/ 2>/dev/null || true
-    echo "Copied $(ls -1 $MOUNT_POINT | wc -l) photos"
-else
+# Copy new photos (including from picker subdirectory)
+PHOTO_COUNT=0
+if [ -d "$PHOTOS_DIR" ]; then
+    # Copy from main photos dir
+    cp "$PHOTOS_DIR"/*.jpg "$MOUNT_POINT"/ 2>/dev/null && PHOTO_COUNT=$((PHOTO_COUNT + 1))
+    cp "$PHOTOS_DIR"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null
+    cp "$PHOTOS_DIR"/*.png "$MOUNT_POINT"/ 2>/dev/null
+    
+    # Copy from picker subdirectory
+    if [ -d "$PHOTOS_DIR/picker" ]; then
+        cp "$PHOTOS_DIR/picker"/*.jpg "$MOUNT_POINT"/ 2>/dev/null
+        cp "$PHOTOS_DIR/picker"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null
+        cp "$PHOTOS_DIR/picker"/*.png "$MOUNT_POINT"/ 2>/dev/null
+    fi
+    
+    PHOTO_COUNT=$(ls -1 "$MOUNT_POINT"/*.jpg "$MOUNT_POINT"/*.jpeg "$MOUNT_POINT"/*.png 2>/dev/null | wc -l)
+    echo "Copied $PHOTO_COUNT photos"
+fi
+
+if [ "$PHOTO_COUNT" -eq 0 ]; then
     # No photos yet, show QR placeholder
     if [ -f "$QR_PLACEHOLDER" ]; then
         cp "$QR_PLACEHOLDER" "$MOUNT_POINT"/
