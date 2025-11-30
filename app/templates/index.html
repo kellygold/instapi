@@ -467,13 +467,9 @@
                 display: none;
             }
 
-            /* Show mobile text, hide desktop text */
-            .desktop-text { display: none; }
-            .mobile-text { display: inline; }
+            /* Hide "Or" on mobile */
+            .desktop-only { display: none; }
         }
-
-        /* Default: show desktop text, hide mobile text */
-        .mobile-text { display: none; }
     </style>
 </head>
 <body>
@@ -536,7 +532,7 @@
                 <span>Waiting for you to scan...</span>
             </div>
 
-            <a href="{{ auth_url }}" class="touch-link"><span class="desktop-text">Or tap here to set up →</span><span class="mobile-text">Tap here to set up →</span></a>
+            <a href="{{ auth_url }}" class="touch-link"><span class="desktop-only">Or </span>Tap here to set up →</a>
         </div>
     </div>
 
