@@ -12,9 +12,9 @@
             background: linear-gradient(-45deg, #0a0a0a, #1a472a, #0d3320, #000000);
             background-size: 400% 400%;
             animation: gradientShift 15s ease infinite;
-            height: 100vh;
+            min-height: 100vh;
             color: white;
-            overflow: hidden;
+            overflow-x: hidden;
         }
 
         @keyframes gradientShift {
@@ -137,7 +137,7 @@
         .screen {
             position: relative;
             z-index: 1;
-            height: 100vh;
+            min-height: 100vh;
             display: grid;
             grid-template-columns: 1fr 1fr;
             align-items: center;
@@ -380,13 +380,14 @@
             }
 
             .info-side {
-                padding: 30px 40px;
+                padding: 30px 40px 60px;
                 text-align: center;
             }
 
             .header { justify-content: center; }
             .step { justify-content: center; }
             .status { justify-content: center; }
+            .touch-link { display: block; text-align: center; }
             .brand-text .brand { font-size: 2.5em; }
             .brand-text .tagline { font-size: 1.1em; }
             .step-text { font-size: 1.2em; }
