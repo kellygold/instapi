@@ -108,25 +108,34 @@ def slideshow():
 @app.route("/get_next_photos")
 def get_next_photos():
     """Return the next set of photos for the slideshow."""
+    import random
+    
     if "photo_urls" not in device_state or not device_state["photo_urls"]:
         return jsonify([])
 
     count_str = request.args.get("count", "1")
+    shuffle = request.args.get("shuffle", "0") == "1"
+    
     try:
         count = int(count_str)
     except ValueError:
         count = 1
 
     photo_urls = device_state["photo_urls"]
-    current_index = device_state.get("current_index", 0)
     total_photos = len(photo_urls)
+    
+    if shuffle:
+        # Return random photos
+        next_photos = [random.choice(photo_urls) for _ in range(count)]
+    else:
+        # Sequential order
+        current_index = device_state.get("current_index", 0)
+        next_photos = []
+        for _ in range(count):
+            next_photos.append(photo_urls[current_index])
+            current_index = (current_index + 1) % total_photos
+        device_state["current_index"] = current_index
 
-    next_photos = []
-    for _ in range(count):
-        next_photos.append(photo_urls[current_index])
-        current_index = (current_index + 1) % total_photos
-
-    device_state["current_index"] = current_index
     return jsonify(next_photos)
 
 

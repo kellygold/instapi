@@ -29,6 +29,44 @@
             object-fit: contain;
             position: relative;
             z-index: 1;
+            transition: opacity 1s ease-in-out, transform 1s ease-in-out;
+        }
+
+        /* Transition: Fade */
+        .transition-fade #photo {
+            transition: opacity 1s ease-in-out;
+        }
+
+        /* Transition: Slide */
+        .transition-slide #photo {
+            transition: transform 0.8s ease-in-out, opacity 0.3s;
+        }
+        .transition-slide #photo.slide-out {
+            transform: translateX(-100%);
+            opacity: 0;
+        }
+        .transition-slide #photo.slide-in {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+
+        /* Transition: Zoom */
+        .transition-zoom #photo {
+            transition: transform 0.8s ease-in-out, opacity 0.5s;
+        }
+        .transition-zoom #photo.zoom-out {
+            transform: scale(1.5);
+            opacity: 0;
+        }
+
+        /* Ken Burns Effect */
+        .ken-burns #photo {
+            animation: kenburns 20s ease-in-out infinite alternate;
+        }
+
+        @keyframes kenburns {
+            0% { transform: scale(1) translate(0, 0); }
+            100% { transform: scale(1.1) translate(-2%, -1%); }
         }
 
         #overlay {
@@ -41,6 +79,7 @@
             opacity: 0;
             transition: opacity 1s ease-in-out;
             z-index: 2;
+            pointer-events: none;
         }
 
         /* Add Photos QR Corner */
@@ -82,12 +121,39 @@
     </style>
     <script>
         let photos = [];
-        const interval = 5000;
+        let interval = 5000;
         let cycleTimeout;
+        let settings = {};
+
+        async function loadSettings() {
+            try {
+                const resp = await fetch('/admin/settings');
+                settings = await resp.json();
+                interval = (settings.slide_duration || 5) * 1000;
+                
+                const container = document.querySelector('.fullscreen-container');
+                
+                // Apply transition class
+                container.classList.remove('transition-fade', 'transition-slide', 'transition-zoom');
+                container.classList.add('transition-' + (settings.transition || 'fade'));
+                
+                // Apply Ken Burns
+                if (settings.ken_burns) {
+                    container.classList.add('ken-burns');
+                } else {
+                    container.classList.remove('ken-burns');
+                }
+                
+                console.log('Settings loaded:', settings);
+            } catch (e) {
+                console.error('Failed to load settings:', e);
+            }
+        }
 
         async function fetchNextPhotos(count = 1) {
             try {
-                const response = await fetch(`/get_next_photos?count=${count}`);
+                const shuffle = settings.shuffle ? '&shuffle=1' : '';
+                const response = await fetch(`/get_next_photos?count=${count}${shuffle}`);
                 if (response.ok) {
                     const data = await response.json();
                     return data;
@@ -149,6 +215,9 @@
         }
 
         window.onload = async function () {
+            // Load settings first
+            await loadSettings();
+            
             photos = await fetchNextPhotos(2);
             if (photos.length > 0) {
                 const photo = document.getElementById("photo");
