@@ -6,9 +6,9 @@ from flask import render_template, jsonify, request
 from app import app
 from config import device_state, SCOPES, load_slideshow_config, save_slideshow_config
 from google_auth_oauthlib.flow import Flow
+from utils import get_display_mode
 
 PHOTOS_DIR = os.path.join(os.path.dirname(__file__), "..", "static", "photos")
-MODE_FILE = os.path.join(os.path.dirname(__file__), "..", "..", ".display_mode")
 
 def get_redirect_uri():
     """Get OAuth redirect URI based on current request."""
@@ -199,17 +199,6 @@ def reset_to_setup():
 
 
 # ============== NEW ENDPOINTS ==============
-
-def get_display_mode():
-    """Get current display mode (hdmi or usb)."""
-    if os.path.exists(MODE_FILE):
-        try:
-            with open(MODE_FILE) as f:
-                return f.read().strip()
-        except:
-            pass
-    return "hdmi"
-
 
 def get_local_ip():
     """Get local IP address."""

@@ -60,31 +60,6 @@ def parse_time_value(value, default):
     except ValueError:
         return default
 
-def download_photos(photo_urls, source):
-    """Download photos into static/photos/<source>/ directory."""
-    if "credentials" not in device_state:
-        print("No credentials, cannot download.")
-        return
-
-    headers = {"Authorization": f"Bearer {device_state['credentials']['token']}"}
-    subdir = os.path.join(PHOTOS_DIR, source)
-    if not os.path.exists(subdir):
-        os.makedirs(subdir, exist_ok=True)
-
-    for i, photo_url in enumerate(photo_urls):
-        filename = f"{source}_{i}.jpg"
-        photo_path = os.path.join(subdir, filename)
-        if not os.path.exists(photo_path):
-            resp = requests.get(photo_url, headers=headers)
-            if resp.status_code == 200:
-                with open(photo_path, "wb") as img_file:
-                    img_file.write(resp.content)
-                print(f"{filename} downloaded successfully in {source} folder.")
-            else:
-                print(f"Failed to download {filename}, status code: {resp.status_code}")
-        else:
-            print(f"{filename} already exists, skipping.")
-
 def get_display_mode():
     """Get current display mode from file."""
     mode_paths = [
@@ -138,20 +113,7 @@ def sync_photos_to_usb():
     """Run update-photos.sh to sync photos to USB drive (USB mode only)."""
     import subprocess
     
-    # Check display mode - try multiple locations
-    mode = "hdmi"
-    mode_paths = [
-        os.path.expanduser("~/.display_mode"),
-        "/home/instapi/.display_mode",
-        os.path.join(os.path.dirname(__file__), "..", ".display_mode")
-    ]
-    for mode_file in mode_paths:
-        if os.path.exists(mode_file):
-            with open(mode_file) as f:
-                mode = f.read().strip()
-            print(f"Display mode from {mode_file}: {mode}")
-            break
-    
+    mode = get_display_mode()
     if mode == "usb":
         script_path = os.path.join(os.path.dirname(__file__), "..", "pi-setup", "update-photos.sh")
         if os.path.exists(script_path):

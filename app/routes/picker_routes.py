@@ -8,7 +8,8 @@ from utils import (
     parse_time_value,
     poll_for_media_items,
     fetch_picker_photos,
-    download_and_return_paths
+    download_and_return_paths,
+    get_display_mode
 )
 import requests
 
@@ -75,19 +76,7 @@ def finalize_selection():
 @app.route("/done")
 def done():
     """User sees success message, or redirect to slideshow if HDMI mode."""
-    import os
-    
-    # Check display mode
-    mode = "hdmi"
-    mode_paths = [
-        os.path.expanduser("~/.display_mode"),
-        "/home/instapi/.display_mode"
-    ]
-    for mode_file in mode_paths:
-        if os.path.exists(mode_file):
-            with open(mode_file) as f:
-                mode = f.read().strip()
-            break
+    mode = get_display_mode()
     
     # HDMI mode: redirect to slideshow (browser IS the frame)
     # USB mode: show done page (user is on phone, frame is separate)

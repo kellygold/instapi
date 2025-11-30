@@ -152,12 +152,38 @@ chmod +x pi-setup/*.sh
 4. **Photos display** → Slideshow starts automatically
 5. **Add more anytime** → Small QR in corner of slideshow
 
+## Admin Panel
+
+Access at `http://<pi-ip>:3000/admin` to:
+
+- **View/Delete Photos** - Manage downloaded photos
+- **Slideshow Settings** - Duration, transitions, Ken Burns effect, shuffle
+- **Select New Photos** - Re-authenticate and pick different photos
+- **System Info** - IP address, uptime, storage usage, display mode
+- **Maintenance** - Pull updates, restart app, sync USB, reset to setup
+
+### Slideshow Settings
+
+| Setting | Options |
+|---------|---------|
+| Duration | 5-60 seconds per slide |
+| Transition | Fade, Slide, Zoom |
+| Ken Burns | Slow pan/zoom effect |
+| Shuffle | Random order |
+
+### Remote Access with ngrok
+
+For remote management, use [ngrok](https://ngrok.com):
+```bash
+ngrok http 3000
+```
+The app auto-detects ngrok URLs via `X-Forwarded-Host` headers.
+
 ## Tech Stack
 
 - **Python 3** + Flask
 - **Google Photos Picker API**
 - **HTML/CSS/JS** (no frontend framework)
-- **Tailwind CSS** (website only)
 
 ## License
 
