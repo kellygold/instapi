@@ -145,17 +145,24 @@
             </p>
         </div>
 
-        <a href="/choose_mode" class="action-btn btn-primary">
-            + Add More Photos
+        <a href="/slideshow" class="action-btn btn-primary">
+            View Slideshow
         </a>
 
-        <button class="action-btn btn-ghost" onclick="window.close()">
-            Close This Page
-        </button>
+        <a href="/" class="action-btn btn-ghost">
+            + Set Up Again
+        </a>
 
         <p class="close-hint">
-            Bookmark this page to easily add photos later
+            Your photos are now on display!
         </p>
     </div>
+
+    <script>
+        // Auto-redirect to slideshow after a moment
+        setTimeout(() => {
+            window.location.href = '/slideshow';
+        }, 3000);
+    </script>
 </body>
 </html>
