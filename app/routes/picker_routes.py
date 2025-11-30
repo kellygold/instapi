@@ -44,8 +44,8 @@ def launch_picker():
         )
         thread.start()
 
-        # Redirect to Google's picker
-        return redirect(device_state["picker_url"])
+        # Show picking page - user clicks button to open picker in popup
+        return render_template("picking.html", picker_url=device_state["picker_url"])
     else:
         return f"Failed to create picker session: {response.status_code}", 500
 

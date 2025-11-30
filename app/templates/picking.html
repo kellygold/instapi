@@ -65,34 +65,28 @@
     <div class="container">
         <img src="/static/instapi_logo_full.jpg" alt="InstaPi" class="logo">
         <h1>Select Your Photos</h1>
-        <p class="status" id="status">Opening Google Photos picker...</p>
-        <div class="spinner" id="spinner"></div>
-        <a href="{{ picker_url }}" class="btn" id="openBtn" style="display: none;">Open Photo Picker</a>
+        <p class="status" id="status">Click the button to select your photos</p>
+        <div class="spinner" id="spinner" style="display: none;"></div>
+        <button class="btn" id="openBtn" onclick="openPicker()">Open Photo Picker</button>
     </div>
 
     <script>
-        const pickerUrl = "{{ picker_url }}";
-        let pickerOpened = false;
+        // Add /autoclose so Google closes the popup when done
+        const pickerUrl = "{{ picker_url }}/autoclose";
+        let pickerWindow = null;
 
-        // Try to open picker
+        // User clicks button - this IS a user gesture so popup should work
         function openPicker() {
-            if (!pickerOpened) {
-                pickerOpened = true;
-                // Open in new window/tab
-                const pickerWindow = window.open(pickerUrl, '_blank', 'width=800,height=600');
-                if (!pickerWindow || pickerWindow.closed) {
-                    // Popup blocked - show button
-                    document.getElementById('status').textContent = 'Click below to open the photo picker';
-                    document.getElementById('spinner').style.display = 'none';
-                    document.getElementById('openBtn').style.display = 'inline-block';
-                } else {
-                    document.getElementById('status').textContent = 'Select your photos in the popup, then come back here...';
-                }
+            pickerWindow = window.open(pickerUrl, 'GooglePhotosPicker', 'width=900,height=700,scrollbars=yes');
+            
+            if (pickerWindow) {
+                document.getElementById('status').textContent = 'Select photos in the popup, this page will update automatically...';
+                document.getElementById('spinner').style.display = 'block';
+                document.getElementById('openBtn').textContent = 'Reopen Picker';
+            } else {
+                alert('Popup was blocked! Please allow popups for this site and try again.');
             }
         }
-
-        // Open picker after short delay
-        setTimeout(openPicker, 500);
 
         // Poll for completion
         setInterval(async () => {
@@ -101,9 +95,11 @@
                 if (resp.ok) {
                     const data = await resp.json();
                     if (data.ready && data.photo_count > 0) {
+                        // Close picker if still open
+                        if (pickerWindow && !pickerWindow.closed) {
+                            pickerWindow.close();
+                        }
                         document.getElementById('status').textContent = 'Photos ready! Loading slideshow...';
-                        document.getElementById('spinner').style.display = 'block';
-                        document.getElementById('openBtn').style.display = 'none';
                         window.location.href = '/slideshow';
                     }
                 }
