@@ -4,12 +4,13 @@
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Slideshow</title>
-    <link rel="stylesheet" href="/static/styles.css">
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
             overflow: hidden;
-            margin: 0;
-            padding: 0;
+            background: #000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         .fullscreen-container {
@@ -23,63 +24,50 @@
             align-items: center;
         }
 
+        /* Photo styling */
         #photo {
             max-width: 100vw;
             max-height: 100vh;
             object-fit: contain;
-            position: relative;
-            z-index: 1;
-            transition: opacity 1s ease-in-out, transform 1s ease-in-out;
+            position: absolute;
+            opacity: 1;
+            transform: scale(1) translate(0, 0);
         }
 
-        /* Transition: Fade */
-        .transition-fade #photo {
-            transition: opacity 1s ease-in-out;
-        }
+        /* Fade transition */
+        #photo.fade-out { opacity: 0; transition: opacity 1s ease-in-out; }
+        #photo.fade-in { opacity: 1; transition: opacity 1s ease-in-out; }
 
-        /* Transition: Slide */
-        .transition-slide #photo {
-            transition: transform 0.8s ease-in-out, opacity 0.3s;
-        }
-        .transition-slide #photo.slide-out {
-            transform: translateX(-100%);
-            opacity: 0;
-        }
-        .transition-slide #photo.slide-in {
-            transform: translateX(100%);
-            opacity: 0;
-        }
+        /* Slide transition */
+        #photo.slide-out { transform: translateX(-100%); opacity: 0; transition: all 0.8s ease-in-out; }
+        #photo.slide-in { transform: translateX(0); opacity: 1; transition: all 0.8s ease-in-out; }
+        #photo.slide-ready { transform: translateX(100%); opacity: 0; }
 
-        /* Transition: Zoom */
-        .transition-zoom #photo {
-            transition: transform 0.8s ease-in-out, opacity 0.5s;
-        }
-        .transition-zoom #photo.zoom-out {
-            transform: scale(1.5);
-            opacity: 0;
-        }
+        /* Zoom transition */
+        #photo.zoom-out { transform: scale(1.5); opacity: 0; transition: all 0.8s ease-in-out; }
+        #photo.zoom-in { transform: scale(1); opacity: 1; transition: all 0.8s ease-in-out; }
+        #photo.zoom-ready { transform: scale(0.8); opacity: 0; }
 
         /* Ken Burns Effect */
-        .ken-burns #photo {
-            animation: kenburns 20s ease-in-out infinite alternate;
+        #photo.ken-burns {
+            animation: kenburns 15s ease-in-out infinite alternate;
         }
 
         @keyframes kenburns {
             0% { transform: scale(1) translate(0, 0); }
-            100% { transform: scale(1.1) translate(-2%, -1%); }
+            100% { transform: scale(1.08) translate(-1.5%, -1%); }
         }
 
-        #overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: black;
-            opacity: 0;
-            transition: opacity 1s ease-in-out;
-            z-index: 2;
-            pointer-events: none;
+        /* No photos message */
+        .no-photos {
+            color: #444;
+            font-size: 1.5em;
+            text-align: center;
+        }
+
+        .no-photos a {
+            color: #4ade80;
+            text-decoration: none;
         }
 
         /* Add Photos QR Corner */
@@ -96,9 +84,7 @@
             cursor: pointer;
         }
 
-        .qr-corner:hover {
-            opacity: 1;
-        }
+        .qr-corner:hover { opacity: 1; }
 
         .qr-corner img {
             width: 80px;
@@ -115,36 +101,72 @@
             transition: opacity 0.3s ease;
         }
 
-        .qr-corner:hover .qr-label {
-            opacity: 1;
+        .qr-corner:hover .qr-label { opacity: 1; }
+
+        /* Settings indicator */
+        .settings-indicator {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #333;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
         }
+        .fullscreen-container:hover .settings-indicator { opacity: 1; }
     </style>
+</head>
+<body>
+    <div class="fullscreen-container">
+        <img id="photo" alt="Photo">
+        <div class="no-photos" id="noPhotos" style="display: none;">
+            No photos yet.<br>
+            <a href="/admin">Go to Admin Panel</a> to add photos.
+        </div>
+        
+        <!-- Add Photos QR Code -->
+        <div class="qr-corner" title="Scan to add more photos">
+            <img src="/choose_mode_qr" alt="Add Photos">
+            <div class="qr-label">+ Add Photos</div>
+        </div>
+
+        <div class="settings-indicator" id="settingsIndicator"></div>
+    </div>
+
     <script>
         let photos = [];
         let interval = 5000;
         let cycleTimeout;
         let settings = {};
+        let transitionType = 'fade';
+        let kenBurnsEnabled = false;
 
         async function loadSettings() {
             try {
                 const resp = await fetch('/admin/settings');
-                settings = await resp.json();
+                const newSettings = await resp.json();
+                
+                // Check if settings changed
+                const changed = JSON.stringify(settings) !== JSON.stringify(newSettings);
+                settings = newSettings;
+                
                 interval = (settings.slide_duration || 5) * 1000;
+                transitionType = settings.transition || 'fade';
+                kenBurnsEnabled = settings.ken_burns || false;
                 
-                const container = document.querySelector('.fullscreen-container');
-                
-                // Apply transition class
-                container.classList.remove('transition-fade', 'transition-slide', 'transition-zoom');
-                container.classList.add('transition-' + (settings.transition || 'fade'));
-                
-                // Apply Ken Burns
-                if (settings.ken_burns) {
-                    container.classList.add('ken-burns');
+                // Update Ken Burns on current photo
+                const photo = document.getElementById('photo');
+                if (kenBurnsEnabled) {
+                    photo.classList.add('ken-burns');
                 } else {
-                    container.classList.remove('ken-burns');
+                    photo.classList.remove('ken-burns');
                 }
                 
-                console.log('Settings loaded:', settings);
+                // Show settings on hover
+                document.getElementById('settingsIndicator').textContent = 
+                    `${settings.slide_duration}s • ${transitionType} • ${settings.shuffle ? 'shuffle' : 'sequential'}${kenBurnsEnabled ? ' • ken burns' : ''}`;
+                
+                if (changed) console.log('Settings updated:', settings);
             } catch (e) {
                 console.error('Failed to load settings:', e);
             }
@@ -155,12 +177,9 @@
                 const shuffle = settings.shuffle ? '&shuffle=1' : '';
                 const response = await fetch(`/get_next_photos?count=${count}${shuffle}`);
                 if (response.ok) {
-                    const data = await response.json();
-                    return data;
-                } else {
-                    console.error("Failed to fetch next photos:", response.status);
-                    return [];
+                    return await response.json();
                 }
+                return [];
             } catch (error) {
                 console.error("Error fetching next photos:", error);
                 return [];
@@ -176,70 +195,117 @@
             });
         }
 
+        async function transitionToPhoto(nextUrl) {
+            const photo = document.getElementById('photo');
+            
+            // Remove ken burns during transition
+            photo.classList.remove('ken-burns');
+            
+            switch (transitionType) {
+                case 'slide':
+                    photo.classList.add('slide-out');
+                    await sleep(800);
+                    photo.src = nextUrl;
+                    photo.classList.remove('slide-out');
+                    photo.classList.add('slide-ready');
+                    await sleep(50);
+                    photo.classList.remove('slide-ready');
+                    photo.classList.add('slide-in');
+                    await sleep(800);
+                    photo.classList.remove('slide-in');
+                    break;
+                    
+                case 'zoom':
+                    photo.classList.add('zoom-out');
+                    await sleep(800);
+                    photo.src = nextUrl;
+                    photo.classList.remove('zoom-out');
+                    photo.classList.add('zoom-ready');
+                    await sleep(50);
+                    photo.classList.remove('zoom-ready');
+                    photo.classList.add('zoom-in');
+                    await sleep(800);
+                    photo.classList.remove('zoom-in');
+                    break;
+                    
+                case 'fade':
+                default:
+                    photo.classList.add('fade-out');
+                    await sleep(1000);
+                    photo.src = nextUrl;
+                    photo.classList.remove('fade-out');
+                    photo.classList.add('fade-in');
+                    await sleep(1000);
+                    photo.classList.remove('fade-in');
+                    break;
+            }
+            
+            // Re-apply ken burns after transition
+            if (kenBurnsEnabled) {
+                photo.classList.add('ken-burns');
+            }
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
         async function cyclePhoto() {
             if (photos.length === 0) {
-                console.log("No photos available. Fetching more...");
                 photos = await fetchNextPhotos(2);
                 if (photos.length === 0) {
-                    console.log("Still no photos available. Retrying later.");
-                    cycleTimeout = setTimeout(cyclePhoto, interval);
+                    document.getElementById('noPhotos').style.display = 'block';
+                    document.getElementById('photo').style.display = 'none';
+                    cycleTimeout = setTimeout(cyclePhoto, 5000);
                     return;
                 }
             }
 
-            const photo = document.getElementById("photo");
-            const overlay = document.getElementById("overlay");
+            document.getElementById('noPhotos').style.display = 'none';
+            document.getElementById('photo').style.display = 'block';
 
             const nextUrl = photos.shift();
-            console.log(`Switching to photo: ${nextUrl}`);
+            console.log(`Transitioning to: ${nextUrl}`);
 
             const preloaded = await preloadImage(nextUrl);
             if (!preloaded) {
-                console.error("Failed to preload image:", nextUrl);
-                cycleTimeout = setTimeout(cyclePhoto, interval);
+                console.error("Failed to preload:", nextUrl);
+                cycleTimeout = setTimeout(cyclePhoto, 1000);
                 return;
             }
 
-            overlay.style.opacity = 1;
-
-            setTimeout(() => {
-                photo.src = nextUrl;
-                overlay.style.opacity = 0;
-                console.log("Image displayed:", nextUrl);
-                fetchNextPhotos(1).then((newPhotos) => {
-                    photos.push(...newPhotos);
-                });
-            }, 1000);
+            await transitionToPhoto(nextUrl);
+            
+            // Prefetch next
+            fetchNextPhotos(1).then((newPhotos) => {
+                photos.push(...newPhotos);
+            });
 
             cycleTimeout = setTimeout(cyclePhoto, interval);
         }
 
         window.onload = async function () {
-            // Load settings first
             await loadSettings();
+            
+            // Refresh settings every 10 seconds for live updates
+            setInterval(loadSettings, 10000);
             
             photos = await fetchNextPhotos(2);
             if (photos.length > 0) {
-                const photo = document.getElementById("photo");
+                const photo = document.getElementById('photo');
                 photo.src = photos.shift();
+                if (kenBurnsEnabled) {
+                    photo.classList.add('ken-burns');
+                }
                 console.log("Initial photo displayed.");
-                setTimeout(cyclePhoto, interval);
+                cycleTimeout = setTimeout(cyclePhoto, interval);
             } else {
-                console.log("No photos to show at all.");
+                document.getElementById('noPhotos').style.display = 'block';
+                document.getElementById('photo').style.display = 'none';
+                // Keep checking for photos
+                cycleTimeout = setTimeout(cyclePhoto, 5000);
             }
         };
     </script>
-</head>
-<body>
-    <div class="fullscreen-container">
-        <img id="photo" alt="Photo">
-        <div id="overlay"></div>
-        
-        <!-- Add Photos QR Code -->
-        <div class="qr-corner" title="Scan to add more photos">
-            <img src="/choose_mode_qr" alt="Add Photos">
-            <div class="qr-label">+ Add Photos</div>
-        </div>
-    </div>
 </body>
 </html>

@@ -25,17 +25,15 @@ def admin():
             photo_count += len([f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))])
     
     # Check display mode
-    mode_file = os.path.join(os.path.dirname(__file__), "..", "..", ".display_mode")
-    display_mode = "hdmi"  # default
-    if os.path.exists(mode_file):
-        with open(mode_file) as f:
-            display_mode = f.read().strip()
+    display_mode = get_display_mode()
     
-    # Generate auth URL for "Pick New Photos"
+    # Generate auth URL for "Pick New Photos" - use the current request's host
+    # This ensures it works with ngrok or any reverse proxy
+    redirect_uri = request.url_root.rstrip('/') + '/oauth2callback'
     flow = Flow.from_client_secrets_file(
         "secrets.json",
         scopes=SCOPES,
-        redirect_uri=get_redirect_uri()
+        redirect_uri=redirect_uri
     )
     auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
     

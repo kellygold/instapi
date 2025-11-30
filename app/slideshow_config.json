@@ -1,6 +1,6 @@
 {
-  "slide_duration": 5,
-  "transition": "fade",
+  "slide_duration": 3,
+  "transition": "zoom",
   "shuffle": false,
-  "ken_burns": false
+  "ken_burns": true
 }
