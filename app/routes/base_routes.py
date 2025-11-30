@@ -122,4 +122,4 @@ def wait_for_photos():
     choose_mode_url = f"{BASE_URL}/choose_mode"
     return render_template("select_photos.html", choose_mode_url=choose_mode_url)
 
-print("DEBUG: Current routes:", app.url_map)
+# Debug route list is printed in main.py after all imports
