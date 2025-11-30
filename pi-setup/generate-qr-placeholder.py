@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a simple QR + logo placeholder image for USB photo frames."""
+"""Generate QR + logo placeholder on branded background for USB photo frames."""
 
 import qrcode
 from PIL import Image
@@ -20,7 +20,7 @@ def get_ip():
     return ip
 
 def generate_qr_placeholder(output_path=None, url=None):
-    """Generate simple QR + logo image."""
+    """Generate QR + logo on branded background."""
     
     if url is None:
         ip = get_ip()
@@ -30,9 +30,14 @@ def generate_qr_placeholder(output_path=None, url=None):
     if output_path is None:
         output_path = os.path.join(script_dir, "qr-placeholder.jpg")
     
-    # Create canvas (landscape for photo frames)
     width, height = 1920, 1080
-    img = Image.new('RGB', (width, height), '#0d1117')
+    
+    # Try to use pre-made background, otherwise create solid
+    bg_path = os.path.join(script_dir, "background.jpg")
+    if os.path.exists(bg_path):
+        img = Image.open(bg_path).resize((width, height), Image.Resampling.LANCZOS)
+    else:
+        img = Image.new('RGB', (width, height), '#0d1117')
     
     # Generate QR code
     qr = qrcode.QRCode(box_size=14, border=2)
