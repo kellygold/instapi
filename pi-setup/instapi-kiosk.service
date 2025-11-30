@@ -7,8 +7,8 @@ Wants=instapi.service
 Type=simple
 User=pi
 Environment=DISPLAY=:0
-ExecStartPre=/bin/sleep 5
-ExecStart=/bin/bash -c 'xinit /usr/bin/chromium-browser --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --disable-restore-session-state --disable-features=TranslateUI --no-first-run --start-fullscreen http://localhost:3000 -- :0 -nocursor'
+ExecStartPre=/bin/sleep 10
+ExecStart=/home/pi/instapi/pi-setup/kiosk.sh
 Restart=on-failure
 RestartSec=5
 
