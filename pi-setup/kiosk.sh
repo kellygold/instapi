@@ -1,31 +1,32 @@
 #!/bin/bash
-# Setup Chromium kiosk mode for InstaPi
+# Kiosk launcher script for Pi Zero 2 W (no desktop environment)
+# This script is called by instapi-kiosk.service
 
-AUTOSTART_DIR="$HOME/.config/lxsession/LXDE-pi"
-AUTOSTART_FILE="$AUTOSTART_DIR/autostart"
+# Disable screen saver and power management
+xset s off
+xset -dpms
+xset s noblank
 
-mkdir -p "$AUTOSTART_DIR"
+# Hide cursor
+unclutter -idle 0.1 -root &
 
-# Backup existing autostart if it exists
-if [ -f "$AUTOSTART_FILE" ]; then
-    cp "$AUTOSTART_FILE" "$AUTOSTART_FILE.backup"
-fi
-
-# Create autostart file
-cat > "$AUTOSTART_FILE" << 'EOF'
-@lxpanel --profile LXDE-pi
-@pcmanfm --desktop --profile LXDE-pi
-@xscreensaver -no-splash
-
-# Hide mouse cursor after 3 seconds
-@unclutter -idle 3
-
-# Wait for InstaPi server to start
-@sleep 5
+# Wait for Flask server to be ready
+echo "Waiting for InstaPi server..."
+until curl -s http://localhost:3000 > /dev/null 2>&1; do
+    sleep 1
+done
+echo "Server ready!"
 
 # Launch Chromium in kiosk mode
-@chromium-browser --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --disable-restore-session-state http://localhost:3000
-EOF
-
-echo "✅ Kiosk mode configured!"
-echo "Reboot to start in kiosk mode: sudo reboot"
+exec chromium-browser \
+    --kiosk \
+    --noerrdialogs \
+    --disable-infobars \
+    --disable-session-crashed-bubble \
+    --disable-restore-session-state \
+    --disable-features=TranslateUI \
+    --no-first-run \
+    --start-fullscreen \
+    --disable-pinch \
+    --overscroll-history-navigation=0 \
+    http://localhost:3000
