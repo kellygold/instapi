@@ -21,9 +21,10 @@ if __name__ == "__main__":
     else:
         os.makedirs(PHOTOS_DIR, exist_ok=True)
 
-    print("Starting app on port 3000")
+    port = int(os.environ.get("PORT", 3000))
+    print(f"Starting app on port {port}")
 
     # Turn off the reloader to avoid double loading confusion:
     #   debug=True but use_reloader=False => You still get debug logs,
     #   but no double "restart with stat" process.
-    app.run(host="0.0.0.0", port=3000, debug=True, use_reloader=False)
+    app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)
