@@ -115,6 +115,27 @@ def download_and_return_paths(photo_urls, source):
         returned_paths.append(f"/static/photos/{source}/{filename}")
     return returned_paths
 
+def sync_photos_to_usb():
+    """Run update-photos.sh to sync photos to USB drive (USB mode only)."""
+    mode_file = os.path.join(os.path.dirname(__file__), "..", ".display_mode")
+    mode = "hdmi"
+    if os.path.exists(mode_file):
+        with open(mode_file) as f:
+            mode = f.read().strip()
+    
+    if mode == "usb":
+        script_path = os.path.join(os.path.dirname(__file__), "..", "pi-setup", "update-photos.sh")
+        if os.path.exists(script_path):
+            print("Syncing photos to USB drive...")
+            import subprocess
+            result = subprocess.run(["/bin/bash", script_path], capture_output=True, text=True)
+            print(f"USB sync output: {result.stdout}")
+            if result.stderr:
+                print(f"USB sync errors: {result.stderr}")
+        else:
+            print(f"USB sync script not found: {script_path}")
+
+
 def fetch_and_download_picker_photos(session_id):
     """
     Fetch photos from the picker session and download them.
@@ -144,6 +165,9 @@ def fetch_and_download_picker_photos(session_id):
         photo_list = device_state.get("photo_urls", [])
         photo_list.extend(picker_paths)
         device_state["photo_urls"] = photo_list
+        
+        # Sync to USB if in USB mode
+        sync_photos_to_usb()
     else:
         print("Failed to list media items from picker:", resp_items.status_code, resp_items.text)
 

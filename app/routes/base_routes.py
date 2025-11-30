@@ -48,6 +48,20 @@ def index():
     return render_template("index.html", auth_url=auth_url)
 
 
+@app.route("/auth")
+def auth():
+    """Direct auth - skip setup page, go straight to Google."""
+    device_state.clear()
+    flow = Flow.from_client_secrets_file(
+        "secrets.json",
+        scopes=SCOPES,
+        redirect_uri=REDIRECT_URI
+    )
+    auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
+    device_state["auth_url"] = auth_url
+    return redirect(auth_url)
+
+
 @app.route("/auth_qr")
 def auth_qr():
     """Generate a sign-in QR code."""
