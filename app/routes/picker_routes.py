@@ -44,8 +44,8 @@ def launch_picker():
         )
         thread.start()
 
-        # Show picking page - user clicks button to open picker in popup
-        return render_template("picking.html", picker_url=device_state["picker_url"])
+        # Redirect directly to picker with /autoclose so it closes when done
+        return redirect(device_state["picker_url"] + "/autoclose")
     else:
         return f"Failed to create picker session: {response.status_code}", 500
 
