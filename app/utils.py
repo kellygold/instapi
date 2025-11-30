@@ -1,11 +1,56 @@
 import os
 import time
+import json
 import requests
+import qrcode
+from PIL import Image
 from config import (
     device_state,
     PHOTOS_DIR,
     PICKER_API_BASE_URL
 )
+
+# Load base URL for watermark QR
+with open("secrets.json") as f:
+    _secrets = json.load(f)
+    _redirect = _secrets["web"]["redirect_uris"][0]
+    WATERMARK_URL = _redirect.rsplit("/", 1)[0]  # Base URL without path
+
+
+def add_qr_watermark(image_path):
+    """Add a small QR code watermark to bottom-right of image."""
+    try:
+        img = Image.open(image_path).convert('RGBA')
+        
+        # Generate small QR linking to auth page
+        qr = qrcode.QRCode(box_size=2, border=1)
+        qr.add_data(WATERMARK_URL)
+        qr.make(fit=True)
+        qr_img = qr.make_image(fill_color='black', back_color='white').convert('RGBA')
+        
+        # Scale QR - about 4% of width, min 50px
+        qr_size = max(50, img.width // 20)
+        qr_img = qr_img.resize((qr_size, qr_size))
+        
+        # Make semi-transparent
+        pixels = qr_img.load()
+        for y in range(qr_img.height):
+            for x in range(qr_img.width):
+                r, g, b, a = pixels[x, y]
+                if r > 200:  # white background
+                    pixels[x, y] = (255, 255, 255, 180)
+                else:  # black QR
+                    pixels[x, y] = (0, 0, 0, 220)
+        
+        # Position bottom-right
+        pos = (img.width - qr_size - 15, img.height - qr_size - 15)
+        img.paste(qr_img, pos, qr_img)
+        
+        # Save back
+        img.convert('RGB').save(image_path, 'JPEG', quality=95)
+        print(f"Watermark added to {image_path}")
+    except Exception as e:
+        print(f"Failed to add watermark: {e}")
 
 def parse_time_value(value, default):
     """Parse a time value like '5s' or '1800s' and return an integer in seconds."""
@@ -61,6 +106,8 @@ def download_and_return_paths(photo_urls, source):
                 with open(photo_path, "wb") as img_file:
                     img_file.write(resp.content)
                 print(f"{filename} downloaded successfully in {source} folder.")
+                # Add QR watermark to photo
+                add_qr_watermark(photo_path)
             else:
                 print(f"Failed to download {filename}, status code: {resp.status_code}")
         else:
