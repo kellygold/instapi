@@ -117,23 +117,38 @@ def download_and_return_paths(photo_urls, source):
 
 def sync_photos_to_usb():
     """Run update-photos.sh to sync photos to USB drive (USB mode only)."""
-    mode_file = os.path.join(os.path.dirname(__file__), "..", ".display_mode")
+    import subprocess
+    
+    # Check display mode - try multiple locations
     mode = "hdmi"
-    if os.path.exists(mode_file):
-        with open(mode_file) as f:
-            mode = f.read().strip()
+    mode_paths = [
+        os.path.expanduser("~/.display_mode"),
+        "/home/instapi/.display_mode",
+        os.path.join(os.path.dirname(__file__), "..", ".display_mode")
+    ]
+    for mode_file in mode_paths:
+        if os.path.exists(mode_file):
+            with open(mode_file) as f:
+                mode = f.read().strip()
+            print(f"Display mode from {mode_file}: {mode}")
+            break
     
     if mode == "usb":
         script_path = os.path.join(os.path.dirname(__file__), "..", "pi-setup", "update-photos.sh")
         if os.path.exists(script_path):
-            print("Syncing photos to USB drive...")
-            import subprocess
-            result = subprocess.run(["/bin/bash", script_path], capture_output=True, text=True)
-            print(f"USB sync output: {result.stdout}")
+            print(f"Syncing photos to USB drive via {script_path}...")
+            result = subprocess.run(
+                ["sudo", "/bin/bash", script_path],
+                capture_output=True, text=True, timeout=120
+            )
+            print(f"USB sync stdout: {result.stdout}")
             if result.stderr:
-                print(f"USB sync errors: {result.stderr}")
+                print(f"USB sync stderr: {result.stderr}")
+            print(f"USB sync exit code: {result.returncode}")
         else:
             print(f"USB sync script not found: {script_path}")
+    else:
+        print(f"Not USB mode (mode={mode}), skipping USB sync")
 
 
 def fetch_and_download_picker_photos(session_id):
