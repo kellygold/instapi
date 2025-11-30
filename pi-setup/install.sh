@@ -75,6 +75,12 @@ echo "🔐 Setting up admin permissions..."
 sudo cp "$INSTALL_DIR/pi-setup/instapi-sudoers" /etc/sudoers.d/instapi
 sudo chmod 440 /etc/sudoers.d/instapi
 
+# Generate QR placeholder image with this Pi's IP
+echo "📱 Generating QR code placeholder..."
+cd "$INSTALL_DIR/app"
+source venv/bin/activate
+python3 ../pi-setup/generate-qr-placeholder.py
+
 # ==========================================
 # MODE-SPECIFIC SETUP (only if mode specified)
 # ==========================================
@@ -133,58 +139,7 @@ if [ "$DISPLAY_MODE" = "usb" ]; then
     sudo systemctl enable instapi
     sudo systemctl enable usb-gadget
 
-    # Generate QR code image for USB drive
-    echo "📱 Generating QR code image..."
-    cd "$INSTALL_DIR/app"
-    source venv/bin/activate
-    python3 << PYEOF
-import qrcode
-from PIL import Image, ImageDraw, ImageFont
-import socket
-import os
-
-def get_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(('8.8.8.8', 80))
-        ip = s.getsockname()[0]
-    except:
-        ip = '?.?.?.?'
-    finally:
-        s.close()
-    return ip
-
-ip = get_ip()
-url = f"http://{ip}:3000"
-
-qr = qrcode.QRCode(box_size=10, border=4)
-qr.add_data(url)
-qr.make(fit=True)
-qr_img = qr.make_image(fill_color="black", back_color="white")
-
-img = Image.new('RGB', (1024, 600), 'black')
-qr_size = min(400, img.height - 100)
-qr_img = qr_img.resize((qr_size, qr_size))
-
-x = (img.width - qr_size) // 2
-y = (img.height - qr_size) // 2 - 30
-img.paste(qr_img, (x, y))
-
-draw = ImageDraw.Draw(img)
-try:
-    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28)
-    small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
-except:
-    font = ImageFont.load_default()
-    small_font = font
-
-draw.text((img.width//2, y + qr_size + 30), "Scan to set up InstaPi", fill="white", font=font, anchor="mm")
-draw.text((img.width//2, y + qr_size + 70), url, fill="gray", font=small_font, anchor="mm")
-
-save_path = os.path.expanduser("~/instapi/pi-setup/qr-placeholder.jpg")
-img.save(save_path, 'JPEG', quality=95)
-print(f"QR code generated for {url}")
-PYEOF
+    # QR placeholder already generated in base install
 
     NEXT_STEPS="
 │ 3. Plug Pi into photo frame's USB port │

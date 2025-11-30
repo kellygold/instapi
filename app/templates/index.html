@@ -392,6 +392,81 @@
             .brand-text .tagline { font-size: 1.1em; }
             .step-text { font-size: 1.2em; }
         }
+
+        /* Phone - they scanned it, prioritize sign-in */
+        @media (max-width: 600px) {
+            .screen {
+                display: flex;
+                flex-direction: column;
+                min-height: 100vh;
+            }
+
+            /* Hide QR on phone - they already scanned it */
+            .qr-side {
+                display: none;
+            }
+
+            .info-side {
+                padding: 40px 24px 60px;
+                text-align: center;
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+
+            .header {
+                margin-bottom: 30px;
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .logo {
+                width: 80px;
+                height: 80px;
+            }
+
+            .brand-text .brand { font-size: 2.2em; }
+            .brand-text .tagline { font-size: 1em; }
+
+            .steps {
+                margin-bottom: 30px;
+            }
+
+            .step {
+                margin-bottom: 16px;
+            }
+
+            .step-num {
+                width: 40px;
+                height: 40px;
+                font-size: 1.2em;
+            }
+
+            .step-text { font-size: 1.1em; }
+
+            /* Make the sign-in button prominent */
+            .touch-link {
+                display: block;
+                margin-top: 20px;
+                padding: 18px 32px;
+                font-size: 1.2em;
+                background: linear-gradient(135deg, #4CAF50, #45a049);
+                color: white;
+                border: none;
+                border-radius: 12px;
+                font-weight: 600;
+            }
+
+            .status {
+                font-size: 1.1em;
+            }
+
+            /* Hide decorative elements */
+            .floating-photos, .particles, .scanlines {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
