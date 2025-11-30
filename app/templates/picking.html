@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>InstaPi - Select Photos</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(-45deg, #0a0a0a, #1a472a, #0d3320, #000000);
+            min-height: 100vh;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            text-align: center;
+            max-width: 400px;
+        }
+        .logo {
+            width: 100px;
+            height: 100px;
+            border-radius: 22px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #4ade80;
+            margin-bottom: 10px;
+        }
+        .status {
+            color: #888;
+            margin-bottom: 30px;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #333;
+            border-top-color: #4ade80;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .btn {
+            display: inline-block;
+            background: #4ade80;
+            color: #000;
+            padding: 15px 30px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            background: #22c55e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="/static/instapi_logo_full.jpg" alt="InstaPi" class="logo">
+        <h1>Select Your Photos</h1>
+        <p class="status" id="status">Opening Google Photos picker...</p>
+        <div class="spinner" id="spinner"></div>
+        <a href="{{ picker_url }}" class="btn" id="openBtn" style="display: none;">Open Photo Picker</a>
+    </div>
+
+    <script>
+        const pickerUrl = "{{ picker_url }}";
+        let pickerOpened = false;
+
+        // Try to open picker
+        function openPicker() {
+            if (!pickerOpened) {
+                pickerOpened = true;
+                // Open in new window/tab
+                const pickerWindow = window.open(pickerUrl, '_blank', 'width=800,height=600');
+                if (!pickerWindow || pickerWindow.closed) {
+                    // Popup blocked - show button
+                    document.getElementById('status').textContent = 'Click below to open the photo picker';
+                    document.getElementById('spinner').style.display = 'none';
+                    document.getElementById('openBtn').style.display = 'inline-block';
+                } else {
+                    document.getElementById('status').textContent = 'Select your photos in the popup, then come back here...';
+                }
+            }
+        }
+
+        // Open picker after short delay
+        setTimeout(openPicker, 500);
+
+        // Poll for completion
+        setInterval(async () => {
+            try {
+                const resp = await fetch('/check_session_status');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.ready && data.photo_count > 0) {
+                        document.getElementById('status').textContent = 'Photos ready! Loading slideshow...';
+                        document.getElementById('spinner').style.display = 'block';
+                        document.getElementById('openBtn').style.display = 'none';
+                        window.location.href = '/slideshow';
+                    }
+                }
+            } catch (e) {}
+        }, 2000);
+    </script>
+</body>
+</html>
