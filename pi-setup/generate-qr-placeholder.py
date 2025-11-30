@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate QR + logo placeholder on branded background for USB photo frames."""
+"""Generate QR placeholder by overlaying QR on background screenshot."""
 
 import qrcode
 from PIL import Image
@@ -20,7 +20,7 @@ def get_ip():
     return ip
 
 def generate_qr_placeholder(output_path=None, url=None):
-    """Generate QR + logo on branded background."""
+    """Overlay QR on background screenshot."""
     
     if url is None:
         ip = get_ip()
@@ -32,7 +32,7 @@ def generate_qr_placeholder(output_path=None, url=None):
     
     width, height = 1920, 1080
     
-    # Try to use pre-made background, otherwise create solid
+    # Load background (screenshot of web UI without QR)
     bg_path = os.path.join(script_dir, "background.png")
     if not os.path.exists(bg_path):
         bg_path = os.path.join(script_dir, "background.jpg")
@@ -42,30 +42,19 @@ def generate_qr_placeholder(output_path=None, url=None):
         img = Image.new('RGB', (width, height), '#0d1117')
     
     # Generate QR code
-    qr = qrcode.QRCode(box_size=12, border=3)
+    qr = qrcode.QRCode(box_size=14, border=2)
     qr.add_data(url)
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color="black", back_color="white")
     
-    # Size QR - not too big
-    qr_size = 500
+    # QR size - match the web UI qr-wrapper position
+    qr_size = 420
     qr_img = qr_img.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
     
-    # Position QR (left third, centered vertically)
+    # Position QR in center of left half (where qr-wrapper is on web)
     qr_x = width // 4 - qr_size // 2
     qr_y = (height - qr_size) // 2
     img.paste(qr_img, (qr_x, qr_y))
-    
-    # Try to load and paste logo (right side - further right)
-    logo_path = os.path.join(script_dir, "..", "app", "static", "instapi_logo_full.jpg")
-    if os.path.exists(logo_path):
-        logo = Image.open(logo_path)
-        # Scale logo to ~350px
-        logo_size = 350
-        logo.thumbnail((logo_size, logo_size), Image.Resampling.LANCZOS)
-        logo_x = width * 3 // 4 - logo.width // 2  # 75% across
-        logo_y = (height - logo.height) // 2
-        img.paste(logo, (logo_x, logo_y))
     
     # Save
     img.save(output_path, 'JPEG', quality=95)
