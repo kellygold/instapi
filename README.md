@@ -193,4 +193,6 @@ MIT - Do whatever you want with it.
 
 🌐 **Website:** [instapi.dev](https://instapi.dev)
 
+☕ **Support:** [Buy Me a Coffee](https://buymeacoffee.com/jankyard)
+
 Built with frustration at expensive frames that don't work. 🖼️
