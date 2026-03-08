@@ -4,15 +4,16 @@ import subprocess
 import socket
 from flask import render_template, jsonify, request
 from app import app
-from config import device_state, SCOPES, load_slideshow_config, save_slideshow_config
+from config import device_state, SCOPES, PHOTOS_DIR, load_slideshow_config, save_slideshow_config, save_device_state
 from google_auth_oauthlib.flow import Flow
 from utils import get_display_mode
 
-PHOTOS_DIR = os.path.join(os.path.dirname(__file__), "..", "static", "photos")
+MODE_FILE = os.path.join(os.path.dirname(__file__), "..", "..", ".display_mode")
 
-def get_redirect_uri():
-    """Get OAuth redirect URI based on current request."""
-    return request.url_root.rstrip('/') + '/oauth2callback'
+# Load fallback redirect URI from secrets.json (used when dynamic detection yields HTTP non-localhost)
+import json
+with open("secrets.json") as _f:
+    _FALLBACK_REDIRECT_URI = json.load(_f)["web"]["redirect_uris"][0]
 
 
 @app.route("/admin")
@@ -22,8 +23,9 @@ def admin():
     photo_count = 0
     if os.path.exists(PHOTOS_DIR):
         for root, dirs, files in os.walk(PHOTOS_DIR):
+            dirs[:] = [d for d in dirs if d != 'thumbs']
             photo_count += len([f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))])
-    
+
     # Check display mode
     display_mode = get_display_mode()
     
@@ -43,6 +45,9 @@ def admin():
         base_url = request.url_root.rstrip('/')
     
     redirect_uri = base_url + '/oauth2callback'
+    # Google requires HTTPS for non-localhost redirect URIs
+    if redirect_uri.startswith("http://") and "localhost" not in redirect_uri:
+        redirect_uri = _FALLBACK_REDIRECT_URI
     print(f"DEBUG: Host={forwarded_host}, redirect_uri={redirect_uri}")
     flow = Flow.from_client_secrets_file(
         "secrets.json",
@@ -53,21 +58,6 @@ def admin():
     
     return render_template("admin.html", photo_count=photo_count, auth_url=auth_url, display_mode=display_mode)
 
-
-@app.route("/admin/delete_photos", methods=["POST"])
-def delete_photos():
-    """Delete all downloaded photos."""
-    try:
-        if os.path.exists(PHOTOS_DIR):
-            for item in os.listdir(PHOTOS_DIR):
-                item_path = os.path.join(PHOTOS_DIR, item)
-                if os.path.isdir(item_path):
-                    shutil.rmtree(item_path)
-                elif item != '.gitkeep':
-                    os.remove(item_path)
-        return jsonify({"success": True, "reload": True})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
 
 
 @app.route("/admin/git_pull", methods=["POST"])
@@ -116,10 +106,9 @@ def restart_service():
     """Restart the instapi service (and kiosk if HDMI mode)."""
     try:
         # Check which mode we're in
-        mode_file = os.path.join(os.path.dirname(__file__), "..", "..", ".display_mode")
         mode = "hdmi"  # default
-        if os.path.exists(mode_file):
-            with open(mode_file) as f:
+        if os.path.exists(MODE_FILE):
+            with open(MODE_FILE) as f:
                 mode = f.read().strip()
         
         # Restart the flask app service
@@ -166,8 +155,18 @@ def sync_usb():
 def reset_to_setup():
     """Reset to setup screen - behavior depends on display mode."""
     try:
+        # Delete all photos and thumbnails from disk
+        if os.path.exists(PHOTOS_DIR):
+            for item in os.listdir(PHOTOS_DIR):
+                item_path = os.path.join(PHOTOS_DIR, item)
+                if os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+                elif item != '.gitkeep':
+                    os.remove(item_path)
+
         # Clear app state
         device_state.clear()
+        save_device_state()
         
         # Check which mode we're in
         mode = get_display_mode()
@@ -237,6 +236,7 @@ def get_storage_info():
         photos_size = 0
         if os.path.exists(PHOTOS_DIR):
             for root, dirs, files in os.walk(PHOTOS_DIR):
+                dirs[:] = [d for d in dirs if d != 'thumbs']
                 for f in files:
                     photos_size += os.path.getsize(os.path.join(root, f))
         
@@ -262,8 +262,9 @@ def system_info():
     photo_count = 0
     if os.path.exists(PHOTOS_DIR):
         for root, dirs, files in os.walk(PHOTOS_DIR):
+            dirs[:] = [d for d in dirs if d != 'thumbs']
             photo_count += len([f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))])
-    
+
     return jsonify({
         "ip_address": get_local_ip(),
         "uptime": get_uptime(),
@@ -279,12 +280,14 @@ def list_photos():
     photos = []
     if os.path.exists(PHOTOS_DIR):
         for root, dirs, files in os.walk(PHOTOS_DIR):
+            dirs[:] = [d for d in dirs if d != 'thumbs']
             for f in files:
                 if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')) and f != '.gitkeep':
                     full_path = os.path.join(root, f)
                     rel_path = os.path.relpath(full_path, os.path.dirname(PHOTOS_DIR))
                     photos.append({
                         "path": f"/static/{rel_path}",
+                        "thumb": f"/static/photos/thumbs/{f}",
                         "name": f,
                         "size": os.path.getsize(full_path)
                     })
@@ -312,11 +315,16 @@ def delete_single_photo():
         
         if os.path.exists(file_path):
             os.remove(file_path)
+            # Also delete thumbnail
+            thumb_path = os.path.join(PHOTOS_DIR, "thumbs", os.path.basename(file_path))
+            if os.path.exists(thumb_path):
+                os.remove(thumb_path)
             # Also remove from device_state if present
             if "photo_urls" in device_state:
                 url_path = photo_path
                 if url_path in device_state["photo_urls"]:
                     device_state["photo_urls"].remove(url_path)
+            save_device_state()
             return jsonify({"success": True})
         else:
             return jsonify({"success": False, "error": "File not found"})
@@ -374,5 +382,46 @@ def switch_mode():
             "mode": new_mode,
             "message": f"Mode switched to {new_mode.upper()}. Restart required for full effect."
         })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/admin/download_status")
+def download_status():
+    """Return current photo download progress."""
+    return jsonify({
+        "downloading": device_state.get("downloading", False),
+        "download_total": device_state.get("download_total", 0),
+        "download_completed": device_state.get("download_completed", 0),
+        "done": device_state.get("done", False),
+        "photo_count": len(device_state.get("photo_urls", []))
+    })
+
+
+@app.route("/admin/update_and_restart", methods=["POST"])
+def update_and_restart():
+    """Pull latest code and restart the service."""
+    try:
+        repo_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        result = subprocess.run(
+            ["/usr/bin/git", "pull"], cwd=repo_root,
+            capture_output=True, text=True, timeout=30,
+            env={**os.environ, "PATH": "/usr/bin:/bin:/usr/local/bin"}
+        )
+        if result.returncode != 0:
+            return jsonify({"success": False, "error": result.stderr or result.stdout})
+
+        mode = get_display_mode()
+        subprocess.Popen(
+            ["/usr/bin/sudo", "/usr/bin/systemctl", "restart", "instapi"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        if mode == "hdmi":
+            subprocess.Popen(
+                ["/usr/bin/sudo", "/usr/bin/systemctl", "restart", "instapi-kiosk"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+
+        return jsonify({"success": True, "message": "Updated! Restarting..."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})

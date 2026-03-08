@@ -5,9 +5,10 @@
 # Set PATH since web app context has minimal PATH
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Always use instapi user's home, not root's (since we run with sudo)
-USER_HOME="/home/instapi"
-INSTAPI_DIR="$USER_HOME/instapi"
+# Derive paths from script location (systemd/sudo don't set $HOME reliably)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTAPI_DIR="$(dirname "$SCRIPT_DIR")"
+USER_HOME="$(dirname "$INSTAPI_DIR")"
 
 IMG_FILE="$USER_HOME/usb_drive.img"
 MOUNT_POINT="$USER_HOME/usb_mount"
@@ -20,33 +21,34 @@ echo "DEBUG: PICKER exists: $([ -d "$PHOTOS_DIR/picker" ] && echo yes || echo no
 
 echo "Updating photos on USB drive..."
 
-# Stop the USB gadget (frame will briefly disconnect)
+# Stop the USB gadget (frame needs time to fully deregister the device)
 sudo modprobe -r g_mass_storage 2>/dev/null || true
+sleep 3
+
+# Reformat the FAT32 image (clean filesystem avoids stale FAT entries that confuse frames)
+sudo mkfs.fat -F 32 "$IMG_FILE" > /dev/null
 
 # Create mount point if needed
 mkdir -p "$MOUNT_POINT"
 
-# Mount the disk image
+# Mount the fresh image
 sudo mount -o loop "$IMG_FILE" "$MOUNT_POINT"
 
-# Clear old photos
-rm -f "$MOUNT_POINT"/*.jpg "$MOUNT_POINT"/*.jpeg "$MOUNT_POINT"/*.png 2>/dev/null || true
-
-# Copy new photos (including from picker subdirectory)
+# Copy new photos (including from picker subdirectory, excluding thumbs)
 PHOTO_COUNT=0
 if [ -d "$PHOTOS_DIR" ]; then
     # Copy from main photos dir
-    cp "$PHOTOS_DIR"/*.jpg "$MOUNT_POINT"/ 2>/dev/null && PHOTO_COUNT=$((PHOTO_COUNT + 1))
-    cp "$PHOTOS_DIR"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null
-    cp "$PHOTOS_DIR"/*.png "$MOUNT_POINT"/ 2>/dev/null
-    
+    sudo cp "$PHOTOS_DIR"/*.jpg "$MOUNT_POINT"/ 2>/dev/null && PHOTO_COUNT=$((PHOTO_COUNT + 1))
+    sudo cp "$PHOTOS_DIR"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null
+    sudo cp "$PHOTOS_DIR"/*.png "$MOUNT_POINT"/ 2>/dev/null
+
     # Copy from picker subdirectory
     if [ -d "$PHOTOS_DIR/picker" ]; then
-        cp "$PHOTOS_DIR/picker"/*.jpg "$MOUNT_POINT"/ 2>/dev/null
-        cp "$PHOTOS_DIR/picker"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null
-        cp "$PHOTOS_DIR/picker"/*.png "$MOUNT_POINT"/ 2>/dev/null
+        sudo cp "$PHOTOS_DIR/picker"/*.jpg "$MOUNT_POINT"/ 2>/dev/null
+        sudo cp "$PHOTOS_DIR/picker"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null
+        sudo cp "$PHOTOS_DIR/picker"/*.png "$MOUNT_POINT"/ 2>/dev/null
     fi
-    
+
     PHOTO_COUNT=$(ls -1 "$MOUNT_POINT"/*.jpg "$MOUNT_POINT"/*.jpeg "$MOUNT_POINT"/*.png 2>/dev/null | wc -l)
     echo "Copied $PHOTO_COUNT photos"
 fi
@@ -54,7 +56,7 @@ fi
 if [ "$PHOTO_COUNT" -eq 0 ]; then
     # No photos yet, show QR placeholder
     if [ -f "$QR_PLACEHOLDER" ]; then
-        cp "$QR_PLACEHOLDER" "$MOUNT_POINT"/
+        sudo cp "$QR_PLACEHOLDER" "$MOUNT_POINT"/
     fi
     echo "No photos yet, showing QR code"
 fi

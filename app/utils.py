@@ -7,14 +7,15 @@ from PIL import Image
 from config import (
     device_state,
     PHOTOS_DIR,
-    PICKER_API_BASE_URL
+    PICKER_API_BASE_URL,
+    save_device_state
 )
 
 # Load base URL for watermark QR
 with open("secrets.json") as f:
     _secrets = json.load(f)
     _redirect = _secrets["web"]["redirect_uris"][0]
-    WATERMARK_URL = _redirect.rsplit("/", 1)[0]  # Base URL without path
+    WATERMARK_URL = _redirect.rsplit("/", 1)[0] + "/admin"
 
 
 def add_qr_watermark(image_path):
@@ -28,8 +29,8 @@ def add_qr_watermark(image_path):
         qr.make(fit=True)
         qr_img = qr.make_image(fill_color='black', back_color='white').convert('RGBA')
         
-        # Scale QR - about 4% of width, min 50px
-        qr_size = max(50, img.width // 20)
+        # Scale QR - about 7% of width, min 70px (needs to be large enough to scan with /admin URL)
+        qr_size = max(70, img.width // 14)
         qr_img = qr_img.resize((qr_size, qr_size))
         
         # Make semi-transparent
@@ -62,15 +63,10 @@ def parse_time_value(value, default):
 
 def get_display_mode():
     """Get current display mode from file."""
-    mode_paths = [
-        os.path.expanduser("~/.display_mode"),
-        "/home/instapi/.display_mode",
-        os.path.join(os.path.dirname(__file__), "..", ".display_mode")
-    ]
-    for mode_file in mode_paths:
-        if os.path.exists(mode_file):
-            with open(mode_file) as f:
-                return f.read().strip()
+    mode_file = os.path.join(os.path.dirname(__file__), "..", ".display_mode")
+    if os.path.exists(mode_file):
+        with open(mode_file) as f:
+            return f.read().strip()
     return "hdmi"  # default
 
 def download_and_return_paths(photo_urls, source):
@@ -89,9 +85,13 @@ def download_and_return_paths(photo_urls, source):
     should_watermark = display_mode == "usb"
     print(f"Display mode: {display_mode}, watermarking: {should_watermark}")
 
+    # Use timestamp prefix so each picker session gets unique filenames
+    import time as _time
+    batch_id = int(_time.time())
+
     returned_paths = []
     for i, photo_url in enumerate(photo_urls):
-        filename = f"{source}_{i}.jpg"
+        filename = f"{source}_{batch_id}_{i}.jpg"
         photo_path = os.path.join(subdir, filename)
         if not os.path.exists(photo_path):
             resp = requests.get(photo_url, headers=headers)
@@ -99,6 +99,13 @@ def download_and_return_paths(photo_urls, source):
                 with open(photo_path, "wb") as img_file:
                     img_file.write(resp.content)
                 print(f"{filename} downloaded successfully in {source} folder.")
+                # Generate thumbnail for admin gallery
+                thumb_dir = os.path.join(PHOTOS_DIR, "thumbs")
+                os.makedirs(thumb_dir, exist_ok=True)
+                thumb_path = os.path.join(thumb_dir, filename)
+                thumb_img = Image.open(photo_path)
+                thumb_img.thumbnail((200, 200))
+                thumb_img.save(thumb_path, "JPEG", quality=60)
                 # Add QR watermark only in USB mode (HDMI has persistent overlay)
                 if should_watermark:
                     add_qr_watermark(photo_path)
@@ -106,6 +113,7 @@ def download_and_return_paths(photo_urls, source):
                 print(f"Failed to download {filename}, status code: {resp.status_code}")
         else:
             print(f"{filename} already exists, skipping.")
+        device_state["download_completed"] = i + 1
         returned_paths.append(f"/static/photos/{source}/{filename}")
     return returned_paths
 
@@ -156,14 +164,22 @@ def fetch_and_download_picker_photos(session_id):
                 # Request a large-enough resolution
                 picker_photo_urls.append(item["mediaFile"]["baseUrl"] + "=w2048-h1024")
 
+        # Track download progress for admin UI
+        device_state["downloading"] = True
+        device_state["download_total"] = len(picker_photo_urls)
+        device_state["download_completed"] = 0
+
         picker_paths = download_and_return_paths(picker_photo_urls, "picker")
+
+        device_state["downloading"] = False
 
         photo_list = device_state.get("photo_urls", [])
         photo_list.extend(picker_paths)
         device_state["photo_urls"] = photo_list
-        
+
         # Sync to USB if in USB mode
         sync_photos_to_usb()
+        save_device_state()
     else:
         print("Failed to list media items from picker:", resp_items.status_code, resp_items.text)
 

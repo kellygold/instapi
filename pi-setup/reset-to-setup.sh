@@ -7,14 +7,11 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 set -e
 
-# Always use instapi user's home, not root's (since we run with sudo)
-USER_HOME="/home/instapi"
-
-# Get script directory to find paths dynamically
+# Derive paths from script location (systemd/sudo don't set $HOME reliably)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$(dirname "$SCRIPT_DIR")"
+INSTAPI_DIR="$(dirname "$SCRIPT_DIR")"
+USER_HOME="$(dirname "$INSTAPI_DIR")"
 
-# Dynamic paths
 IMG_FILE="$USER_HOME/usb_drive.img"
 MOUNT_POINT="$USER_HOME/usb_mount"
 QR_PLACEHOLDER="$SCRIPT_DIR/qr-placeholder.jpg"
@@ -25,15 +22,16 @@ echo "Resetting USB image to setup QR..."
 echo "Script dir: $SCRIPT_DIR"
 echo "QR placeholder: $QR_PLACEHOLDER"
 
-# Stop USB gadget
+# Stop USB gadget (frame needs time to fully deregister the device)
 /usr/bin/sudo /sbin/modprobe -r g_mass_storage 2>/dev/null || true
+sleep 3
 
-# Mount the image
+# Reformat the FAT32 image (clean filesystem avoids stale FAT entries that confuse frames)
+/usr/bin/sudo /sbin/mkfs.fat -F 32 "$IMG_FILE" > /dev/null
+
+# Mount the fresh image
 /bin/mkdir -p "$MOUNT_POINT"
 /usr/bin/sudo /bin/mount -o loop "$IMG_FILE" "$MOUNT_POINT"
-
-# Clear all photos
-/usr/bin/sudo /bin/rm -f "$MOUNT_POINT"/*.jpg "$MOUNT_POINT"/*.jpeg "$MOUNT_POINT"/*.png 2>/dev/null || true
 
 # Copy QR placeholder
 if [ -f "$QR_PLACEHOLDER" ]; then
@@ -48,6 +46,6 @@ fi
 /usr/bin/sudo /bin/umount "$MOUNT_POINT"
 
 # Restart USB gadget
-/usr/bin/sudo /sbin/modprobe g_mass_storage file="$IMG_FILE" stall=0 removable=1
+/usr/bin/sudo /sbin/modprobe g_mass_storage file="$IMG_FILE" stall=0 removable=1 ro=0
 
 echo "USB reset complete - frame should show QR code"

@@ -1,25 +1,61 @@
 # main.py
 import os
-import shutil
 from app import app  # Import from app.py to avoid circular imports
-from config import PHOTOS_DIR
+import config
+from config import device_state, save_device_state
 
 # Import route files
 import routes.base_routes
 import routes.picker_routes
 import routes.admin_routes
 
+
+def reconcile_photos():
+    """Rebuild photo_urls from what's actually on disk.
+
+    This ensures the slideshow and admin panel reflect reality after a reboot,
+    even if device_state.json was lost or out of sync.
+    """
+    photos_dir = config.PHOTOS_DIR
+    actual_photos = []
+    if os.path.exists(photos_dir):
+        for root, dirs, files in os.walk(photos_dir):
+            dirs[:] = [d for d in dirs if d != 'thumbs']
+            for f in sorted(files):
+                if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                    rel = os.path.relpath(os.path.join(root, f), os.path.dirname(photos_dir))
+                    actual_photos.append(f"/static/{rel}")
+
+    if actual_photos:
+        device_state["photo_urls"] = actual_photos
+        device_state["done"] = True
+        device_state["photos_chosen"] = True
+        save_device_state()
+        print(f"Reconciled {len(actual_photos)} photos from disk")
+
+        # Backfill thumbnails for photos that predate this feature
+        thumb_dir = os.path.join(photos_dir, "thumbs")
+        os.makedirs(thumb_dir, exist_ok=True)
+        for photo_url in actual_photos:
+            filename = os.path.basename(photo_url)
+            rel = photo_url.replace("/static/", "")
+            original = os.path.join(os.path.dirname(photos_dir), rel)
+            thumb = os.path.join(thumb_dir, filename)
+            if not os.path.exists(thumb) and os.path.exists(original):
+                from PIL import Image
+                img = Image.open(original)
+                img.thumbnail((200, 200))
+                img.save(thumb, "JPEG", quality=60)
+                print(f"Generated thumbnail for {filename}")
+    elif not device_state.get("photo_urls"):
+        device_state["done"] = False
+        print("No photos on disk")
+
+
 if __name__ == "__main__":
-    # Clear photos directory on startup
-    if os.path.exists(PHOTOS_DIR):
-        for f in os.listdir(PHOTOS_DIR):
-            full_path = os.path.join(PHOTOS_DIR, f)
-            if os.path.isfile(full_path):
-                os.remove(full_path)
-            else:
-                shutil.rmtree(full_path)
-    else:
-        os.makedirs(PHOTOS_DIR, exist_ok=True)
+    # Ensure photos directory exists (but never clear it — photos must survive reboots)
+    os.makedirs(config.PHOTOS_DIR, exist_ok=True)
+    reconcile_photos()
 
     port = int(os.environ.get("PORT", 3000))
     print(f"Starting app on port {port}")

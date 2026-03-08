@@ -55,7 +55,11 @@ def index():
 @app.route("/auth")
 def auth():
     """Direct auth - skip setup page, go straight to Google."""
-    device_state.clear()
+    # Clear only auth-related state, preserve existing photos
+    device_state.pop("credentials", None)
+    device_state.pop("auth_url", None)
+    device_state.pop("picking_session_id", None)
+    device_state.pop("picker_url", None)
     flow = Flow.from_client_secrets_file(
         "secrets.json",
         scopes=SCOPES,
@@ -104,22 +108,12 @@ def oauth2callback():
 
 @app.route("/choose_mode_qr")
 def choose_mode_qr():
-    """QR to link user to choose_mode on phone."""
-    choose_mode_url = f"{BASE_URL}/choose_mode"
+    """QR to link user to admin panel for managing photos."""
+    auth_url = f"{BASE_URL}/admin"
     img_io = io.BytesIO()
-    img = qrcode.make(choose_mode_url)
+    img = qrcode.make(auth_url)
     img.save(img_io, 'PNG')
     img_io.seek(0)
     return send_file(img_io, mimetype='image/png')
-
-
-@app.route("/wait_for_photos", methods=["GET"])
-def wait_for_photos():
-    """Show the transitional page with a QR/link to continue setup."""
-    if "credentials" not in device_state:
-        return redirect(url_for("index"))
-
-    choose_mode_url = f"{BASE_URL}/choose_mode"
-    return render_template("select_photos.html", choose_mode_url=choose_mode_url)
 
 # Debug route list is printed in main.py after all imports
