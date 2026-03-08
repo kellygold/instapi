@@ -22,8 +22,9 @@ def admin():
     photo_count = 0
     if os.path.exists(PHOTOS_DIR):
         for root, dirs, files in os.walk(PHOTOS_DIR):
+            dirs[:] = [d for d in dirs if d != 'thumbs']
             photo_count += len([f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))])
-    
+
     # Check display mode
     display_mode = get_display_mode()
     
@@ -53,37 +54,6 @@ def admin():
     
     return render_template("admin.html", photo_count=photo_count, auth_url=auth_url, display_mode=display_mode)
 
-
-@app.route("/admin/delete_photos", methods=["POST"])
-def delete_photos():
-    """Delete all downloaded photos."""
-    try:
-        if os.path.exists(PHOTOS_DIR):
-            for item in os.listdir(PHOTOS_DIR):
-                item_path = os.path.join(PHOTOS_DIR, item)
-                if os.path.isdir(item_path):
-                    shutil.rmtree(item_path)
-                elif item != '.gitkeep':
-                    os.remove(item_path)
-        device_state["photo_urls"] = []
-        device_state["done"] = False
-        save_device_state()
-
-        # Reset the frame display too
-        mode = get_display_mode()
-        if mode == "usb":
-            script_path = os.path.join(os.path.dirname(__file__), "..", "..", "pi-setup", "reset-to-setup.sh")
-            if os.path.exists(script_path):
-                subprocess.run(["/bin/bash", script_path], capture_output=True, timeout=30)
-        elif mode == "hdmi":
-            subprocess.Popen(
-                ["/usr/bin/sudo", "/usr/bin/systemctl", "restart", "instapi-kiosk"],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
-
-        return jsonify({"success": True, "reload": True})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
 
 
 @app.route("/admin/git_pull", methods=["POST"])
@@ -181,6 +151,15 @@ def sync_usb():
 def reset_to_setup():
     """Reset to setup screen - behavior depends on display mode."""
     try:
+        # Delete all photos and thumbnails from disk
+        if os.path.exists(PHOTOS_DIR):
+            for item in os.listdir(PHOTOS_DIR):
+                item_path = os.path.join(PHOTOS_DIR, item)
+                if os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+                elif item != '.gitkeep':
+                    os.remove(item_path)
+
         # Clear app state
         device_state.clear()
         save_device_state()
@@ -253,6 +232,7 @@ def get_storage_info():
         photos_size = 0
         if os.path.exists(PHOTOS_DIR):
             for root, dirs, files in os.walk(PHOTOS_DIR):
+                dirs[:] = [d for d in dirs if d != 'thumbs']
                 for f in files:
                     photos_size += os.path.getsize(os.path.join(root, f))
         
@@ -278,8 +258,9 @@ def system_info():
     photo_count = 0
     if os.path.exists(PHOTOS_DIR):
         for root, dirs, files in os.walk(PHOTOS_DIR):
+            dirs[:] = [d for d in dirs if d != 'thumbs']
             photo_count += len([f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))])
-    
+
     return jsonify({
         "ip_address": get_local_ip(),
         "uptime": get_uptime(),
@@ -295,12 +276,14 @@ def list_photos():
     photos = []
     if os.path.exists(PHOTOS_DIR):
         for root, dirs, files in os.walk(PHOTOS_DIR):
+            dirs[:] = [d for d in dirs if d != 'thumbs']
             for f in files:
                 if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')) and f != '.gitkeep':
                     full_path = os.path.join(root, f)
                     rel_path = os.path.relpath(full_path, os.path.dirname(PHOTOS_DIR))
                     photos.append({
                         "path": f"/static/{rel_path}",
+                        "thumb": f"/static/photos/thumbs/{f}",
                         "name": f,
                         "size": os.path.getsize(full_path)
                     })
@@ -328,6 +311,10 @@ def delete_single_photo():
         
         if os.path.exists(file_path):
             os.remove(file_path)
+            # Also delete thumbnail
+            thumb_path = os.path.join(PHOTOS_DIR, "thumbs", os.path.basename(file_path))
+            if os.path.exists(thumb_path):
+                os.remove(thumb_path)
             # Also remove from device_state if present
             if "photo_urls" in device_state:
                 url_path = photo_path

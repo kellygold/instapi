@@ -20,6 +20,7 @@ def reconcile_photos():
     actual_photos = []
     if os.path.exists(photos_dir):
         for root, dirs, files in os.walk(photos_dir):
+            dirs[:] = [d for d in dirs if d != 'thumbs']
             for f in sorted(files):
                 if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
                     rel = os.path.relpath(os.path.join(root, f), os.path.dirname(photos_dir))
@@ -31,6 +32,21 @@ def reconcile_photos():
         device_state["photos_chosen"] = True
         save_device_state()
         print(f"Reconciled {len(actual_photos)} photos from disk")
+
+        # Backfill thumbnails for photos that predate this feature
+        thumb_dir = os.path.join(photos_dir, "thumbs")
+        os.makedirs(thumb_dir, exist_ok=True)
+        for photo_url in actual_photos:
+            filename = os.path.basename(photo_url)
+            rel = photo_url.replace("/static/", "")
+            original = os.path.join(os.path.dirname(photos_dir), rel)
+            thumb = os.path.join(thumb_dir, filename)
+            if not os.path.exists(thumb) and os.path.exists(original):
+                from PIL import Image
+                img = Image.open(original)
+                img.thumbnail((200, 200))
+                img.save(thumb, "JPEG", quality=60)
+                print(f"Generated thumbnail for {filename}")
     elif not device_state.get("photo_urls"):
         device_state["done"] = False
         print("No photos on disk")

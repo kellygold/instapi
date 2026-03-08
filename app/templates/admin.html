@@ -254,6 +254,16 @@
             padding: 60px 20px;
             color: #666;
             font-size: 1.1em;
+            line-height: 1.6;
+        }
+
+        .photo-grid.empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            max-height: none;
+            overflow-y: visible;
+            min-height: 160px;
         }
 
         /* Action Items */
@@ -673,7 +683,7 @@
             <div class="grid-controls">
                 <span class="grid-photo-count" id="gridPhotoCount"></span>
                 <button class="size-btn" onclick="setGridSize('compact')" id="sizeCompact">Small</button>
-                <button class="size-btn active" onclick="setGridSize('normal')" id="sizeNormal">Normal</button>
+                <button class="size-btn active" onclick="setGridSize('normal')" id="sizeNormal">Large</button>
             </div>
             <div class="photo-grid" id="photoGrid">
                 <div class="no-photos">Loading photos...</div>
@@ -688,13 +698,13 @@
                     </div>
                     <a href="{{ auth_url }}" target="_blank" class="action-btn primary">Select Photos</a>
                 </div>
-                <div class="action-item">
-                    <div class="action-icon red">🗑️</div>
+                <div class="action-item" id="syncAction" style="display: none;">
+                    <div class="action-icon purple">🔄</div>
                     <div class="action-content">
-                        <h3>Delete All Photos</h3>
-                        <p>Remove all photos and reset the frame</p>
+                        <h3>Sync Frame</h3>
+                        <p>Push photo changes to the USB frame</p>
                     </div>
-                    <button class="action-btn danger" onclick="deleteAllPhotos()">Delete All</button>
+                    <button class="action-btn secondary" onclick="syncFrame()" id="syncBtn">Sync Now</button>
                 </div>
             </div>
         </div>
@@ -841,6 +851,8 @@
         // State
         let lastPhotoCount = 0;
         let isDownloading = false;
+        let needsSync = false;
+        let currentDisplayMode = 'hdmi';
 
         // Confirm modal (replaces browser confirm())
         function showConfirm(message, isDanger = true) {
@@ -885,6 +897,7 @@
                 document.getElementById('storageFree').textContent = data.storage.free_gb + ' GB';
                 document.getElementById('uptime').textContent = data.uptime;
                 document.getElementById('ipAddress').textContent = data.ip_address;
+                currentDisplayMode = data.display_mode || 'hdmi';
             } catch (e) {
                 console.error('Failed to load system info:', e);
             }
@@ -901,13 +914,15 @@
                     photos.length > 0 ? `${photos.length} photos` : '';
 
                 if (photos.length === 0) {
+                    grid.classList.add('empty');
                     grid.innerHTML = '<div class="no-photos">No photos yet.<br>Tap "Select Photos" below to get started!</div>';
                     return;
                 }
 
+                grid.classList.remove('empty');
                 grid.innerHTML = photos.map(photo => `
                     <div class="photo-thumb">
-                        <img src="${photo.path}" alt="${photo.name}" loading="lazy">
+                        <img src="${photo.thumb}" alt="${photo.name}" loading="lazy">
                         <button class="delete-btn" onclick="deletePhoto('${photo.path}')" title="Delete">×</button>
                     </div>
                 `).join('');
@@ -999,6 +1014,10 @@
                     showToast('Photo deleted');
                     loadPhotos();
                     loadSystemInfo();
+                    if (currentDisplayMode === 'usb') {
+                        needsSync = true;
+                        document.getElementById('syncAction').style.display = '';
+                    }
                 } else {
                     showToast(data.error || 'Failed to delete', true);
                 }
@@ -1007,22 +1026,26 @@
             }
         }
 
-        // Delete all photos
-        async function deleteAllPhotos() {
-            if (!await showConfirm('Delete ALL photos and reset the frame? This cannot be undone.')) return;
+        // Sync photos to USB frame
+        async function syncFrame() {
+            const btn = document.getElementById('syncBtn');
+            btn.textContent = 'Syncing...';
+            btn.disabled = true;
             try {
-                const resp = await fetch('/admin/delete_photos', { method: 'POST' });
+                const resp = await fetch('/admin/sync_usb', { method: 'POST' });
                 const data = await resp.json();
                 if (data.success) {
-                    showToast('All photos deleted. Frame reset.');
-                    loadPhotos();
-                    loadSystemInfo();
+                    showToast('Frame synced!');
+                    needsSync = false;
+                    document.getElementById('syncAction').style.display = 'none';
                 } else {
-                    showToast(data.error || 'Failed to delete', true);
+                    showToast(data.error || 'Sync failed', true);
                 }
             } catch (e) {
-                showToast('Failed to delete photos', true);
+                showToast('Sync failed', true);
             }
+            btn.textContent = 'Sync Now';
+            btn.disabled = false;
         }
 
         // Reset to setup

@@ -99,6 +99,13 @@ def download_and_return_paths(photo_urls, source):
                 with open(photo_path, "wb") as img_file:
                     img_file.write(resp.content)
                 print(f"{filename} downloaded successfully in {source} folder.")
+                # Generate thumbnail for admin gallery
+                thumb_dir = os.path.join(PHOTOS_DIR, "thumbs")
+                os.makedirs(thumb_dir, exist_ok=True)
+                thumb_path = os.path.join(thumb_dir, filename)
+                thumb_img = Image.open(photo_path)
+                thumb_img.thumbnail((200, 200))
+                thumb_img.save(thumb_path, "JPEG", quality=60)
                 # Add QR watermark only in USB mode (HDMI has persistent overlay)
                 if should_watermark:
                     add_qr_watermark(photo_path)
