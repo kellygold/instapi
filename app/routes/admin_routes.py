@@ -10,9 +10,10 @@ from utils import get_display_mode
 
 MODE_FILE = os.path.join(os.path.dirname(__file__), "..", "..", ".display_mode")
 
-def get_redirect_uri():
-    """Get OAuth redirect URI based on current request."""
-    return request.url_root.rstrip('/') + '/oauth2callback'
+# Load fallback redirect URI from secrets.json (used when dynamic detection yields HTTP non-localhost)
+import json
+with open("secrets.json") as _f:
+    _FALLBACK_REDIRECT_URI = json.load(_f)["web"]["redirect_uris"][0]
 
 
 @app.route("/admin")
@@ -44,6 +45,9 @@ def admin():
         base_url = request.url_root.rstrip('/')
     
     redirect_uri = base_url + '/oauth2callback'
+    # Google requires HTTPS for non-localhost redirect URIs
+    if redirect_uri.startswith("http://") and "localhost" not in redirect_uri:
+        redirect_uri = _FALLBACK_REDIRECT_URI
     print(f"DEBUG: Host={forwarded_host}, redirect_uri={redirect_uri}")
     flow = Flow.from_client_secrets_file(
         "secrets.json",
