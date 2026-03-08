@@ -156,35 +156,25 @@
 
         /* Photo Grid */
         .photo-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            grid-auto-rows: 90px;
+            gap: 6px;
             margin-bottom: 24px;
             max-height: 60vh;
             overflow-y: auto;
             padding: 8px;
             background: rgba(0,0,0,0.2);
             border-radius: 12px;
-            min-height: 120px;
-            align-content: flex-start;
-        }
-
-        .photo-grid .photo-thumb {
-            width: 95px;
-            height: 95px;
-            flex-shrink: 0;
         }
 
         .photo-grid.compact {
-            gap: 4px;
+            grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+            grid-auto-rows: 50px;
+            gap: 3px;
         }
 
-        .photo-grid.compact .photo-thumb {
-            width: 52px;
-            height: 52px;
-        }
-
-        .photo-grid.compact .photo-thumb .delete-btn {
+        .photo-grid.compact .delete-btn {
             width: 16px;
             height: 16px;
             font-size: 10px;
@@ -222,6 +212,7 @@
             position: relative;
             border-radius: 6px;
             overflow: hidden;
+            /* No aspect-ratio — grid-auto-rows controls height */
         }
 
         .photo-thumb img {
@@ -229,6 +220,10 @@
             height: 100%;
             object-fit: cover;
             display: block;
+        }
+
+        .no-photos {
+            grid-column: 1 / -1;
         }
 
         .photo-thumb .delete-btn {
@@ -259,7 +254,6 @@
             padding: 60px 20px;
             color: #666;
             font-size: 1.1em;
-            width: 100%;
         }
 
         /* Action Items */
