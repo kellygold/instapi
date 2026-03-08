@@ -5,9 +5,10 @@
 # Set PATH since web app context has minimal PATH
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Always use instapi user's home, not root's (since we run with sudo)
-USER_HOME="/home/instapi"
-INSTAPI_DIR="$USER_HOME/instapi"
+# Derive paths from script location (systemd/sudo don't set $HOME reliably)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTAPI_DIR="$(dirname "$SCRIPT_DIR")"
+USER_HOME="$(dirname "$INSTAPI_DIR")"
 
 IMG_FILE="$USER_HOME/usb_drive.img"
 MOUNT_POINT="$USER_HOME/usb_mount"

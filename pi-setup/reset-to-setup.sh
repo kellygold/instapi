@@ -7,14 +7,11 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 set -e
 
-# Always use instapi user's home, not root's (since we run with sudo)
-USER_HOME="/home/instapi"
-
-# Get script directory to find paths dynamically
+# Derive paths from script location (systemd/sudo don't set $HOME reliably)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$(dirname "$SCRIPT_DIR")"
+INSTAPI_DIR="$(dirname "$SCRIPT_DIR")"
+USER_HOME="$(dirname "$INSTAPI_DIR")"
 
-# Dynamic paths
 IMG_FILE="$USER_HOME/usb_drive.img"
 MOUNT_POINT="$USER_HOME/usb_mount"
 QR_PLACEHOLDER="$SCRIPT_DIR/qr-placeholder.jpg"
