@@ -1,7 +1,8 @@
 # main.py
 import os
 from app import app  # Import from app.py to avoid circular imports
-from config import PHOTOS_DIR, device_state, save_device_state
+import config
+from config import device_state, save_device_state
 
 # Import route files
 import routes.base_routes
@@ -15,12 +16,13 @@ def reconcile_photos():
     This ensures the slideshow and admin panel reflect reality after a reboot,
     even if device_state.json was lost or out of sync.
     """
+    photos_dir = config.PHOTOS_DIR
     actual_photos = []
-    if os.path.exists(PHOTOS_DIR):
-        for root, dirs, files in os.walk(PHOTOS_DIR):
+    if os.path.exists(photos_dir):
+        for root, dirs, files in os.walk(photos_dir):
             for f in sorted(files):
                 if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                    rel = os.path.relpath(os.path.join(root, f), os.path.dirname(PHOTOS_DIR))
+                    rel = os.path.relpath(os.path.join(root, f), os.path.dirname(photos_dir))
                     actual_photos.append(f"/static/{rel}")
 
     if actual_photos:
@@ -36,7 +38,7 @@ def reconcile_photos():
 
 if __name__ == "__main__":
     # Ensure photos directory exists (but never clear it — photos must survive reboots)
-    os.makedirs(PHOTOS_DIR, exist_ok=True)
+    os.makedirs(config.PHOTOS_DIR, exist_ok=True)
     reconcile_photos()
 
     port = int(os.environ.get("PORT", 3000))
