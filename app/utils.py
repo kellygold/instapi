@@ -15,7 +15,7 @@ from config import (
 with open("secrets.json") as f:
     _secrets = json.load(f)
     _redirect = _secrets["web"]["redirect_uris"][0]
-    WATERMARK_URL = _redirect.rsplit("/", 1)[0]  # Base URL without path
+    WATERMARK_URL = _redirect.rsplit("/", 1)[0] + "/admin"
 
 
 def add_qr_watermark(image_path):
