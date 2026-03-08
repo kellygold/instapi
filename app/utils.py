@@ -63,15 +63,10 @@ def parse_time_value(value, default):
 
 def get_display_mode():
     """Get current display mode from file."""
-    mode_paths = [
-        os.path.expanduser("~/.display_mode"),
-        "/home/instapi/.display_mode",
-        os.path.join(os.path.dirname(__file__), "..", ".display_mode")
-    ]
-    for mode_file in mode_paths:
-        if os.path.exists(mode_file):
-            with open(mode_file) as f:
-                return f.read().strip()
+    mode_file = os.path.join(os.path.dirname(__file__), "..", ".display_mode")
+    if os.path.exists(mode_file):
+        with open(mode_file) as f:
+            return f.read().strip()
     return "hdmi"  # default
 
 def download_and_return_paths(photo_urls, source):
