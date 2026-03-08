@@ -2,9 +2,10 @@
 # Start USB Mass Storage Gadget
 # Called by systemd on boot
 
-# Use $HOME for reliable path resolution
-USER_HOME="$HOME"
-INSTAPI_DIR="$USER_HOME/instapi"
+# Derive paths from script location (systemd doesn't set $HOME reliably)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTAPI_DIR="$(dirname "$SCRIPT_DIR")"
+USER_HOME="$(dirname "$INSTAPI_DIR")"
 
 IMG_FILE="$USER_HOME/usb_drive.img"
 MOUNT_POINT="$USER_HOME/usb_mount"
