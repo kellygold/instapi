@@ -25,12 +25,12 @@ echo "QR placeholder: $QR_PLACEHOLDER"
 # Stop USB gadget
 /usr/bin/sudo /sbin/modprobe -r g_mass_storage 2>/dev/null || true
 
-# Mount the image
+# Reformat the FAT32 image (clean filesystem avoids stale FAT entries that confuse frames)
+/usr/bin/sudo /sbin/mkfs.fat -F 32 "$IMG_FILE" > /dev/null
+
+# Mount the fresh image
 /bin/mkdir -p "$MOUNT_POINT"
 /usr/bin/sudo /bin/mount -o loop "$IMG_FILE" "$MOUNT_POINT"
-
-# Clear all photos
-/usr/bin/sudo /bin/rm -f "$MOUNT_POINT"/*.jpg "$MOUNT_POINT"/*.jpeg "$MOUNT_POINT"/*.png 2>/dev/null || true
 
 # Copy QR placeholder
 if [ -f "$QR_PLACEHOLDER" ]; then
@@ -45,6 +45,6 @@ fi
 /usr/bin/sudo /bin/umount "$MOUNT_POINT"
 
 # Restart USB gadget
-/usr/bin/sudo /sbin/modprobe g_mass_storage file="$IMG_FILE" stall=0 removable=1
+/usr/bin/sudo /sbin/modprobe g_mass_storage file="$IMG_FILE" stall=0 removable=1 ro=0
 
 echo "USB reset complete - frame should show QR code"

@@ -24,14 +24,14 @@ echo "Updating photos on USB drive..."
 # Stop the USB gadget (frame will briefly disconnect)
 sudo modprobe -r g_mass_storage 2>/dev/null || true
 
+# Reformat the FAT32 image (clean filesystem avoids stale FAT entries that confuse frames)
+sudo mkfs.fat -F 32 "$IMG_FILE" > /dev/null
+
 # Create mount point if needed
 mkdir -p "$MOUNT_POINT"
 
-# Mount the disk image
+# Mount the fresh image
 sudo mount -o loop "$IMG_FILE" "$MOUNT_POINT"
-
-# Clear old photos
-sudo rm -f "$MOUNT_POINT"/*.jpg "$MOUNT_POINT"/*.jpeg "$MOUNT_POINT"/*.png 2>/dev/null || true
 
 # Copy new photos (including from picker subdirectory, excluding thumbs)
 PHOTO_COUNT=0
