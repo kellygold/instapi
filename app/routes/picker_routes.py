@@ -8,8 +8,7 @@ from utils import (
     parse_time_value,
     poll_for_media_items,
     fetch_picker_photos,
-    download_and_return_paths,
-    get_display_mode
+    download_and_return_paths
 )
 import requests
 
@@ -76,15 +75,8 @@ def finalize_selection():
 
 @app.route("/done")
 def done():
-    """User sees success message, or redirect to slideshow if HDMI mode."""
-    mode = get_display_mode()
-    
-    # HDMI mode: redirect to slideshow (browser IS the frame)
-    # USB mode: show done page (user is on phone, frame is separate)
-    if mode == "hdmi" and device_state.get("photo_urls"):
-        return redirect(url_for("slideshow"))
-    
-    return render_template("done.html")
+    """Redirect to admin panel after photo selection."""
+    return redirect(url_for("admin"))
 
 
 @app.route("/slideshow")

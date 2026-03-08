@@ -102,6 +102,7 @@ def download_and_return_paths(photo_urls, source):
                 print(f"Failed to download {filename}, status code: {resp.status_code}")
         else:
             print(f"{filename} already exists, skipping.")
+        device_state["download_completed"] = i + 1
         returned_paths.append(f"/static/photos/{source}/{filename}")
     return returned_paths
 
@@ -152,12 +153,19 @@ def fetch_and_download_picker_photos(session_id):
                 # Request a large-enough resolution
                 picker_photo_urls.append(item["mediaFile"]["baseUrl"] + "=w2048-h1024")
 
+        # Track download progress for admin UI
+        device_state["downloading"] = True
+        device_state["download_total"] = len(picker_photo_urls)
+        device_state["download_completed"] = 0
+
         picker_paths = download_and_return_paths(picker_photo_urls, "picker")
+
+        device_state["downloading"] = False
 
         photo_list = device_state.get("photo_urls", [])
         photo_list.extend(picker_paths)
         device_state["photo_urls"] = photo_list
-        
+
         # Sync to USB if in USB mode
         sync_photos_to_usb()
         save_device_state()

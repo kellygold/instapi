@@ -112,6 +112,51 @@ def test_admin_delete_photo_rejects_bad_path(app_client):
     assert "Invalid" in data["error"]
 
 
+def test_download_status_default(app_client):
+    """Should return not-downloading state by default."""
+    resp = app_client.get("/admin/download_status")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["downloading"] is False
+    assert data["download_total"] == 0
+    assert data["download_completed"] == 0
+    assert data["photo_count"] == 0
+
+
+def test_download_status_during_download(app_client):
+    """Should reflect download progress from device_state."""
+    import config
+    config.device_state["downloading"] = True
+    config.device_state["download_total"] = 10
+    config.device_state["download_completed"] = 3
+
+    resp = app_client.get("/admin/download_status")
+    data = resp.get_json()
+    assert data["downloading"] is True
+    assert data["download_total"] == 10
+    assert data["download_completed"] == 3
+
+
+def test_done_redirects_to_admin(app_client):
+    """The /done route should redirect to /admin."""
+    resp = app_client.get("/done")
+    assert resp.status_code == 302
+    assert "/admin" in resp.headers["Location"]
+
+
+def test_delete_all_sets_done_false(app_client):
+    """Deleting all photos should set done=False."""
+    import config
+    config.device_state["done"] = True
+    config.device_state["photo_urls"] = ["/static/photos/test.jpg"]
+
+    resp = app_client.post("/admin/delete_photos")
+    data = resp.get_json()
+    assert data["success"] is True
+    assert config.device_state["done"] is False
+    assert config.device_state["photo_urls"] == []
+
+
 def test_get_next_photos_empty(app_client):
     """Should return empty list when no photos."""
     resp = app_client.get("/get_next_photos")

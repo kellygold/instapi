@@ -6,7 +6,7 @@
     <title>InstaPi Admin</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(-45deg, #0a0a0a, #1a472a, #0d3320, #000000);
@@ -122,6 +122,36 @@
             font-size: 0.9em;
             margin-bottom: 20px;
             line-height: 1.5;
+        }
+
+        /* Download Progress */
+        .download-progress {
+            background: rgba(74, 222, 128, 0.1);
+            border: 1px solid rgba(74, 222, 128, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .progress-text {
+            font-size: 0.9em;
+            color: #4ade80;
+            margin-bottom: 8px;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #4ade80;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+            width: 0%;
         }
 
         /* Photo Grid */
@@ -313,6 +343,22 @@
             background: #1a1a1a;
         }
 
+        .settings-disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .settings-note {
+            color: #888;
+            font-size: 0.85em;
+            font-style: italic;
+            margin-bottom: 16px;
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            border-left: 3px solid rgba(168, 85, 247, 0.5);
+        }
+
         /* Toggle Switch */
         .toggle-row {
             display: flex;
@@ -378,6 +424,34 @@
             transform: translateX(22px);
         }
 
+        /* Collapsible System Section */
+        details.section {
+            cursor: default;
+        }
+
+        details.section > summary {
+            cursor: pointer;
+            list-style: none;
+        }
+
+        details.section > summary::-webkit-details-marker {
+            display: none;
+        }
+
+        details.section > summary .section-header {
+            cursor: pointer;
+        }
+
+        details.section > summary .chevron {
+            margin-left: auto;
+            transition: transform 0.2s;
+            color: #666;
+        }
+
+        details.section[open] > summary .chevron {
+            transform: rotate(90deg);
+        }
+
         /* Status Toast */
         .toast {
             position: fixed;
@@ -408,7 +482,7 @@
             color: #fff;
         }
 
-        /* Back Link */
+        /* Footer */
         .footer {
             text-align: center;
             margin-top: 30px;
@@ -432,6 +506,7 @@
             .header .mode-badge { margin-left: 0; margin-top: 10px; }
             .action-item { flex-wrap: wrap; }
             .action-btn { width: 100%; text-align: center; margin-top: 10px; }
+            .photo-thumb .delete-btn { opacity: 0.8; }
         }
     </style>
 </head>
@@ -477,7 +552,13 @@
                 <h2>Photo Management</h2>
             </div>
             <p class="section-desc">View and manage photos on your frame. Add new photos from Google Photos or remove existing ones.</p>
-            
+
+            <!-- Download Progress (hidden by default) -->
+            <div class="download-progress" id="downloadProgress" style="display: none;">
+                <div class="progress-text" id="progressText">Downloading photos...</div>
+                <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+            </div>
+
             <div class="photo-grid" id="photoGrid">
                 <div class="no-photos">Loading photos...</div>
             </div>
@@ -491,21 +572,11 @@
                     </div>
                     <a href="{{ auth_url }}" target="_blank" class="action-btn primary">Select Photos</a>
                 </div>
-                {% if display_mode == 'usb' %}
-                <div class="action-item">
-                    <div class="action-icon purple">🔄</div>
-                    <div class="action-content">
-                        <h3>Sync to USB</h3>
-                        <p>Copy photos to USB drive for display on external frame</p>
-                    </div>
-                    <button class="action-btn secondary" onclick="syncUsb()">Sync Now</button>
-                </div>
-                {% endif %}
                 <div class="action-item">
                     <div class="action-icon red">🗑️</div>
                     <div class="action-content">
                         <h3>Delete All Photos</h3>
-                        <p>Remove all photos from the frame (cannot be undone)</p>
+                        <p>Remove all photos and reset the frame</p>
                     </div>
                     <button class="action-btn danger" onclick="deleteAllPhotos()">Delete All</button>
                 </div>
@@ -518,117 +589,117 @@
                 <span class="icon">🎬</span>
                 <h2>Slideshow Settings</h2>
             </div>
-            <p class="section-desc">Customize how your photos are displayed during the slideshow.</p>
 
-            <div class="settings-grid">
-                <div class="setting-item">
-                    <label>Slide Duration</label>
-                    <select id="slideDuration" onchange="saveSetting('slide_duration', this.value)">
-                        <option value="3">3 seconds</option>
-                        <option value="5">5 seconds</option>
-                        <option value="10">10 seconds</option>
-                        <option value="15">15 seconds</option>
-                        <option value="30">30 seconds</option>
-                        <option value="60">1 minute</option>
-                    </select>
-                </div>
-                <div class="setting-item">
-                    <label>Transition Style</label>
-                    <select id="transition" onchange="saveSetting('transition', this.value)">
-                        <option value="fade">Fade</option>
-                        <option value="slide">Slide</option>
-                        <option value="zoom">Zoom</option>
-                    </select>
-                </div>
-            </div>
+            {% if display_mode == 'usb' %}
+            <p class="settings-note">Slideshow settings are for HDMI mode. Your USB photo frame uses its own built-in slideshow.</p>
+            {% else %}
+            <p class="section-desc">Customize how your photos are displayed. Changes take effect within 10 seconds.</p>
+            {% endif %}
 
-            <div style="margin-top: 20px;">
-                <div class="toggle-row">
-                    <div class="toggle-label">
-                        Shuffle Photos
-                        <span>Display photos in random order</span>
+            <div {% if display_mode == 'usb' %}class="settings-disabled"{% endif %}>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label>Slide Duration</label>
+                        <select id="slideDuration" onchange="saveSetting('slide_duration', this.value)">
+                            <option value="3">3 seconds</option>
+                            <option value="5">5 seconds</option>
+                            <option value="10">10 seconds</option>
+                            <option value="15">15 seconds</option>
+                            <option value="30">30 seconds</option>
+                            <option value="60">1 minute</option>
+                        </select>
                     </div>
-                    <label class="toggle">
-                        <input type="checkbox" id="shuffle" onchange="saveSetting('shuffle', this.checked)">
-                        <span class="toggle-slider"></span>
-                    </label>
+                    <div class="setting-item">
+                        <label>Transition Style</label>
+                        <select id="transition" onchange="saveSetting('transition', this.value)">
+                            <option value="fade">Fade</option>
+                            <option value="slide">Slide</option>
+                            <option value="zoom">Zoom</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="toggle-row">
-                    <div class="toggle-label">
-                        Ken Burns Effect
-                        <span>Subtle pan and zoom animation on photos</span>
+
+                <div style="margin-top: 20px;">
+                    <div class="toggle-row">
+                        <div class="toggle-label">
+                            Shuffle Photos
+                            <span>Display photos in random order</span>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="shuffle" onchange="saveSetting('shuffle', this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
                     </div>
-                    <label class="toggle">
-                        <input type="checkbox" id="kenBurns" onchange="saveSetting('ken_burns', this.checked)">
-                        <span class="toggle-slider"></span>
-                    </label>
+                    <div class="toggle-row">
+                        <div class="toggle-label">
+                            Ken Burns Effect
+                            <span>Subtle pan and zoom animation on photos</span>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="kenBurns" onchange="saveSetting('ken_burns', this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Display Section -->
+        <!-- Frame Controls -->
         <div class="section">
             <div class="section-header">
                 <span class="icon">🖼️</span>
-                <h2>Display Controls</h2>
+                <h2>Frame Controls</h2>
             </div>
-            <p class="section-desc">Control the slideshow and reset the frame to its initial setup state.</p>
 
             <div class="action-list">
                 <div class="action-item">
                     <div class="action-icon green">▶️</div>
                     <div class="action-content">
-                        <h3>Start Slideshow</h3>
-                        <p>Begin displaying your photos in fullscreen</p>
+                        <h3>Preview Slideshow</h3>
+                        <p>See how your photos look in the slideshow</p>
                     </div>
-                    <a href="/slideshow" class="action-btn primary">Start</a>
+                    <a href="/slideshow" class="action-btn primary">Preview</a>
                 </div>
                 <div class="action-item">
                     <div class="action-icon orange">↩️</div>
                     <div class="action-content">
-                        <h3>Reset to Setup</h3>
-                        <p>Clear photos and return to QR code setup screen</p>
+                        <h3>Factory Reset</h3>
+                        <p>Clear everything and return to setup screen</p>
                     </div>
                     <button class="action-btn secondary" onclick="resetToSetup()">Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- System (collapsible) -->
+        <details class="section">
+            <summary>
+                <div class="section-header">
+                    <span class="icon">⚙️</span>
+                    <h2>System</h2>
+                    <span class="chevron">▶</span>
+                </div>
+            </summary>
+
+            <div class="action-list" style="margin-top: 16px;">
+                <div class="action-item">
+                    <div class="action-icon blue">⬇️</div>
+                    <div class="action-content">
+                        <h3>Update & Restart</h3>
+                        <p>Download latest version and restart the app</p>
+                    </div>
+                    <button class="action-btn secondary" onclick="updateAndRestart()">Update</button>
                 </div>
                 <div class="action-item">
                     <div class="action-icon blue">🔧</div>
                     <div class="action-content">
                         <h3>Switch Mode</h3>
-                        <p>Currently: <strong>{{ display_mode|upper }}</strong> — Toggle between USB and HDMI display modes</p>
+                        <p>Currently: <strong>{{ display_mode|upper }}</strong> — Toggle between USB and HDMI</p>
                     </div>
                     <button class="action-btn secondary" onclick="switchMode()">Switch to {{ 'USB' if display_mode == 'hdmi' else 'HDMI' }}</button>
                 </div>
             </div>
-        </div>
-
-        <!-- System Section -->
-        <div class="section">
-            <div class="section-header">
-                <span class="icon">⚙️</span>
-                <h2>System</h2>
-            </div>
-            <p class="section-desc">Update software and restart the frame service.</p>
-
-            <div class="action-list">
-                <div class="action-item">
-                    <div class="action-icon blue">⬇️</div>
-                    <div class="action-content">
-                        <h3>Pull Updates</h3>
-                        <p>Download the latest version from GitHub</p>
-                    </div>
-                    <button class="action-btn secondary" onclick="gitPull()">Update</button>
-                </div>
-                <div class="action-item">
-                    <div class="action-icon orange">🔄</div>
-                    <div class="action-content">
-                        <h3>Restart App</h3>
-                        <p>Restart the InstaPi service to apply updates</p>
-                    </div>
-                    <button class="action-btn secondary" onclick="restartService()">Restart</button>
-                </div>
-            </div>
-        </div>
+        </details>
 
         <!-- Footer -->
         <div class="footer">
@@ -640,6 +711,10 @@
     <div id="toast" class="toast"></div>
 
     <script>
+        // State
+        let lastPhotoCount = 0;
+        let isDownloading = false;
+
         // Toast notification
         function showToast(message, isError = false) {
             const toast = document.getElementById('toast');
@@ -669,9 +744,9 @@
                 const resp = await fetch('/admin/photos');
                 const photos = await resp.json();
                 const grid = document.getElementById('photoGrid');
-                
+
                 if (photos.length === 0) {
-                    grid.innerHTML = '<div class="no-photos">No photos yet.<br>Click "Select Photos" below to add some!</div>';
+                    grid.innerHTML = '<div class="no-photos">No photos yet.<br>Tap "Select Photos" below to get started!</div>';
                     return;
                 }
 
@@ -719,6 +794,42 @@
             }
         }
 
+        // Poll for download status
+        async function pollDownloadStatus() {
+            try {
+                const resp = await fetch('/admin/download_status');
+                const status = await resp.json();
+
+                // Show/hide progress bar
+                const progressEl = document.getElementById('downloadProgress');
+                if (status.downloading) {
+                    progressEl.style.display = 'block';
+                    const pct = status.download_total > 0
+                        ? Math.round((status.download_completed / status.download_total) * 100)
+                        : 0;
+                    document.getElementById('progressFill').style.width = pct + '%';
+                    document.getElementById('progressText').textContent =
+                        `Downloading photo ${status.download_completed + 1} of ${status.download_total}...`;
+                    isDownloading = true;
+                } else {
+                    progressEl.style.display = 'none';
+                    if (isDownloading && status.done) {
+                        isDownloading = false;
+                        showToast(`${status.photo_count} photos ready!`);
+                    }
+                }
+
+                // Refresh grid when photo count changes
+                if (status.photo_count !== lastPhotoCount) {
+                    lastPhotoCount = status.photo_count;
+                    loadPhotos();
+                    loadSystemInfo();
+                }
+            } catch (e) {
+                // Silently fail -- server might be restarting
+            }
+        }
+
         // Delete single photo
         async function deletePhoto(path) {
             if (!confirm('Delete this photo?')) return;
@@ -743,12 +854,12 @@
 
         // Delete all photos
         async function deleteAllPhotos() {
-            if (!confirm('Delete ALL photos? This cannot be undone.')) return;
+            if (!confirm('Delete ALL photos and reset the frame? This cannot be undone.')) return;
             try {
                 const resp = await fetch('/admin/delete_photos', { method: 'POST' });
                 const data = await resp.json();
                 if (data.success) {
-                    showToast('All photos deleted');
+                    showToast('All photos deleted. Frame reset.');
                     loadPhotos();
                     loadSystemInfo();
                 } else {
@@ -759,33 +870,16 @@
             }
         }
 
-        // Sync USB
-        async function syncUsb() {
-            showToast('Syncing to USB...');
-            try {
-                const resp = await fetch('/admin/sync_usb', { method: 'POST' });
-                const data = await resp.json();
-                if (data.success) {
-                    showToast('Photos synced to USB');
-                } else {
-                    showToast(data.error || 'Sync failed', true);
-                }
-            } catch (e) {
-                showToast('Sync failed', true);
-            }
-        }
-
         // Reset to setup
         async function resetToSetup() {
-            if (!confirm('Reset frame to setup screen?')) return;
+            if (!confirm('Factory reset? This will clear all photos and return the frame to setup.')) return;
             try {
                 const resp = await fetch('/admin/reset', { method: 'POST' });
                 const data = await resp.json();
                 if (data.success) {
-                    showToast(data.message);
-                    if (data.redirect) {
-                        setTimeout(() => window.location.href = '/', 1500);
-                    }
+                    showToast('Frame has been reset');
+                    loadPhotos();
+                    loadSystemInfo();
                 } else {
                     showToast(data.error || 'Reset failed', true);
                 }
@@ -798,8 +892,8 @@
         async function switchMode() {
             const currentMode = '{{ display_mode }}';
             const newMode = currentMode === 'hdmi' ? 'usb' : 'hdmi';
-            if (!confirm(`Switch to ${newMode.toUpperCase()} mode? A restart will be required.`)) return;
-            
+            if (!confirm(`Switch to ${newMode.toUpperCase()} mode? The app will restart.`)) return;
+
             try {
                 const resp = await fetch('/admin/switch_mode', {
                     method: 'POST',
@@ -818,39 +912,43 @@
             }
         }
 
-        // Git pull
-        async function gitPull() {
-            showToast('Pulling updates...');
+        // Update & Restart (combined)
+        async function updateAndRestart() {
+            if (!confirm('Update and restart InstaPi?')) return;
+            showToast('Updating...');
             try {
-                const resp = await fetch('/admin/git_pull', { method: 'POST' });
+                const resp = await fetch('/admin/update_and_restart', { method: 'POST' });
                 const data = await resp.json();
                 if (data.success) {
-                    showToast('Updates pulled! Restart to apply.');
+                    showToast('Updated! Restarting...');
+                    setTimeout(() => location.reload(), 4000);
                 } else {
-                    showToast(data.error || 'Pull failed', true);
+                    showToast(data.error || 'Update failed', true);
                 }
             } catch (e) {
-                showToast('Pull failed', true);
+                // Server probably restarted mid-request
+                showToast('Restarting...');
+                setTimeout(() => location.reload(), 4000);
             }
         }
 
-        // Restart service
-        async function restartService() {
-            if (!confirm('Restart InstaPi? The page will reload.')) return;
-            showToast('Restarting...');
-            try {
-                await fetch('/admin/restart', { method: 'POST' });
-                setTimeout(() => location.reload(), 3000);
-            } catch (e) {
-                setTimeout(() => location.reload(), 3000);
-            }
-        }
-
-        // Initialize
+        // Initialize + start polling
         document.addEventListener('DOMContentLoaded', () => {
             loadSystemInfo();
             loadPhotos();
             loadSettings();
+            lastPhotoCount = parseInt(document.getElementById('photoCount').textContent) || 0;
+
+            // Poll for download progress every 2 seconds
+            setInterval(pollDownloadStatus, 2000);
+        });
+
+        // Refresh when tab regains focus (e.g., after picking photos in another tab)
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                loadPhotos();
+                loadSystemInfo();
+            }
         });
     </script>
 </body>

@@ -68,6 +68,19 @@ def delete_photos():
         device_state["photo_urls"] = []
         device_state["done"] = False
         save_device_state()
+
+        # Reset the frame display too
+        mode = get_display_mode()
+        if mode == "usb":
+            script_path = os.path.join(os.path.dirname(__file__), "..", "..", "pi-setup", "reset-to-setup.sh")
+            if os.path.exists(script_path):
+                subprocess.run(["/bin/bash", script_path], capture_output=True, timeout=30)
+        elif mode == "hdmi":
+            subprocess.Popen(
+                ["/usr/bin/sudo", "/usr/bin/systemctl", "restart", "instapi-kiosk"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+
         return jsonify({"success": True, "reload": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
@@ -378,5 +391,46 @@ def switch_mode():
             "mode": new_mode,
             "message": f"Mode switched to {new_mode.upper()}. Restart required for full effect."
         })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/admin/download_status")
+def download_status():
+    """Return current photo download progress."""
+    return jsonify({
+        "downloading": device_state.get("downloading", False),
+        "download_total": device_state.get("download_total", 0),
+        "download_completed": device_state.get("download_completed", 0),
+        "done": device_state.get("done", False),
+        "photo_count": len(device_state.get("photo_urls", []))
+    })
+
+
+@app.route("/admin/update_and_restart", methods=["POST"])
+def update_and_restart():
+    """Pull latest code and restart the service."""
+    try:
+        repo_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        result = subprocess.run(
+            ["/usr/bin/git", "pull"], cwd=repo_root,
+            capture_output=True, text=True, timeout=30,
+            env={**os.environ, "PATH": "/usr/bin:/bin:/usr/local/bin"}
+        )
+        if result.returncode != 0:
+            return jsonify({"success": False, "error": result.stderr or result.stdout})
+
+        mode = get_display_mode()
+        subprocess.Popen(
+            ["/usr/bin/sudo", "/usr/bin/systemctl", "restart", "instapi"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        if mode == "hdmi":
+            subprocess.Popen(
+                ["/usr/bin/sudo", "/usr/bin/systemctl", "restart", "instapi-kiosk"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+
+        return jsonify({"success": True, "message": "Updated! Restarting..."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
