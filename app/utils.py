@@ -7,7 +7,8 @@ from PIL import Image
 from config import (
     device_state,
     PHOTOS_DIR,
-    PICKER_API_BASE_URL
+    PICKER_API_BASE_URL,
+    save_device_state
 )
 
 # Load base URL for watermark QR
@@ -164,6 +165,7 @@ def fetch_and_download_picker_photos(session_id):
         
         # Sync to USB if in USB mode
         sync_photos_to_usb()
+        save_device_state()
     else:
         print("Failed to list media items from picker:", resp_items.status_code, resp_items.text)
 

@@ -4,7 +4,7 @@ import subprocess
 import socket
 from flask import render_template, jsonify, request
 from app import app
-from config import device_state, SCOPES, PHOTOS_DIR, load_slideshow_config, save_slideshow_config
+from config import device_state, SCOPES, PHOTOS_DIR, load_slideshow_config, save_slideshow_config, save_device_state
 from google_auth_oauthlib.flow import Flow
 from utils import get_display_mode
 
@@ -65,6 +65,9 @@ def delete_photos():
                     shutil.rmtree(item_path)
                 elif item != '.gitkeep':
                     os.remove(item_path)
+        device_state["photo_urls"] = []
+        device_state["done"] = False
+        save_device_state()
         return jsonify({"success": True, "reload": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
@@ -167,6 +170,7 @@ def reset_to_setup():
     try:
         # Clear app state
         device_state.clear()
+        save_device_state()
         
         # Check which mode we're in
         mode = get_display_mode()
@@ -316,6 +320,7 @@ def delete_single_photo():
                 url_path = photo_path
                 if url_path in device_state["photo_urls"]:
                     device_state["photo_urls"].remove(url_path)
+            save_device_state()
             return jsonify({"success": True})
         else:
             return jsonify({"success": False, "error": "File not found"})
