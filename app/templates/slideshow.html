@@ -103,6 +103,11 @@
 
         .qr-corner:hover .qr-label { opacity: 1; }
 
+        /* Hide overlay QR on mobile (phone preview doesn't need it) */
+        @media (max-width: 800px) {
+            .qr-corner { display: none; }
+        }
+
         /* Settings indicator */
         .settings-indicator {
             position: absolute;

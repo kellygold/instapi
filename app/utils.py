@@ -85,9 +85,13 @@ def download_and_return_paths(photo_urls, source):
     should_watermark = display_mode == "usb"
     print(f"Display mode: {display_mode}, watermarking: {should_watermark}")
 
+    # Use timestamp prefix so each picker session gets unique filenames
+    import time as _time
+    batch_id = int(_time.time())
+
     returned_paths = []
     for i, photo_url in enumerate(photo_urls):
-        filename = f"{source}_{i}.jpg"
+        filename = f"{source}_{batch_id}_{i}.jpg"
         photo_path = os.path.join(subdir, filename)
         if not os.path.exists(photo_path):
             resp = requests.get(photo_url, headers=headers)

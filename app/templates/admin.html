@@ -160,12 +160,49 @@
             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
             gap: 12px;
             margin-bottom: 24px;
-            max-height: 400px;
+            max-height: 500px;
             overflow-y: auto;
             padding: 8px;
             background: rgba(0,0,0,0.2);
             border-radius: 12px;
             min-height: 200px;
+        }
+
+        .photo-grid.compact {
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 6px;
+        }
+
+        .photo-grid.compact .photo-thumb .delete-btn {
+            width: 18px;
+            height: 18px;
+            font-size: 11px;
+        }
+
+        /* Grid size toggle */
+        .grid-controls {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .size-btn {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #888;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 0.75em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .size-btn.active {
+            background: rgba(74, 222, 128, 0.2);
+            border-color: rgba(74, 222, 128, 0.3);
+            color: #4ade80;
         }
 
         .photo-thumb {
@@ -559,6 +596,10 @@
                 <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
             </div>
 
+            <div class="grid-controls">
+                <button class="size-btn" onclick="setGridSize('compact')" id="sizeCompact">Small</button>
+                <button class="size-btn active" onclick="setGridSize('normal')" id="sizeNormal">Normal</button>
+            </div>
             <div class="photo-grid" id="photoGrid">
                 <div class="no-photos">Loading photos...</div>
             </div>
@@ -591,12 +632,12 @@
             </div>
 
             {% if display_mode == 'usb' %}
-            <p class="settings-note">Slideshow settings are for HDMI mode. Your USB photo frame uses its own built-in slideshow.</p>
+            <p class="settings-note">These settings control the slideshow preview. Your USB photo frame uses its own built-in slideshow.</p>
             {% else %}
-            <p class="section-desc">Customize how your photos are displayed. Changes take effect within 10 seconds.</p>
+            <p class="section-desc">Customize how your photos are displayed on the frame. Changes take effect within 10 seconds.</p>
             {% endif %}
 
-            <div {% if display_mode == 'usb' %}class="settings-disabled"{% endif %}>
+            <div>
                 <div class="settings-grid">
                     <div class="setting-item">
                         <label>Slide Duration</label>
@@ -932,12 +973,25 @@
             }
         }
 
+        // Grid size toggle
+        function setGridSize(size) {
+            const grid = document.getElementById('photoGrid');
+            grid.classList.toggle('compact', size === 'compact');
+            document.getElementById('sizeCompact').classList.toggle('active', size === 'compact');
+            document.getElementById('sizeNormal').classList.toggle('active', size === 'normal');
+        }
+
         // Initialize + start polling
         document.addEventListener('DOMContentLoaded', () => {
             loadSystemInfo();
             loadPhotos();
             loadSettings();
             lastPhotoCount = parseInt(document.getElementById('photoCount').textContent) || 0;
+
+            // Default to compact grid on mobile
+            if (window.innerWidth <= 600) {
+                setGridSize('compact');
+            }
 
             // Poll for download progress every 2 seconds
             setInterval(pollDownloadStatus, 2000);
