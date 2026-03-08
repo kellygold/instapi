@@ -21,8 +21,9 @@ echo "DEBUG: PICKER exists: $([ -d "$PHOTOS_DIR/picker" ] && echo yes || echo no
 
 echo "Updating photos on USB drive..."
 
-# Stop the USB gadget (frame will briefly disconnect)
+# Stop the USB gadget (frame needs time to fully deregister the device)
 sudo modprobe -r g_mass_storage 2>/dev/null || true
+sleep 3
 
 # Reformat the FAT32 image (clean filesystem avoids stale FAT entries that confuse frames)
 sudo mkfs.fat -F 32 "$IMG_FILE" > /dev/null

@@ -22,8 +22,9 @@ echo "Resetting USB image to setup QR..."
 echo "Script dir: $SCRIPT_DIR"
 echo "QR placeholder: $QR_PLACEHOLDER"
 
-# Stop USB gadget
+# Stop USB gadget (frame needs time to fully deregister the device)
 /usr/bin/sudo /sbin/modprobe -r g_mass_storage 2>/dev/null || true
+sleep 3
 
 # Reformat the FAT32 image (clean filesystem avoids stale FAT entries that confuse frames)
 /usr/bin/sudo /sbin/mkfs.fat -F 32 "$IMG_FILE" > /dev/null
