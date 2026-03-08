@@ -104,22 +104,12 @@ def oauth2callback():
 
 @app.route("/choose_mode_qr")
 def choose_mode_qr():
-    """QR to link user to choose_mode on phone."""
-    choose_mode_url = f"{BASE_URL}/choose_mode"
+    """QR to link user to auth flow for adding more photos."""
+    auth_url = f"{BASE_URL}/auth"
     img_io = io.BytesIO()
-    img = qrcode.make(choose_mode_url)
+    img = qrcode.make(auth_url)
     img.save(img_io, 'PNG')
     img_io.seek(0)
     return send_file(img_io, mimetype='image/png')
-
-
-@app.route("/wait_for_photos", methods=["GET"])
-def wait_for_photos():
-    """Show the transitional page with a QR/link to continue setup."""
-    if "credentials" not in device_state:
-        return redirect(url_for("index"))
-
-    choose_mode_url = f"{BASE_URL}/choose_mode"
-    return render_template("select_photos.html", choose_mode_url=choose_mode_url)
 
 # Debug route list is printed in main.py after all imports

@@ -12,7 +12,7 @@ PICKER_API_BASE_URL = "https://photospicker.googleapis.com/v1"
 
 device_state = {}
 
-PHOTOS_DIR = os.path.join(os.getcwd(), 'static', 'photos')
+PHOTOS_DIR = os.path.join(os.path.dirname(__file__), 'static', 'photos')
 
 # Slideshow config
 SLIDESHOW_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'slideshow_config.json')

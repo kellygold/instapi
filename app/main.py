@@ -1,6 +1,5 @@
 # main.py
 import os
-import shutil
 from app import app  # Import from app.py to avoid circular imports
 from config import PHOTOS_DIR
 
@@ -10,16 +9,8 @@ import routes.picker_routes
 import routes.admin_routes
 
 if __name__ == "__main__":
-    # Clear photos directory on startup
-    if os.path.exists(PHOTOS_DIR):
-        for f in os.listdir(PHOTOS_DIR):
-            full_path = os.path.join(PHOTOS_DIR, f)
-            if os.path.isfile(full_path):
-                os.remove(full_path)
-            else:
-                shutil.rmtree(full_path)
-    else:
-        os.makedirs(PHOTOS_DIR, exist_ok=True)
+    # Ensure photos directory exists (but never clear it — photos must survive reboots)
+    os.makedirs(PHOTOS_DIR, exist_ok=True)
 
     port = int(os.environ.get("PORT", 3000))
     print(f"Starting app on port {port}")

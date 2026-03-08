@@ -4,11 +4,11 @@ import subprocess
 import socket
 from flask import render_template, jsonify, request
 from app import app
-from config import device_state, SCOPES, load_slideshow_config, save_slideshow_config
+from config import device_state, SCOPES, PHOTOS_DIR, load_slideshow_config, save_slideshow_config
 from google_auth_oauthlib.flow import Flow
 from utils import get_display_mode
 
-PHOTOS_DIR = os.path.join(os.path.dirname(__file__), "..", "static", "photos")
+MODE_FILE = os.path.join(os.path.dirname(__file__), "..", "..", ".display_mode")
 
 def get_redirect_uri():
     """Get OAuth redirect URI based on current request."""
@@ -116,10 +116,9 @@ def restart_service():
     """Restart the instapi service (and kiosk if HDMI mode)."""
     try:
         # Check which mode we're in
-        mode_file = os.path.join(os.path.dirname(__file__), "..", "..", ".display_mode")
         mode = "hdmi"  # default
-        if os.path.exists(mode_file):
-            with open(mode_file) as f:
+        if os.path.exists(MODE_FILE):
+            with open(MODE_FILE) as f:
                 mode = f.read().strip()
         
         # Restart the flask app service
