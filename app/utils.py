@@ -29,8 +29,8 @@ def add_qr_watermark(image_path):
         qr.make(fit=True)
         qr_img = qr.make_image(fill_color='black', back_color='white').convert('RGBA')
         
-        # Scale QR - about 4% of width, min 50px
-        qr_size = max(50, img.width // 20)
+        # Scale QR - about 7% of width, min 70px (needs to be large enough to scan with /admin URL)
+        qr_size = max(70, img.width // 14)
         qr_img = qr_img.resize((qr_size, qr_size))
         
         # Make semi-transparent
