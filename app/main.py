@@ -8,6 +8,7 @@ from config import device_state, save_device_state
 import routes.base_routes
 import routes.picker_routes
 import routes.admin_routes
+import routes.upload_routes
 
 
 def reconcile_photos():
@@ -56,6 +57,13 @@ if __name__ == "__main__":
     # Ensure photos directory exists (but never clear it — photos must survive reboots)
     os.makedirs(config.PHOTOS_DIR, exist_ok=True)
     reconcile_photos()
+
+    # Generate upload token if not set
+    if not device_state.get("upload_token"):
+        import secrets
+        device_state["upload_token"] = secrets.token_urlsafe(6)
+        save_device_state()
+        print(f"Generated upload token: {device_state['upload_token']}")
 
     # Start album auto-sync if we have a refresh token
     if device_state.get("refresh_token"):

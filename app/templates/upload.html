@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Add Photos — InstaPi</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-deep: #060d08;
+            --bg-card: rgba(255,255,255,0.04);
+            --green-glow: #4ade80;
+            --green-mid: #22c55e;
+            --green-dark: #15803d;
+            --text-primary: #f0fdf4;
+            --text-secondary: #86efac;
+            --text-muted: rgba(255,255,255,0.45);
+            --border-subtle: rgba(74, 222, 128, 0.12);
+            --radius: 20px;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Ambient background glow */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -40%;
+            left: -20%;
+            width: 140%;
+            height: 140%;
+            background:
+                radial-gradient(ellipse at 30% 20%, rgba(74, 222, 128, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(34, 197, 94, 0.04) 0%, transparent 50%);
+            animation: ambientShift 20s ease-in-out infinite alternate;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes ambientShift {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(-5%, 3%) scale(1.1); }
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 32px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            animation: fadeUp 0.6s ease both;
+        }
+
+        .logo {
+            width: 72px;
+            height: 72px;
+            border-radius: 18px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 40px rgba(74, 222, 128, 0.2);
+        }
+
+        .header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            max-width: 280px;
+            margin: 0 auto;
+        }
+
+        /* Upload zone */
+        .upload-zone {
+            width: 100%;
+            border: 2px dashed var(--border-subtle);
+            border-radius: var(--radius);
+            padding: 48px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--bg-card);
+            position: relative;
+            overflow: hidden;
+            animation: fadeUp 0.6s ease 0.15s both;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .upload-zone:hover, .upload-zone:active {
+            border-color: rgba(74, 222, 128, 0.4);
+            background: rgba(74, 222, 128, 0.06);
+            transform: scale(1.01);
+        }
+
+        .upload-zone.dragging {
+            border-color: var(--green-glow);
+            background: rgba(74, 222, 128, 0.1);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            display: block;
+            animation: gentleBounce 3s ease-in-out infinite;
+        }
+
+        @keyframes gentleBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+
+        .upload-zone h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+        }
+
+        .upload-zone p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            font-size: 200px; /* ensures full tap area on mobile */
+        }
+
+        /* Progress state */
+        .progress-state {
+            display: none;
+            width: 100%;
+            text-align: center;
+            animation: fadeUp 0.4s ease both;
+        }
+
+        .progress-state.active { display: block; }
+
+        .progress-ring-container {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 20px;
+        }
+
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+
+        .progress-ring-bg {
+            fill: none;
+            stroke: rgba(255,255,255,0.06);
+            stroke-width: 6;
+        }
+
+        .progress-ring-fill {
+            fill: none;
+            stroke: var(--green-glow);
+            stroke-width: 6;
+            stroke-linecap: round;
+            stroke-dasharray: 264;
+            stroke-dashoffset: 264;
+            transition: stroke-dashoffset 0.3s ease;
+            filter: drop-shadow(0 0 8px rgba(74, 222, 128, 0.4));
+        }
+
+        .progress-pct {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        .progress-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* Success state */
+        .success-state {
+            display: none;
+            width: 100%;
+            text-align: center;
+            animation: fadeUp 0.4s ease both;
+        }
+
+        .success-state.active { display: block; }
+
+        .success-check {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--green-mid), var(--green-dark));
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            box-shadow: 0 0 40px rgba(74, 222, 128, 0.3);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .success-state h2 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .success-state p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+
+        .btn-add-more {
+            display: inline-block;
+            padding: 14px 32px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn-add-more:hover, .btn-add-more:active {
+            background: rgba(74, 222, 128, 0.1);
+            border-color: rgba(74, 222, 128, 0.3);
+        }
+
+        /* Error toast */
+        .error-toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: rgba(239, 68, 68, 0.95);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            z-index: 100;
+            opacity: 0;
+            transition: all 0.3s ease;
+            max-width: 90%;
+        }
+
+        .error-toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 16px;
+            text-align: center;
+            animation: fadeUp 0.6s ease 0.3s both;
+        }
+
+        .footer a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.75rem;
+            transition: color 0.2s;
+        }
+
+        .footer a:hover { color: var(--text-secondary); }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <img src="/static/instapi_logo_full.jpg" alt="InstaPi" class="logo">
+            <h1>Add Photos</h1>
+            <p>Pick photos from your camera roll to add to the frame</p>
+        </div>
+
+        <!-- Upload zone -->
+        <div class="upload-zone" id="uploadZone">
+            <span class="upload-icon">📷</span>
+            <h2>Tap to select photos</h2>
+            <p>Choose one or many from your camera roll</p>
+            <input type="file" id="fileInput" accept="image/*" multiple>
+        </div>
+
+        <!-- Progress -->
+        <div class="progress-state" id="progressState">
+            <div class="progress-ring-container">
+                <svg class="progress-ring" width="100" height="100" viewBox="0 0 100 100">
+                    <circle class="progress-ring-bg" cx="50" cy="50" r="42"/>
+                    <circle class="progress-ring-fill" id="progressRing" cx="50" cy="50" r="42"/>
+                </svg>
+                <div class="progress-pct" id="progressPct">0%</div>
+            </div>
+            <p class="progress-label" id="progressLabel">Uploading photos...</p>
+        </div>
+
+        <!-- Success -->
+        <div class="success-state" id="successState">
+            <div class="success-check">✓</div>
+            <h2 id="successTitle">Photos added!</h2>
+            <p id="successSubtitle">They'll appear on the frame shortly.</p>
+            <button class="btn-add-more" onclick="resetUpload()">Add More Photos</button>
+        </div>
+
+        <div class="footer">
+            <a href="https://instapi.dev">instapi.dev</a>
+        </div>
+    </div>
+
+    <div class="error-toast" id="errorToast"></div>
+
+    <script>
+        const token = '{{ token }}';
+        const fileInput = document.getElementById('fileInput');
+        const uploadZone = document.getElementById('uploadZone');
+        const progressState = document.getElementById('progressState');
+        const successState = document.getElementById('successState');
+        const progressRing = document.getElementById('progressRing');
+        const progressPct = document.getElementById('progressPct');
+        const progressLabel = document.getElementById('progressLabel');
+
+        fileInput.addEventListener('change', handleFiles);
+
+        function handleFiles() {
+            const files = fileInput.files;
+            if (!files.length) return;
+
+            // Switch to progress state
+            uploadZone.style.display = 'none';
+            progressState.classList.add('active');
+            progressLabel.textContent = `Uploading ${files.length} photo${files.length > 1 ? 's' : ''}...`;
+
+            const formData = new FormData();
+            formData.append('t', token);
+            for (const file of files) {
+                formData.append('photos', file);
+            }
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `/upload?t=${encodeURIComponent(token)}`);
+
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const pct = Math.round((e.loaded / e.total) * 100);
+                    setProgress(pct);
+                }
+            });
+
+            xhr.addEventListener('load', () => {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    if (data.success) {
+                        showSuccess(data.count);
+                    } else {
+                        showError(data.error || 'Upload failed');
+                        resetUpload();
+                    }
+                } catch (e) {
+                    showError('Upload failed');
+                    resetUpload();
+                }
+            });
+
+            xhr.addEventListener('error', () => {
+                showError('Connection lost. Try again.');
+                resetUpload();
+            });
+
+            xhr.send(formData);
+        }
+
+        function setProgress(pct) {
+            const circumference = 2 * Math.PI * 42;
+            const offset = circumference - (pct / 100) * circumference;
+            progressRing.style.strokeDashoffset = offset;
+            progressPct.textContent = `${pct}%`;
+        }
+
+        function showSuccess(count) {
+            progressState.classList.remove('active');
+            successState.classList.add('active');
+            document.getElementById('successTitle').textContent =
+                `${count} photo${count > 1 ? 's' : ''} added!`;
+        }
+
+        function showError(msg) {
+            const toast = document.getElementById('errorToast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function resetUpload() {
+            fileInput.value = '';
+            uploadZone.style.display = '';
+            progressState.classList.remove('active');
+            successState.classList.remove('active');
+            setProgress(0);
+        }
+    </script>
+</body>
+</html>
