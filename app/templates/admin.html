@@ -986,13 +986,14 @@
             }
         }
 
-        // Poll for download status
-        async function pollDownloadStatus() {
+        // Download status polling (only runs when needed)
+        let pollTimer = null;
+
+        async function checkDownloadStatus() {
             try {
                 const resp = await fetch('/admin/download_status');
                 const status = await resp.json();
 
-                // Show/hide progress bar
                 const progressEl = document.getElementById('downloadProgress');
                 if (status.downloading) {
                     progressEl.style.display = 'block';
@@ -1003,22 +1004,34 @@
                     document.getElementById('progressText').textContent =
                         `Downloading photo ${status.download_completed + 1} of ${status.download_total}...`;
                     isDownloading = true;
+                    // Keep polling while downloading
+                    pollTimer = setTimeout(checkDownloadStatus, 2000);
                 } else {
                     progressEl.style.display = 'none';
-                    if (isDownloading && status.done) {
+                    if (isDownloading) {
                         isDownloading = false;
                         showToast(`${status.photo_count} photos ready!`);
+                        loadPhotos();
+                        loadSystemInfo();
                     }
-                }
-
-                // Refresh grid when photo count changes
-                if (status.photo_count !== lastPhotoCount) {
-                    lastPhotoCount = status.photo_count;
-                    loadPhotos();
-                    loadSystemInfo();
+                    // Refresh grid if photo count changed
+                    if (status.photo_count !== lastPhotoCount) {
+                        lastPhotoCount = status.photo_count;
+                        loadPhotos();
+                        loadSystemInfo();
+                    }
+                    // Not downloading — stop polling
+                    pollTimer = null;
                 }
             } catch (e) {
-                // Silently fail -- server might be restarting
+                // Server might be restarting — stop polling
+                pollTimer = null;
+            }
+        }
+
+        function startPolling() {
+            if (!pollTimer) {
+                pollTimer = setTimeout(checkDownloadStatus, 500);
             }
         }
 
@@ -1152,8 +1165,6 @@
                 setGridSize('compact');
             }
 
-            // Poll for download progress every 2 seconds
-            setInterval(pollDownloadStatus, 2000);
         });
 
         // Refresh when tab regains focus (e.g., after picking photos in another tab)
@@ -1161,6 +1172,7 @@
             if (!document.hidden) {
                 loadPhotos();
                 loadSystemInfo();
+                startPolling();
             }
         });
     </script>
