@@ -56,7 +56,8 @@ def admin():
     )
     auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
     
-    return render_template("admin.html", photo_count=photo_count, auth_url=auth_url, display_mode=display_mode)
+    upload_token = device_state.get("upload_token", "")
+    return render_template("admin.html", photo_count=photo_count, auth_url=auth_url, display_mode=display_mode, upload_token=upload_token)
 
 
 

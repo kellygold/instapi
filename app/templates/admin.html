@@ -726,11 +726,18 @@
             </div>
 
             <div class="action-list">
+                <a href="/upload?t={{ upload_token }}" class="action-item" style="text-decoration: none; color: inherit;">
+                    <div class="action-icon green">📷</div>
+                    <div class="action-content">
+                        <h3>Upload Photos</h3>
+                        <p>From camera roll</p>
+                    </div>
+                </a>
                 <a href="{{ auth_url }}" target="_blank" class="action-item" style="text-decoration: none; color: inherit;">
                     <div class="action-icon green">➕</div>
                     <div class="action-content">
-                        <h3>Add Photos</h3>
-                        <p>From Google Photos</p>
+                        <h3>Google Photos Picker</h3>
+                        <p>Select from Google Photos</p>
                     </div>
                 </a>
                 <div class="action-item sync-needed" id="syncAction" style="display: none;">
