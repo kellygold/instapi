@@ -12,6 +12,7 @@ from config import SCOPES, device_state, save_device_state
 import os
 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 
 # Load redirect URI from secrets.json and derive base URL
 with open("secrets.json") as f:
@@ -106,8 +107,10 @@ def oauth2callback():
         # Immediately create picker session and redirect to picker
         return redirect(url_for("launch_picker"))
     except Exception as e:
-        print("Error exchanging token:", e)
-        return "Failed to exchange token.", 500
+        import traceback
+        print(f"Error exchanging token: {e}")
+        traceback.print_exc()
+        return f"Failed to exchange token: {e}", 500
 
 
 @app.route("/choose_mode_qr")
