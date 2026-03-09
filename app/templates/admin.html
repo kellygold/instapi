@@ -639,6 +639,153 @@
             color: #fff;
         }
 
+        /* Help button */
+        .help-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.05);
+            color: #888;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 10px;
+        }
+
+        .help-btn:hover {
+            background: rgba(74, 222, 128, 0.15);
+            border-color: rgba(74, 222, 128, 0.3);
+            color: #4ade80;
+        }
+
+        /* Help overlay */
+        .help-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 3000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .help-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .help-content {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 24px;
+            padding-top: 60px;
+        }
+
+        .help-close {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #ccc;
+            font-size: 1.3em;
+            cursor: pointer;
+            z-index: 3001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .help-close:hover { background: rgba(255,255,255,0.2); }
+
+        .help-content h2 {
+            font-size: 1.6em;
+            margin-bottom: 24px;
+            background: linear-gradient(90deg, #4ade80, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .help-section {
+            margin-bottom: 24px;
+        }
+
+        .help-section h3 {
+            font-size: 1.05em;
+            color: #4ade80;
+            margin-bottom: 8px;
+        }
+
+        .help-section p {
+            color: #aaa;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        .help-divider {
+            border: none;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin: 20px 0;
+        }
+
+        /* Tooltip */
+        .tip {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            color: #666;
+            font-size: 0.65em;
+            font-weight: 700;
+            cursor: help;
+            margin-left: 6px;
+            vertical-align: middle;
+            flex-shrink: 0;
+        }
+
+        .tip::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a1a2e;
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #ccc;
+            font-size: 12px;
+            font-weight: 400;
+            padding: 8px 12px;
+            border-radius: 8px;
+            white-space: normal;
+            width: 200px;
+            text-align: center;
+            line-height: 1.4;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 100;
+        }
+
+        .tip:hover::after, .tip:active::after {
+            opacity: 1;
+        }
+
         /* Footer */
         .footer {
             text-align: center;
@@ -676,6 +823,7 @@
                 <h1>InstaPi Admin</h1>
             </div>
             <div class="mode-badge {{ display_mode }}">{{ display_mode }} Mode</div>
+            <button class="help-btn" onclick="document.getElementById('helpOverlay').classList.add('show')" title="Help">?</button>
         </div>
 
         <!-- System Info Bar -->
@@ -743,7 +891,7 @@
                 <div class="action-item sync-needed" id="syncAction" style="display: none;">
                     <div class="action-icon orange">🔄</div>
                     <div class="action-content">
-                        <h3>Frame out of sync</h3>
+                        <h3>Frame out of sync <span class="tip" data-tip="The USB frame still has the old photos. Tap Sync Now to update it with your changes.">?</span></h3>
                         <p>Tap to update the frame with your changes</p>
                     </div>
                     <button class="action-btn secondary" onclick="syncFrame()" id="syncBtn">Sync Now</button>
@@ -816,7 +964,7 @@
         <div class="section" id="autoSyncSection">
             <div class="section-header">
                 <span class="icon">🔄</span>
-                <h2>Auto-Sync</h2>
+                <h2>Auto-Sync <span class="tip" data-tip="Link a Google Photos album to your frame. New photos sync automatically every 30 minutes.">?</span></h2>
             </div>
             <div id="syncNotConnected">
                 <p class="section-desc">Connect your Google Photos to automatically sync an album to your frame. Photos you add to the album will appear on the frame within 30 minutes.</p>
@@ -915,6 +1063,73 @@
             <div class="modal-actions">
                 <button class="modal-btn cancel" id="confirmCancel">Cancel</button>
                 <button class="modal-btn confirm-danger" id="confirmOk">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Overlay -->
+    <div id="helpOverlay" class="help-overlay" onclick="if(event.target===this)this.classList.remove('show')">
+        <button class="help-close" onclick="document.getElementById('helpOverlay').classList.remove('show')">×</button>
+        <div class="help-content">
+            <h2>InstaPi Guide</h2>
+
+            <div class="help-section">
+                <h3>📷 Upload Photos</h3>
+                <p>The easiest way to add photos. Tap "Upload Photos" to pick images from your camera roll. Works from any device — iPhone, Android, or computer. Share the upload link with family so they can add photos too.</p>
+            </div>
+
+            <hr class="help-divider">
+
+            <div class="help-section">
+                <h3>➕ Google Photos Picker</h3>
+                <p>Select photos directly from your Google Photos library. Requires signing in with Google each time. Best for picking specific photos you've already organized in Google Photos.</p>
+            </div>
+
+            <hr class="help-divider">
+
+            <div class="help-section">
+                <h3>🔄 Auto-Sync</h3>
+                <p>Connect your Google Photos account to create an "InstaPi Frame" album. Any photos you add to that album will automatically appear on your frame within 30 minutes. Great for hands-off updating.</p>
+            </div>
+
+            <hr class="help-divider">
+
+            <div class="help-section">
+                <h3>🖼️ Photo Gallery</h3>
+                <p>View all photos on your frame. Tap the × on any photo to delete it. Use the Small/Large buttons to change the grid size. On USB mode, remember to hit "Sync Frame" after deleting photos.</p>
+            </div>
+
+            <hr class="help-divider">
+
+            <div class="help-section">
+                <h3>🔄 Sync Frame (USB mode)</h3>
+                <p>When you delete photos, the USB frame doesn't update immediately. An orange "Sync Frame" button appears — tap it to push your changes to the frame. The frame will briefly disconnect and reconnect.</p>
+            </div>
+
+            <hr class="help-divider">
+
+            <div class="help-section">
+                <h3>🎬 Slideshow Settings</h3>
+                <p><strong>Slide Duration:</strong> How long each photo is shown (3–60 seconds).<br>
+                <strong>Transition:</strong> How photos change — fade, slide, or zoom.<br>
+                <strong>Shuffle:</strong> Random order instead of sequential.<br>
+                <strong>Ken Burns:</strong> A gentle slow pan and zoom effect on each photo.</p>
+                <p style="margin-top:8px">In HDMI mode, these control the actual slideshow. In USB mode, they only affect the browser preview — your frame uses its own built-in slideshow.</p>
+            </div>
+
+            <hr class="help-divider">
+
+            <div class="help-section">
+                <h3>↩️ Factory Reset</h3>
+                <p>Deletes all photos and returns the frame to the setup screen. On USB mode, the frame will show the QR code again. This cannot be undone.</p>
+            </div>
+
+            <hr class="help-divider">
+
+            <div class="help-section">
+                <h3>⚙️ System</h3>
+                <p><strong>Update & Restart:</strong> Pulls the latest code from GitHub and restarts the app.<br>
+                <strong>Switch Mode:</strong> Toggle between USB and HDMI display modes. Requires a restart to take full effect.</p>
             </div>
         </div>
     </div>
