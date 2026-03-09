@@ -311,6 +311,20 @@
 
         .footer a:hover { color: var(--text-secondary); }
 
+        .footer {
+            text-align: center;
+            animation: fadeUp 0.6s ease 0.4s both;
+        }
+
+        .footer a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.75rem;
+            transition: color 0.2s;
+        }
+
+        .footer a:hover { color: var(--text-secondary); }
+
         .admin-link {
             display: flex;
             align-items: center;
@@ -390,6 +404,10 @@
         <a href="/admin" class="admin-link">
             Settings & Management <span>→</span>
         </a>
+
+        <div class="footer">
+            <a href="https://instapi.dev">instapi.dev</a>
+        </div>
     </div>
 
     <div class="error-toast" id="errorToast"></div>
