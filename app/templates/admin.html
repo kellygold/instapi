@@ -805,6 +805,39 @@
             </div>
         </div>
 
+        <!-- Auto-Sync -->
+        <div class="section" id="autoSyncSection">
+            <div class="section-header">
+                <span class="icon">🔄</span>
+                <h2>Auto-Sync</h2>
+            </div>
+            <div id="syncNotConnected">
+                <p class="section-desc">Connect your Google Photos to automatically sync an album to your frame. Photos you add to the album will appear on the frame within 30 minutes.</p>
+                <div class="action-list">
+                    <a href="{{ auth_url }}" target="_blank" class="action-item" style="text-decoration: none; color: inherit;">
+                        <div class="action-icon green">🔗</div>
+                        <div class="action-content">
+                            <h3>Connect Google Photos</h3>
+                            <p>Sign in to enable auto-sync</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div id="syncConnected" style="display: none;">
+                <p class="section-desc">Syncing from your <strong>"InstaPi Frame"</strong> album in Google Photos. Add photos to that album and they'll appear here automatically.</p>
+                <div class="action-list">
+                    <div class="action-item">
+                        <div class="action-icon blue">📸</div>
+                        <div class="action-content">
+                            <h3 id="syncStatusText">Synced</h3>
+                            <p id="syncCountText">0 photos from album</p>
+                        </div>
+                        <button class="action-btn secondary" onclick="triggerAlbumSync()" id="albumSyncBtn">Sync Now</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Frame Controls -->
         <div class="section">
             <div class="section-header">
@@ -1096,6 +1129,54 @@
             btn.disabled = false;
         }
 
+        // Album auto-sync
+        async function loadAlbumStatus() {
+            try {
+                const resp = await fetch('/admin/album_status');
+                const data = await resp.json();
+                if (data.has_refresh_token) {
+                    document.getElementById('syncNotConnected').style.display = 'none';
+                    document.getElementById('syncConnected').style.display = '';
+                    document.getElementById('syncCountText').textContent =
+                        `${data.synced_count} photo${data.synced_count !== 1 ? 's' : ''} from album`;
+                } else {
+                    document.getElementById('syncNotConnected').style.display = '';
+                    document.getElementById('syncConnected').style.display = 'none';
+                }
+            } catch (e) {
+                console.error('Failed to load album status:', e);
+            }
+        }
+
+        async function triggerAlbumSync() {
+            const btn = document.getElementById('albumSyncBtn');
+            btn.textContent = 'Syncing...';
+            btn.disabled = true;
+            try {
+                const resp = await fetch('/admin/album_sync', { method: 'POST' });
+                const data = await resp.json();
+                if (data.success) {
+                    showToast('Album sync started');
+                    // Poll for completion
+                    setTimeout(async () => {
+                        await loadAlbumStatus();
+                        loadPhotos();
+                        loadSystemInfo();
+                        btn.textContent = 'Sync Now';
+                        btn.disabled = false;
+                    }, 5000);
+                } else {
+                    showToast(data.error || 'Sync failed', true);
+                    btn.textContent = 'Sync Now';
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                showToast('Sync failed', true);
+                btn.textContent = 'Sync Now';
+                btn.disabled = false;
+            }
+        }
+
         // Reset to setup
         async function resetToSetup() {
             if (!await showConfirm('Factory reset? This will clear all photos and return the frame to setup.')) return;
@@ -1171,6 +1252,7 @@
             loadSystemInfo();
             loadPhotos();
             loadSettings();
+            loadAlbumStatus();
             lastPhotoCount = parseInt(document.getElementById('photoCount').textContent) || 0;
 
             // Default to compact grid on mobile
@@ -1185,6 +1267,7 @@
             if (!document.hidden) {
                 loadPhotos();
                 loadSystemInfo();
+                loadAlbumStatus();
                 startPolling();
             }
         });
