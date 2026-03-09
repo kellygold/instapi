@@ -4,7 +4,7 @@ import json
 
 SCOPES = [
     "https://www.googleapis.com/auth/photospicker.mediaitems.readonly",
-    "https://www.googleapis.com/auth/photoslibrary.readonly",
+    "https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata",
     "https://www.googleapis.com/auth/photoslibrary.appendonly",
     "https://www.googleapis.com/auth/photoslibrary.edit.appcreateddata",
 ]
