@@ -424,3 +424,26 @@ def update_and_restart():
         return jsonify({"success": True, "message": "Updated! Restarting..."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/admin/album_sync", methods=["POST"])
+def trigger_album_sync():
+    """Manually trigger album sync."""
+    try:
+        from album_sync import sync_album
+        import threading
+        t = threading.Thread(target=sync_album, daemon=True)
+        t.start()
+        return jsonify({"success": True, "message": "Sync started"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/admin/album_status")
+def album_status():
+    """Return album sync status."""
+    return jsonify({
+        "has_refresh_token": bool(device_state.get("refresh_token")),
+        "album_id": device_state.get("album_id"),
+        "synced_count": len(device_state.get("synced_media_ids", [])),
+    })

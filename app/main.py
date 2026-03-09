@@ -57,6 +57,11 @@ if __name__ == "__main__":
     os.makedirs(config.PHOTOS_DIR, exist_ok=True)
     reconcile_photos()
 
+    # Start album auto-sync if we have a refresh token
+    if device_state.get("refresh_token"):
+        from album_sync import start_sync_timer
+        start_sync_timer()
+
     port = int(os.environ.get("PORT", 3000))
     print(f"Starting app on port {port}")
 
