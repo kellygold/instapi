@@ -44,6 +44,7 @@ def upload_photos():
 
     batch_id = int(time.time())
     uploaded = 0
+    skipped = 0
 
     for i, file in enumerate(files):
         if not file or not file.filename:
@@ -54,6 +55,8 @@ def upload_photos():
         size = file.tell()
         file.seek(0)
         if size > MAX_FILE_SIZE:
+            skipped += 1
+            print(f"[UPLOAD] Skipped {file.filename}: too large ({size} bytes)")
             continue
 
         # Validate it's an image
@@ -63,6 +66,8 @@ def upload_photos():
             file.seek(0)
             img = Image.open(file)
         except Exception:
+            skipped += 1
+            print(f"[UPLOAD] Skipped {file.filename}: not a valid image")
             continue
 
         filename = f"upload_{batch_id}_{i}.jpg"
@@ -92,4 +97,4 @@ def upload_photos():
         if get_display_mode() == "usb":
             sync_photos_to_usb()
 
-    return jsonify({"success": True, "count": uploaded})
+    return jsonify({"success": True, "count": uploaded, "skipped": skipped})
