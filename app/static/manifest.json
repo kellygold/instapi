@@ -1,0 +1,15 @@
+{
+  "name": "InstaPi Admin",
+  "short_name": "InstaPi",
+  "start_url": "/admin",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#1a472a",
+  "icons": [
+    {
+      "src": "/static/instapi_logo_full.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
