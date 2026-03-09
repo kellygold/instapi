@@ -304,6 +304,24 @@
         .action-icon.orange { background: rgba(251, 146, 60, 0.2); }
         .action-icon.red { background: rgba(239, 68, 68, 0.2); }
 
+        /* Sync needed indicator */
+        .action-item.sync-needed {
+            background: rgba(251, 146, 60, 0.1);
+            border: 1px solid rgba(251, 146, 60, 0.3);
+            animation: syncPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes syncPulse {
+            0%, 100% { border-color: rgba(251, 146, 60, 0.3); }
+            50% { border-color: rgba(251, 146, 60, 0.6); }
+        }
+
+        .action-item.sync-needed .action-btn {
+            background: linear-gradient(135deg, #fb923c, #f97316);
+            color: #000;
+            font-weight: 600;
+        }
+
         .action-content {
             flex: 1;
         }
@@ -690,19 +708,18 @@
             </div>
 
             <div class="action-list">
-                <div class="action-item">
+                <a href="{{ auth_url }}" target="_blank" class="action-item" style="text-decoration: none; color: inherit;">
                     <div class="action-icon green">➕</div>
                     <div class="action-content">
                         <h3>Add Photos</h3>
-                        <p>Open Google Photos picker to select new photos</p>
+                        <p>From Google Photos</p>
                     </div>
-                    <a href="{{ auth_url }}" target="_blank" class="action-btn primary">Select Photos</a>
-                </div>
-                <div class="action-item" id="syncAction" style="display: none;">
-                    <div class="action-icon purple">🔄</div>
+                </a>
+                <div class="action-item sync-needed" id="syncAction" style="display: none;">
+                    <div class="action-icon orange">🔄</div>
                     <div class="action-content">
-                        <h3>Sync Frame</h3>
-                        <p>Push photo changes to the USB frame</p>
+                        <h3>Frame out of sync</h3>
+                        <p>Tap to update the frame with your changes</p>
                     </div>
                     <button class="action-btn secondary" onclick="syncFrame()" id="syncBtn">Sync Now</button>
                 </div>
