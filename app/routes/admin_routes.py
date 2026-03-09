@@ -236,7 +236,6 @@ def get_storage_info():
         photos_size = 0
         if os.path.exists(PHOTOS_DIR):
             for root, dirs, files in os.walk(PHOTOS_DIR):
-                dirs[:] = [d for d in dirs if d != 'thumbs']
                 for f in files:
                     photos_size += os.path.getsize(os.path.join(root, f))
         
