@@ -311,6 +311,39 @@
 
         .footer a:hover { color: var(--text-secondary); }
 
+        .admin-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.25s ease;
+            animation: fadeUp 0.6s ease 0.3s both;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .admin-link:hover, .admin-link:active {
+            color: var(--text-secondary);
+            background: rgba(74, 222, 128, 0.06);
+            border-color: rgba(74, 222, 128, 0.25);
+        }
+
+        .admin-link span {
+            transition: transform 0.2s ease;
+        }
+
+        .admin-link:hover span {
+            transform: translateX(4px);
+        }
+
         @keyframes fadeUp {
             from { opacity: 0; transform: translateY(16px); }
             to { opacity: 1; transform: translateY(0); }
@@ -354,9 +387,9 @@
             <button class="btn-add-more" onclick="resetUpload()">Add More Photos</button>
         </div>
 
-        <div class="footer">
-            <a href="/admin">Admin</a> &middot; <a href="https://instapi.dev">instapi.dev</a>
-        </div>
+        <a href="/admin" class="admin-link">
+            Settings & Management <span>→</span>
+        </a>
     </div>
 
     <div class="error-toast" id="errorToast"></div>
