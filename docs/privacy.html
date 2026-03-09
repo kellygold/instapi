@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - InstaPi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg {
+            background: linear-gradient(-45deg, #0a0a0a, #1a472a, #0d3320, #000000);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .title-shimmer {
+            background: linear-gradient(90deg, #4ade80, #22d3ee, #a78bfa, #4ade80);
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmer 4s linear infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 300% 50%; }
+        }
+    </style>
+</head>
+<body class="bg-black text-white gradient-bg min-h-screen">
+    <!-- Header -->
+    <header class="py-6 px-6 border-b border-white/10">
+        <div class="max-w-4xl mx-auto flex items-center gap-4">
+            <a href="/" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                <img src="assets/logo.jpg" alt="InstaPi" class="w-10 h-10 rounded-xl">
+                <span class="text-xl font-bold title-shimmer">InstaPi</span>
+            </a>
+            <span class="text-gray-500 ml-auto text-sm">Privacy Policy</span>
+        </div>
+    </header>
+
+    <!-- Content -->
+    <main class="py-16 px-6">
+        <div class="max-w-3xl mx-auto">
+            <h1 class="text-4xl font-bold mb-2">Privacy Policy</h1>
+            <p class="text-gray-500 mb-12">Last updated: March 8, 2026</p>
+
+            <div class="space-y-10 text-gray-300 leading-relaxed">
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">The Short Version</h2>
+                    <div class="bg-green-500/10 border border-green-500/20 rounded-xl p-6">
+                        <p class="text-green-300 font-medium">InstaPi does not collect, store, or transmit any of your personal data. Everything runs locally on your own Raspberry Pi. We have no servers that process your information.</p>
+                    </div>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">How InstaPi Works</h2>
+                    <p>InstaPi is open-source software that runs entirely on your own Raspberry Pi hardware. It connects to Google Photos so you can select photos to display on your picture frame. Here's what's important to understand:</p>
+                    <ul class="mt-4 space-y-3 list-disc list-inside">
+                        <li><strong class="text-white">No central server.</strong> There is no InstaPi server that processes your data. Your Raspberry Pi is both the client and the server.</li>
+                        <li><strong class="text-white">Your photos stay on your Pi.</strong> Selected photos are downloaded directly from Google to your Raspberry Pi and stored locally. They are never transmitted to us or any third party.</li>
+                        <li><strong class="text-white">Open source.</strong> You can verify every claim in this policy by reviewing the <a href="https://github.com/kellygold/instapi" class="text-green-400 hover:underline">source code</a>.</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">Google Account Access</h2>
+                    <p>InstaPi uses Google OAuth to let you sign in with your Google account and select photos. Here's exactly what happens:</p>
+                    <ul class="mt-4 space-y-3 list-disc list-inside">
+                        <li><strong class="text-white">Minimal permissions.</strong> InstaPi requests only the <code class="bg-white/10 px-2 py-0.5 rounded text-sm">photospicker.mediaitems.readonly</code> scope, which allows you to pick specific photos to share. It cannot browse your full library, upload, or delete anything.</li>
+                        <li><strong class="text-white">Tokens stay on your device.</strong> Your OAuth access token exists only in your Raspberry Pi's memory during the active session. It is never persisted to disk, never transmitted to any external server, and is lost when the Pi restarts.</li>
+                        <li><strong class="text-white">No token storage by us.</strong> The InstaPi developer has no server that receives, processes, or stores your Google credentials. The OAuth flow happens directly between your Pi and Google.</li>
+                        <li><strong class="text-white">Revoke anytime.</strong> You can revoke InstaPi's access to your Google account at any time from your <a href="https://myaccount.google.com/permissions" class="text-green-400 hover:underline">Google Account settings</a>.</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">Data We Do Not Collect</h2>
+                    <p>To be explicit, InstaPi does <strong class="text-white">not</strong> collect:</p>
+                    <ul class="mt-4 space-y-2 list-disc list-inside">
+                        <li>Personal information (name, email, phone number)</li>
+                        <li>Usage analytics or telemetry</li>
+                        <li>Device identifiers or IP addresses</li>
+                        <li>Cookies or tracking data</li>
+                        <li>Photos or photo metadata</li>
+                        <li>Google account credentials or tokens</li>
+                        <li>Location data</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">Local Data Storage</h2>
+                    <p>On your Raspberry Pi, InstaPi stores the following locally:</p>
+                    <ul class="mt-4 space-y-3 list-disc list-inside">
+                        <li><strong class="text-white">Downloaded photos</strong> in the Pi's local filesystem for display on your frame.</li>
+                        <li><strong class="text-white">Slideshow settings</strong> (duration, transition style) in a local JSON file.</li>
+                        <li><strong class="text-white">Device state</strong> (photo list, display status) in a local JSON file.</li>
+                    </ul>
+                    <p class="mt-4">All of this data is stored on your hardware, under your control. You can delete it at any time using the admin panel's Factory Reset feature.</p>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">Third-Party Services</h2>
+                    <p>InstaPi interacts with one third-party service:</p>
+                    <ul class="mt-4 space-y-3 list-disc list-inside">
+                        <li><strong class="text-white">Google Photos Picker API</strong> — Used to let you select photos from your Google Photos library. This interaction is governed by <a href="https://policies.google.com/privacy" class="text-green-400 hover:underline">Google's Privacy Policy</a>. InstaPi uses the Picker API's limited access scope, meaning it can only access photos you explicitly select.</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">Children's Privacy</h2>
+                    <p>InstaPi does not collect any data from anyone, including children. Since no personal information is collected or processed, there are no age-specific concerns.</p>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">Changes to This Policy</h2>
+                    <p>If this privacy policy is updated, the changes will be reflected on this page with an updated date. Since InstaPi is open source, any changes to data handling would also be visible in the <a href="https://github.com/kellygold/instapi" class="text-green-400 hover:underline">source code</a>.</p>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">Contact</h2>
+                    <p>If you have questions about this privacy policy, you can open an issue on <a href="https://github.com/kellygold/instapi/issues" class="text-green-400 hover:underline">GitHub</a>.</p>
+                </section>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-8 px-6 border-t border-white/10 text-center">
+        <p class="text-gray-500">
+            <a href="/" class="text-green-400 hover:underline">Home</a> &middot;
+            <a href="/terms" class="text-green-400 hover:underline">Terms of Service</a> &middot;
+            <a href="https://github.com/kellygold/instapi" class="text-green-400 hover:underline">GitHub</a>
+        </p>
+    </footer>
+</body>
+</html>

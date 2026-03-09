@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms of Service - InstaPi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg {
+            background: linear-gradient(-45deg, #0a0a0a, #1a472a, #0d3320, #000000);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .title-shimmer {
+            background: linear-gradient(90deg, #4ade80, #22d3ee, #a78bfa, #4ade80);
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmer 4s linear infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 300% 50%; }
+        }
+    </style>
+</head>
+<body class="bg-black text-white gradient-bg min-h-screen">
+    <!-- Header -->
+    <header class="py-6 px-6 border-b border-white/10">
+        <div class="max-w-4xl mx-auto flex items-center gap-4">
+            <a href="/" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                <img src="assets/logo.jpg" alt="InstaPi" class="w-10 h-10 rounded-xl">
+                <span class="text-xl font-bold title-shimmer">InstaPi</span>
+            </a>
+            <span class="text-gray-500 ml-auto text-sm">Terms of Service</span>
+        </div>
+    </header>
+
+    <!-- Content -->
+    <main class="py-16 px-6">
+        <div class="max-w-3xl mx-auto">
+            <h1 class="text-4xl font-bold mb-2">Terms of Service</h1>
+            <p class="text-gray-500 mb-12">Last updated: March 8, 2026</p>
+
+            <div class="space-y-10 text-gray-300 leading-relaxed">
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">1. What InstaPi Is</h2>
+                    <p>InstaPi is free, open-source software (MIT License) that turns a Raspberry Pi into a digital picture frame using Google Photos. It is provided as a personal project for friends, family, and anyone who finds it useful.</p>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">2. The Software</h2>
+                    <p>InstaPi is provided <strong class="text-white">"as is"</strong> without warranty of any kind, express or implied. This includes, but is not limited to, warranties of merchantability, fitness for a particular purpose, and non-infringement.</p>
+                    <p class="mt-4">The full MIT License applies:</p>
+                    <div class="mt-4 bg-white/5 border border-white/10 rounded-xl p-6 text-sm text-gray-400">
+                        <p>Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files, to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software.</p>
+                        <p class="mt-3">THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY.</p>
+                    </div>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">3. Hosted OAuth Service</h2>
+                    <p>InstaPi provides a shared Google OAuth client ID so users don't need to create their own Google Cloud project. By using this hosted authentication:</p>
+                    <ul class="mt-4 space-y-3 list-disc list-inside">
+                        <li>You authorize InstaPi (running on your own hardware) to access photos you explicitly select via Google's Photo Picker.</li>
+                        <li>The service is provided free of charge with no guarantees of uptime or availability.</li>
+                        <li>You may set up your own Google OAuth credentials at any time if you prefer not to use the shared service. Instructions are in the <a href="https://github.com/kellygold/instapi" class="text-green-400 hover:underline">project README</a>.</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">4. Your Responsibilities</h2>
+                    <ul class="space-y-3 list-disc list-inside">
+                        <li>You are responsible for the security of your Raspberry Pi and your local network.</li>
+                        <li>You are responsible for your Google account credentials and for managing access permissions.</li>
+                        <li>You should only display photos you have the right to use.</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">5. Limitation of Liability</h2>
+                    <p>In no event shall the InstaPi developer be liable for any direct, indirect, incidental, special, or consequential damages arising from the use of this software or the hosted OAuth service. This includes, but is not limited to, loss of data, unauthorized access to your Google account, or hardware issues with your Raspberry Pi.</p>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">6. Google's Terms</h2>
+                    <p>Your use of Google Photos through InstaPi is also subject to <a href="https://policies.google.com/terms" class="text-green-400 hover:underline">Google's Terms of Service</a> and <a href="https://policies.google.com/privacy" class="text-green-400 hover:underline">Google's Privacy Policy</a>.</p>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">7. Changes to These Terms</h2>
+                    <p>These terms may be updated from time to time. Changes will be reflected on this page with an updated date. Continued use of InstaPi after changes constitutes acceptance of the updated terms.</p>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">8. Contact</h2>
+                    <p>Questions about these terms? Open an issue on <a href="https://github.com/kellygold/instapi/issues" class="text-green-400 hover:underline">GitHub</a>.</p>
+                </section>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-8 px-6 border-t border-white/10 text-center">
+        <p class="text-gray-500">
+            <a href="/" class="text-green-400 hover:underline">Home</a> &middot;
+            <a href="/privacy" class="text-green-400 hover:underline">Privacy Policy</a> &middot;
+            <a href="https://github.com/kellygold/instapi" class="text-green-400 hover:underline">GitHub</a>
+        </p>
+    </footer>
+</body>
+</html>
