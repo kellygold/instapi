@@ -2,7 +2,7 @@ import os
 import shutil
 import subprocess
 import socket
-from flask import render_template, jsonify, request, session, redirect, url_for
+from flask import render_template, jsonify, request
 from app import app
 from config import device_state, SCOPES, PHOTOS_DIR, load_slideshow_config, save_slideshow_config, save_device_state
 from google_auth_oauthlib.flow import Flow
@@ -15,17 +15,6 @@ import json
 with open("secrets.json") as _f:
     _FALLBACK_REDIRECT_URI = json.load(_f)["web"]["redirect_uris"][0]
 
-
-@app.route("/admin/auth", methods=["POST"])
-def admin_auth():
-    """Validate admin PIN."""
-    data = request.get_json()
-    pin = data.get("pin", "")
-    expected = device_state.get("admin_pin", "")
-    if pin == expected:
-        session["admin_authed"] = True
-        return jsonify({"success": True})
-    return jsonify({"success": False, "error": "Wrong PIN"}), 401
 
 
 @app.route("/admin")
@@ -69,8 +58,7 @@ def admin():
     auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
     
     upload_token = device_state.get("upload_token", "")
-    is_authed = session.get("admin_authed", False)
-    return render_template("admin.html", photo_count=photo_count, auth_url=auth_url, display_mode=display_mode, upload_token=upload_token, is_authed=is_authed)
+    return render_template("admin.html", photo_count=photo_count, auth_url=auth_url, display_mode=display_mode, upload_token=upload_token)
 
 
 

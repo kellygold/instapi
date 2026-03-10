@@ -786,45 +786,6 @@
             opacity: 1;
         }
 
-        /* PIN overlay */
-        .pin-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.95);
-            z-index: 5000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .pin-overlay img { width: 60px; height: 60px; border-radius: 14px; }
-        .pin-overlay h2 { font-size: 1.2em; color: #fff; }
-        .pin-overlay p { color: #888; font-size: 0.85em; }
-
-        .pin-input {
-            width: 160px;
-            padding: 14px;
-            font-size: 1.5em;
-            text-align: center;
-            letter-spacing: 8px;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 12px;
-            color: #fff;
-            font-family: inherit;
-            outline: none;
-        }
-
-        .pin-input:focus { border-color: rgba(74, 222, 128, 0.5); }
-
-        .pin-error {
-            color: #f87171;
-            font-size: 0.85em;
-            min-height: 1.2em;
-        }
-
         /* Footer */
         .footer {
             text-align: center;
@@ -1179,15 +1140,6 @@
                 <strong>Switch Mode:</strong> Toggle between USB and HDMI display modes. Requires a restart to take full effect.</p>
             </div>
         </div>
-    </div>
-
-    <!-- PIN Overlay -->
-    <div id="pinOverlay" class="pin-overlay" style="display: none;">
-        <img src="/static/instapi_logo_full.jpg" alt="InstaPi">
-        <h2>Admin Access</h2>
-        <p>Enter your 4-digit PIN</p>
-        <input type="tel" id="pinInput" class="pin-input" maxlength="4" autocomplete="off" inputmode="numeric">
-        <div class="pin-error" id="pinError"></div>
     </div>
 
     <!-- Toast Notification -->
@@ -1555,45 +1507,7 @@
             }
         }
 
-        // PIN auth
-        async function checkPin() {
-            const pinOverlay = document.getElementById('pinOverlay');
-            const pinInput = document.getElementById('pinInput');
-            const pinError = document.getElementById('pinError');
-
-            pinOverlay.style.display = 'flex';
-            pinInput.focus();
-
-            pinInput.addEventListener('input', async () => {
-                if (pinInput.value.length === 4) {
-                    const resp = await fetch('/admin/auth', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ pin: pinInput.value })
-                    });
-                    const data = await resp.json();
-                    if (data.success) {
-                        pinOverlay.style.display = 'none';
-                    } else {
-                        pinError.textContent = 'Wrong PIN';
-                        pinInput.value = '';
-                        pinInput.focus();
-                        setTimeout(() => { pinError.textContent = ''; }, 2000);
-                    }
-                }
-            });
-        }
-
         document.addEventListener('DOMContentLoaded', () => {
-            // Check if admin auth needed (cookie-based session)
-            fetch('/admin/album_status').then(r => {
-                // If we can reach admin endpoints, we're authed
-                // PIN check happens server-side via session
-            });
-
-            {% if not is_authed %}
-            checkPin();
-            {% endif %}
             loadSystemInfo();
             loadPhotos();
             loadSettings();

@@ -59,17 +59,11 @@ if __name__ == "__main__":
     reconcile_photos()
 
     # Generate upload token if not set
-    import secrets as _secrets
     if not device_state.get("upload_token"):
-        device_state["upload_token"] = _secrets.token_urlsafe(16)
+        import secrets
+        device_state["upload_token"] = secrets.token_urlsafe(16)
         save_device_state()
         print(f"Upload token: {device_state['upload_token']}")
-
-    # Generate admin PIN if not set
-    if not device_state.get("admin_pin"):
-        device_state["admin_pin"] = str(_secrets.randbelow(9000) + 1000)
-        save_device_state()
-        print(f"Admin PIN: {device_state['admin_pin']}")
 
     # Start album auto-sync if we have a refresh token
     if device_state.get("refresh_token"):
