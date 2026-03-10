@@ -9,6 +9,7 @@ from app import app
 
 
 from config import SCOPES, device_state, save_device_state
+from urllib.parse import urlencode
 import os
 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -115,8 +116,9 @@ def oauth2callback():
 
 @app.route("/choose_mode_qr")
 def choose_mode_qr():
-    """QR to link user to admin panel for managing photos."""
-    auth_url = f"{BASE_URL}/admin"
+    """QR to link user to upload page for adding photos."""
+    token = device_state.get("upload_token", "")
+    auth_url = f"{BASE_URL}/upload?t={token}"
     img_io = io.BytesIO()
     img = qrcode.make(auth_url)
     img.save(img_io, 'PNG')

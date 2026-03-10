@@ -15,7 +15,12 @@ from config import (
 with open("secrets.json") as f:
     _secrets = json.load(f)
     _redirect = _secrets["web"]["redirect_uris"][0]
-    WATERMARK_URL = _redirect.rsplit("/", 1)[0] + "/admin"
+    _WATERMARK_BASE = _redirect.rsplit("/", 1)[0]
+
+def _get_watermark_url():
+    """Build watermark URL pointing to upload page with token."""
+    token = device_state.get("upload_token", "")
+    return f"{_WATERMARK_BASE}/upload?t={token}"
 
 
 def add_qr_watermark(image_path):
@@ -25,7 +30,7 @@ def add_qr_watermark(image_path):
         
         # Generate small QR linking to auth page
         qr = qrcode.QRCode(box_size=2, border=1)
-        qr.add_data(WATERMARK_URL)
+        qr.add_data(_get_watermark_url())
         qr.make(fit=True)
         qr_img = qr.make_image(fill_color='black', back_color='white').convert('RGBA')
         
