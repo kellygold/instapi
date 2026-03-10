@@ -11,6 +11,7 @@ venv/
 app/secrets.json
 instapi-setup.conf
 frame-registry.txt
+family.md
 app/device_state.json
 
 # Downloaded photos
