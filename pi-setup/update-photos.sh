@@ -42,12 +42,14 @@ if [ -d "$PHOTOS_DIR" ]; then
     sudo cp "$PHOTOS_DIR"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null
     sudo cp "$PHOTOS_DIR"/*.png "$MOUNT_POINT"/ 2>/dev/null
 
-    # Copy from picker subdirectory
-    if [ -d "$PHOTOS_DIR/picker" ]; then
-        sudo cp "$PHOTOS_DIR/picker"/*.jpg "$MOUNT_POINT"/ 2>/dev/null
-        sudo cp "$PHOTOS_DIR/picker"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null
-        sudo cp "$PHOTOS_DIR/picker"/*.png "$MOUNT_POINT"/ 2>/dev/null
-    fi
+    # Copy from subdirectories (picker, upload, album)
+    for subdir in picker upload album; do
+        if [ -d "$PHOTOS_DIR/$subdir" ]; then
+            sudo cp "$PHOTOS_DIR/$subdir"/*.jpg "$MOUNT_POINT"/ 2>/dev/null
+            sudo cp "$PHOTOS_DIR/$subdir"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null
+            sudo cp "$PHOTOS_DIR/$subdir"/*.png "$MOUNT_POINT"/ 2>/dev/null
+        fi
+    done
 
     PHOTO_COUNT=$(ls -1 "$MOUNT_POINT"/*.jpg "$MOUNT_POINT"/*.jpeg "$MOUNT_POINT"/*.png 2>/dev/null | wc -l)
     echo "Copied $PHOTO_COUNT photos"
