@@ -2,7 +2,7 @@
 # InstaPi Installation Script for Raspberry Pi
 # Supports both USB Gadget mode and HDMI Kiosk mode
 #
-# Usage: 
+# Usage:
 #   ./install.sh         # Install all, configure later
 #   ./install.sh usb     # Install and configure USB mode
 #   ./install.sh hdmi    # Install and configure HDMI mode
@@ -35,7 +35,8 @@ sudo apt install -y \
     python3 \
     python3-pip \
     python3-venv \
-    git
+    git \
+    curl
 
 # Install ALL dependencies (both modes) - small footprint, no prompts
 echo "📦 Installing display dependencies..."
@@ -60,7 +61,61 @@ fi
 
 cd "$INSTALL_DIR"
 
-# Setup Python environment
+# ==========================================
+# CONFIGURATION: Read creds from config file or prompt
+# ==========================================
+echo ""
+echo "🔐 Configuring credentials..."
+
+if [ -f "$INSTALL_DIR/instapi-setup.conf" ]; then
+    echo "Found instapi-setup.conf — reading shared credentials..."
+    source "$INSTALL_DIR/instapi-setup.conf"
+    read -p "Enter ngrok domain for this frame (e.g. mom-instapi.ngrok.dev): " NGROK_DOMAIN
+else
+    echo "No instapi-setup.conf found. Setting up from scratch."
+    echo "(See README for Google Cloud setup instructions)"
+    echo ""
+    read -p "Google OAuth Client ID: " CLIENT_ID
+    read -p "Google OAuth Client Secret: " CLIENT_SECRET
+    read -p "ngrok authtoken (press enter to skip ngrok): " NGROK_TOKEN
+    if [ -n "$NGROK_TOKEN" ]; then
+        read -p "ngrok domain (e.g. my-frame.ngrok.dev): " NGROK_DOMAIN
+    fi
+fi
+
+# ==========================================
+# GENERATE SECRETS.JSON
+# ==========================================
+echo "🔑 Generating secrets.json..."
+FLASK_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(24))")
+
+if [ -n "$NGROK_DOMAIN" ]; then
+    REDIRECT_URI="https://$NGROK_DOMAIN/oauth2callback"
+else
+    REDIRECT_URI="http://localhost:3000/oauth2callback"
+fi
+
+cat > "$INSTALL_DIR/app/secrets.json" << EOFJSON
+{
+  "flask_secret": "$FLASK_SECRET",
+  "web": {
+    "client_id": "$CLIENT_ID",
+    "project_id": "instapi",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_secret": "$CLIENT_SECRET",
+    "redirect_uris": [
+      "$REDIRECT_URI"
+    ]
+  }
+}
+EOFJSON
+echo "secrets.json created with redirect URI: $REDIRECT_URI"
+
+# ==========================================
+# PYTHON ENVIRONMENT
+# ==========================================
 echo "🐍 Setting up Python environment..."
 cd "$INSTALL_DIR/app"
 python3 -m venv venv
@@ -74,6 +129,56 @@ chmod +x "$INSTALL_DIR/pi-setup/"*.sh
 echo "🔐 Setting up admin permissions..."
 sudo cp "$INSTALL_DIR/pi-setup/instapi-sudoers" /etc/sudoers.d/instapi
 sudo chmod 440 /etc/sudoers.d/instapi
+
+# ==========================================
+# NGROK SETUP (if configured)
+# ==========================================
+if [ -n "$NGROK_TOKEN" ] && [ -n "$NGROK_DOMAIN" ]; then
+    echo "🌐 Setting up ngrok..."
+
+    # Install ngrok if not present
+    if ! command -v ngrok &> /dev/null; then
+        echo "Installing ngrok..."
+        curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | \
+            sudo tee /etc/apt/trusted.gpg.d/ngrok.asc > /dev/null
+        echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | \
+            sudo tee /etc/apt/sources.list.d/ngrok.list > /dev/null
+        sudo apt update && sudo apt install -y ngrok
+    fi
+
+    # Configure authtoken
+    ngrok config add-authtoken "$NGROK_TOKEN"
+
+    # Create systemd service
+    cat > /tmp/ngrok.service << EOFSERVICE
+[Unit]
+Description=ngrok tunnel for InstaPi
+After=network-online.target instapi.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=$USER
+ExecStart=/usr/local/bin/ngrok http 3000 --domain $NGROK_DOMAIN
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOFSERVICE
+    sudo mv /tmp/ngrok.service /etc/systemd/system/
+    sudo systemctl daemon-reload
+    sudo systemctl enable ngrok
+    echo "ngrok configured: $NGROK_DOMAIN"
+else
+    echo "⏩ Skipping ngrok (local-only mode)"
+fi
+
+# ==========================================
+# WATCHDOG CRON
+# ==========================================
+echo "🛡️  Installing watchdog..."
+(crontab -l 2>/dev/null | grep -v watchdog; echo "*/5 * * * * $INSTALL_DIR/pi-setup/watchdog.sh") | crontab -
 
 # Generate QR placeholder image with this Pi's IP
 echo "📱 Generating QR code placeholder..."
@@ -139,8 +244,6 @@ if [ "$DISPLAY_MODE" = "usb" ]; then
     sudo systemctl enable instapi
     sudo systemctl enable usb-gadget
 
-    # QR placeholder already generated in base install
-
     NEXT_STEPS="
 │ 3. Plug Pi into photo frame's USB port │
 │                                        │
@@ -187,12 +290,15 @@ echo ""
 echo "✅ Installation complete! (Mode: $DISPLAY_MODE)"
 echo ""
 echo "┌────────────────────────────────────────┐"
-echo "│           NEXT STEPS                   │"
+echo "│           READY TO GO!                 │"
 echo "├────────────────────────────────────────┤"
-echo "│ 1. Copy secrets.json to:               │"
-echo "│    $INSTALL_DIR/app/secrets.json       │"
+echo "│ 1. Reboot: sudo reboot                │"
 echo "│                                        │"
-echo "│ 2. Reboot: sudo reboot                 │"
+echo "│ 2. Wait for Pi to start up            │"
 echo "$NEXT_STEPS"
+echo "│                                        │"
+if [ -n "$NGROK_DOMAIN" ]; then
+echo "│ Remote: https://$NGROK_DOMAIN │"
+fi
 echo "└────────────────────────────────────────┘"
 echo ""

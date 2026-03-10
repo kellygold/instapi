@@ -9,6 +9,8 @@ venv/
 
 # Secrets (create from secrets.json.template)
 app/secrets.json
+instapi-setup.conf
+app/device_state.json
 
 # Downloaded photos
 app/static/photos/*
