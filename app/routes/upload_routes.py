@@ -1,6 +1,7 @@
 # routes/upload_routes.py
 import os
 import time
+import shutil
 from flask import render_template, jsonify, request
 from PIL import Image
 from app import app
@@ -23,7 +24,7 @@ def _validate_token():
 def upload_page():
     """Upload page for family photo sharing."""
     if not _validate_token():
-        return "Invalid or missing token.", 403
+        return render_template("upload_error.html"), 403
     return render_template("upload.html", token=request.args.get("t", ""))
 
 
@@ -36,6 +37,11 @@ def upload_photos():
     files = request.files.getlist("photos")
     if not files:
         return jsonify({"success": False, "error": "No files uploaded"})
+
+    # Check disk space
+    free = shutil.disk_usage("/").free
+    if free < 50 * 1024 * 1024:
+        return jsonify({"success": False, "error": "Storage full. Delete some photos first."})
 
     subdir = os.path.join(PHOTOS_DIR, "upload")
     os.makedirs(subdir, exist_ok=True)

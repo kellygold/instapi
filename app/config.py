@@ -21,7 +21,7 @@ STATE_FILE = os.path.join(os.path.dirname(__file__), 'device_state.json')
 # refresh_token is long-lived and needed for auto-sync (access tokens are short-lived and NOT stored)
 _PERSISTABLE_KEYS = {"photo_urls", "done", "photos_chosen", "current_index",
                      "refresh_token", "album_id", "synced_media_ids",
-                     "upload_token"}
+                     "upload_token", "admin_pin"}
 
 
 def save_device_state():

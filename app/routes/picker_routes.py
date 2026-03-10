@@ -131,10 +131,3 @@ def check_session_status():
         return jsonify({"ready": False, "photo_count": photo_count})
 
 
-@app.route("/user_selection_status")
-def user_selection_status():
-    """Check if user previously chose photos or albums."""
-    return jsonify({
-        "photos_chosen": device_state.get("photos_chosen", False),
-        "albums_chosen": device_state.get("albums_chosen", False)
-    })

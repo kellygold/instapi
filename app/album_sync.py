@@ -132,6 +132,13 @@ def sync_album():
         _log("[SYNC] No valid token, skipping sync")
         return
 
+    # Check disk space
+    import shutil as _shutil
+    free = _shutil.disk_usage("/").free
+    if free < 50 * 1024 * 1024:
+        _log("[SYNC] Disk space low (<50MB), skipping download")
+        return
+
     album_id = device_state.get("album_id")
     if not album_id:
         album_id = create_album(token)
