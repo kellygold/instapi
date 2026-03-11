@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InstaPi - Simple Digital Picture Frame</title>
+    <title>InstaPi - Your Photos, Always on Display</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        body { font-family: 'Inter', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Outfit', sans-serif; }
 
-        /* Animated gradient background */
+        /* Warm animated gradient background */
         .gradient-bg {
-            background: linear-gradient(-45deg, #0a0a0a, #1a472a, #0d3320, #000000, #1a3a2a);
+            background: linear-gradient(-45deg, #0a0a0a, #1a2e1a, #0d261a, #0a0a0a, #1a2a20);
             background-size: 400% 400%;
-            animation: gradientShift 15s ease infinite;
+            animation: gradientShift 20s ease infinite;
         }
 
         @keyframes gradientShift {
@@ -22,495 +22,280 @@
             100% { background-position: 0% 50%; }
         }
 
-        /* Floating polaroid photos */
-        .floating-photos {
-            position: absolute;
-            inset: 0;
-            overflow: hidden;
-            pointer-events: none;
+        /* Sage/amber palette */
+        :root {
+            --sage: #7c9a72;
+            --sage-light: #a3be99;
+            --sage-glow: rgba(124, 154, 114, 0.4);
+            --amber: #d4a24e;
+            --amber-glow: rgba(212, 162, 78, 0.3);
         }
 
-        .polaroid {
-            position: absolute;
-            width: 120px;
-            height: 140px;
-            background: white;
-            padding: 8px 8px 30px 8px;
-            border-radius: 4px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-            animation: float 20s ease-in-out infinite;
-        }
-
-        .polaroid::before {
-            content: '';
-            display: block;
-            width: 100%;
-            height: 100%;
-            border-radius: 2px;
-        }
-
-        .polaroid:nth-child(1) { left: 5%; top: 10%; animation-delay: 0s; transform: rotate(-12deg); }
-        .polaroid:nth-child(1)::before { background: linear-gradient(135deg, #ff6b6b, #feca57); }
-        
-        .polaroid:nth-child(2) { right: 8%; top: 15%; animation-delay: -3s; transform: rotate(8deg); }
-        .polaroid:nth-child(2)::before { background: linear-gradient(135deg, #5f27cd, #48dbfb); }
-        
-        .polaroid:nth-child(3) { left: 12%; bottom: 20%; animation-delay: -6s; transform: rotate(15deg); }
-        .polaroid:nth-child(3)::before { background: linear-gradient(135deg, #1dd1a1, #10ac84); }
-        
-        .polaroid:nth-child(4) { right: 15%; bottom: 25%; animation-delay: -9s; transform: rotate(-8deg); }
-        .polaroid:nth-child(4)::before { background: linear-gradient(135deg, #ff9ff3, #f368e0); }
-        
-        .polaroid:nth-child(5) { left: 3%; top: 50%; animation-delay: -12s; transform: rotate(5deg); }
-        .polaroid:nth-child(5)::before { background: linear-gradient(135deg, #ffeaa7, #fdcb6e); }
-        
-        .polaroid:nth-child(6) { right: 5%; top: 55%; animation-delay: -15s; transform: rotate(-18deg); }
-        .polaroid:nth-child(6)::before { background: linear-gradient(135deg, #74b9ff, #0984e3); }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0) rotate(var(--rotate, 0deg)); }
-            25% { transform: translateY(-20px) rotate(calc(var(--rotate, 0deg) + 3deg)); }
-            50% { transform: translateY(-10px) rotate(calc(var(--rotate, 0deg) - 2deg)); }
-            75% { transform: translateY(-25px) rotate(calc(var(--rotate, 0deg) + 2deg)); }
-        }
-
-        /* Glowing logo */
-        .logo-glow {
-            animation: logoGlow 3s ease-in-out infinite alternate;
-        }
-
-        @keyframes logoGlow {
-            from { box-shadow: 0 0 30px rgba(74, 222, 128, 0.3), 0 0 60px rgba(74, 222, 128, 0.1); }
-            to { box-shadow: 0 0 50px rgba(74, 222, 128, 0.5), 0 0 100px rgba(74, 222, 128, 0.2); }
-        }
-
-        /* Animated title */
-        .title-shimmer {
-            background: linear-gradient(90deg, #4ade80, #22d3ee, #a78bfa, #4ade80);
-            background-size: 300% 100%;
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: shimmer 4s linear infinite;
-        }
-
-        @keyframes shimmer {
-            0% { background-position: 0% 50%; }
-            100% { background-position: 300% 50%; }
-        }
-
-        /* Floating particles */
-        .particles {
-            position: absolute;
-            inset: 0;
-            overflow: hidden;
-            pointer-events: none;
-        }
-
-        .particle {
-            position: absolute;
-            width: 6px;
-            height: 6px;
-            background: rgba(74, 222, 128, 0.6);
-            border-radius: 50%;
-            animation: rise 10s ease-in infinite;
-        }
-
-        .particle:nth-child(1) { left: 10%; animation-delay: 0s; }
-        .particle:nth-child(2) { left: 20%; animation-delay: 1s; }
-        .particle:nth-child(3) { left: 30%; animation-delay: 2s; }
-        .particle:nth-child(4) { left: 40%; animation-delay: 3s; }
-        .particle:nth-child(5) { left: 50%; animation-delay: 4s; }
-        .particle:nth-child(6) { left: 60%; animation-delay: 5s; }
-        .particle:nth-child(7) { left: 70%; animation-delay: 6s; }
-        .particle:nth-child(8) { left: 80%; animation-delay: 7s; }
-        .particle:nth-child(9) { left: 90%; animation-delay: 8s; }
-
-        @keyframes rise {
-            0% { bottom: -10px; opacity: 0; transform: scale(0); }
-            10% { opacity: 1; transform: scale(1); }
-            90% { opacity: 1; }
-            100% { bottom: 100%; opacity: 0; transform: scale(0.5); }
-        }
-
-        /* Bounce in animation */
-        .bounce-in {
-            animation: bounceIn 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-        }
-
-        @keyframes bounceIn {
-            0% { transform: scale(0); opacity: 0; }
-            60% { transform: scale(1.1); }
-            100% { transform: scale(1); opacity: 1; }
-        }
-
-        /* Stagger children */
-        .stagger > * {
+        /* Subtle fade-in */
+        .fade-in {
             opacity: 0;
-            animation: fadeUp 0.6s ease forwards;
+            transform: translateY(24px);
+            animation: fadeUp 0.7s ease forwards;
         }
-        .stagger > *:nth-child(1) { animation-delay: 0.1s; }
-        .stagger > *:nth-child(2) { animation-delay: 0.2s; }
-        .stagger > *:nth-child(3) { animation-delay: 0.3s; }
-        .stagger > *:nth-child(4) { animation-delay: 0.4s; }
-        .stagger > *:nth-child(5) { animation-delay: 0.5s; }
+        .fade-in:nth-child(1) { animation-delay: 0.1s; }
+        .fade-in:nth-child(2) { animation-delay: 0.2s; }
+        .fade-in:nth-child(3) { animation-delay: 0.3s; }
+        .fade-in:nth-child(4) { animation-delay: 0.4s; }
 
         @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Hover card effects */
-        .hover-card {
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .hover-card:hover {
-            transform: translateY(-10px) scale(1.02);
-            box-shadow: 0 20px 40px rgba(74, 222, 128, 0.2);
-            background: rgba(255,255,255,0.08);
-        }
-        .hover-card:hover p {
-            color: #e5e5e5;
-        }
-        .hover-card:hover h3 {
-            color: #4ade80;
+        /* Logo glow */
+        .logo-glow {
+            box-shadow: 0 0 40px var(--sage-glow), 0 0 80px rgba(124, 154, 114, 0.1);
         }
 
-        /* Pulse ring */
-        .pulse-ring {
-            position: relative;
-        }
-        .pulse-ring::before {
-            content: '';
-            position: absolute;
-            inset: -10px;
-            border-radius: 50%;
-            border: 2px solid rgba(74, 222, 128, 0.4);
-            animation: pulseRing 2s ease-out infinite;
-        }
-
-        @keyframes pulseRing {
-            0% { transform: scale(0.8); opacity: 1; }
-            100% { transform: scale(1.5); opacity: 0; }
-        }
-
-        /* Magnetic button */
-        .magnetic-btn {
-            position: relative;
-            overflow: hidden;
+        /* Warm button hover */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--sage), #5a7d52);
             transition: all 0.3s ease;
         }
-        .magnetic-btn::before {
-            content: '';
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--sage-glow);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(8px);
+            transition: all 0.3s ease;
+        }
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.14);
+            transform: translateY(-2px);
+        }
+
+        /* Feature cards */
+        .feature-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(8px);
+            transition: all 0.3s ease;
+        }
+        .feature-card:hover {
+            background: rgba(255,255,255,0.07);
+            border-color: rgba(124, 154, 114, 0.3);
+            transform: translateY(-4px);
+        }
+
+        /* Step connector */
+        .step-line {
             position: absolute;
-            inset: 0;
-            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent);
-            transform: translateX(-100%);
-            transition: transform 0.6s ease;
-        }
-        .magnetic-btn:hover::before {
-            transform: translateX(100%);
-        }
-        .magnetic-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 10px 40px rgba(74, 222, 128, 0.4);
+            left: 28px;
+            top: 56px;
+            bottom: -48px;
+            width: 2px;
+            background: linear-gradient(to bottom, var(--sage), transparent);
         }
 
-        /* Wave divider */
-        .wave-divider {
-            position: relative;
-            height: 100px;
-            overflow: hidden;
-        }
-        .wave-divider svg {
-            position: absolute;
-            bottom: 0;
-            width: 200%;
-            animation: wave 10s linear infinite;
-        }
-
-        @keyframes wave {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-        }
-
-        /* Number counter animation */
-        .step-number {
-            position: relative;
-            animation: popNumber 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-        }
-
-        @keyframes popNumber {
-            0% { transform: scale(0) rotate(-180deg); }
-            100% { transform: scale(1) rotate(0deg); }
-        }
-
-        /* Rainbow border on hover */
-        .rainbow-border {
-            position: relative;
-        }
-        .rainbow-border::before {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            border-radius: 20px;
-            background: linear-gradient(45deg, #ff0080, #ff8c00, #40e0d0, #ff0080);
-            background-size: 400% 400%;
-            z-index: -1;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            animation: rainbowMove 3s linear infinite;
-        }
-        .rainbow-border:hover::before {
-            opacity: 1;
-        }
-
-        @keyframes rainbowMove {
-            0% { background-position: 0% 50%; }
-            100% { background-position: 400% 50%; }
-        }
-
-        /* Typewriter effect */
-        .typewriter {
-            overflow: hidden;
-            border-right: 3px solid #4ade80;
-            white-space: nowrap;
-            animation: typing 3s steps(40) forwards, blink 0.7s step-end infinite;
-            width: 0;
-        }
-
-        @keyframes typing {
-            to { width: 100%; }
-        }
-
-        @keyframes blink {
-            50% { border-color: transparent; }
-        }
-
-        /* Medium energy icon float - the goldilocks zone */
-        .icon-gentle {
-            animation: mediumFloat 2.5s ease-in-out infinite;
-        }
-
-        @keyframes mediumFloat {
-            0%, 100% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-12px) scale(1.05); }
-        }
+        /* Amber accent */
+        .text-amber { color: var(--amber); }
+        .text-sage { color: var(--sage-light); }
     </style>
 </head>
 <body class="bg-black text-white">
+
     <!-- Hero -->
     <section class="min-h-screen flex flex-col items-center justify-center px-6 text-center relative overflow-hidden gradient-bg">
-        
-        <!-- Floating polaroid photos -->
-        <div class="floating-photos">
-            <div class="polaroid" style="--rotate: -12deg;"></div>
-            <div class="polaroid" style="--rotate: 8deg;"></div>
-            <div class="polaroid" style="--rotate: 15deg;"></div>
-            <div class="polaroid" style="--rotate: -8deg;"></div>
-            <div class="polaroid" style="--rotate: 5deg;"></div>
-            <div class="polaroid" style="--rotate: -18deg;"></div>
-        </div>
-
-        <!-- Rising particles -->
-        <div class="particles">
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-        </div>
-        
-        <div class="relative z-10 stagger">
-            <div class="pulse-ring inline-block mb-8">
-                <img src="assets/logo.jpg" alt="InstaPi" class="w-36 h-36 rounded-3xl logo-glow bounce-in">
+        <div class="relative z-10 max-w-3xl mx-auto">
+            <div class="fade-in mb-8">
+                <img src="assets/logo.jpg" alt="InstaPi" class="w-32 h-32 rounded-3xl logo-glow mx-auto">
             </div>
-            
-            <h1 class="text-6xl md:text-8xl font-extrabold mb-6">
-                <span class="title-shimmer">InstaPi</span>
+
+            <h1 class="fade-in text-5xl md:text-7xl font-extrabold mb-6 tracking-tight">
+                Your photos,<br><span class="text-sage">always on display.</span>
             </h1>
-            
-            <p class="text-xl md:text-2xl text-gray-300 mb-10 max-w-2xl mx-auto leading-relaxed">
-                A simple, open-source digital picture frame.<br>
-                <span class="text-green-400 font-medium">Built for Raspberry Pi. No apps. No subscriptions.</span>
+
+            <p class="fade-in text-lg md:text-xl text-gray-400 mb-10 max-w-xl mx-auto leading-relaxed">
+                An open-source digital picture frame for Raspberry Pi.<br>
+                No apps. No subscriptions. Just your photos.
             </p>
-            
-            <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href="https://github.com/kellygold/instapi" class="magnetic-btn px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl font-bold text-lg">
-                    ⭐ View on GitHub
+
+            <div class="fade-in flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="https://github.com/kellygold/instapi" class="btn-primary px-8 py-4 rounded-xl font-semibold text-lg">
+                    View on GitHub
                 </a>
-                <a href="#features" class="magnetic-btn px-10 py-5 bg-white/10 hover:bg-white/20 rounded-2xl font-bold text-lg backdrop-blur-sm border border-white/20">
-                    Learn More ↓
+                <a href="#how-it-works" class="btn-secondary px-8 py-4 rounded-xl font-semibold text-lg">
+                    Learn More
                 </a>
             </div>
         </div>
 
-        <!-- Scroll indicator -->
-        <div class="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce">
-            <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce opacity-40">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
             </svg>
         </div>
     </section>
 
-    <!-- Wave divider -->
-    <div class="wave-divider bg-black">
-        <svg viewBox="0 0 1200 100" preserveAspectRatio="none">
-            <path fill="rgba(74, 222, 128, 0.1)" d="M0,50 C300,100 400,0 600,50 C800,100 900,0 1200,50 L1200,100 L0,100 Z"></path>
-        </svg>
-    </div>
+    <!-- Three ways to add photos -->
+    <section class="py-24 px-6">
+        <div class="max-w-5xl mx-auto">
+            <h2 class="text-4xl md:text-5xl font-bold text-center mb-4">Three ways to add photos</h2>
+            <p class="text-center text-gray-500 mb-16 text-lg">Pick whichever works for you. Mix and match.</p>
 
-    <!-- Problem -->
-    <section class="py-24 px-6 bg-gradient-to-b from-black via-gray-900 to-black">
-        <div class="max-w-4xl mx-auto text-center">
-            <h2 class="text-5xl font-bold mb-8">
-                Photo Frames <span class="line-through text-red-400 opacity-60">Suck</span>
-            </h2>
-            <div class="grid md:grid-cols-2 gap-6 text-left">
-                <div class="bg-red-500/10 border border-red-500/20 rounded-xl p-6">
-                    <span class="text-2xl">😤</span>
-                    <p class="text-gray-400 mt-2">Apps stop working. Google integration breaks randomly.</p>
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="feature-card rounded-2xl p-8 text-center">
+                    <div class="text-4xl mb-5">📱</div>
+                    <h3 class="text-xl font-bold mb-3">Upload from phone</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm">Scan a QR code, pick photos from your camera roll, done. Works from any phone, any service.</p>
+                    <span class="inline-block mt-4 text-xs font-medium text-amber px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">Primary</span>
                 </div>
-                <div class="bg-red-500/10 border border-red-500/20 rounded-xl p-6">
-                    <span class="text-2xl">💸</span>
-                    <p class="text-gray-400 mt-2">Subscription fees for basic features you already paid for.</p>
+
+                <div class="feature-card rounded-2xl p-8 text-center">
+                    <div class="text-4xl mb-5">🖼️</div>
+                    <h3 class="text-xl font-bold mb-3">Google Photos picker</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm">Select specific photos from your Google Photos library. Sign in, pick, and they download to the frame.</p>
                 </div>
-                <div class="bg-red-500/10 border border-red-500/20 rounded-xl p-6">
-                    <span class="text-2xl">🔄</span>
-                    <p class="text-gray-400 mt-2">Manual refreshes. Can't select albums. Clunky interfaces.</p>
-                </div>
-                <div class="bg-red-500/10 border border-red-500/20 rounded-xl p-6">
-                    <span class="text-2xl">👁️</span>
-                    <p class="text-gray-400 mt-2">Excessive permissions. Who knows what they're tracking?</p>
+
+                <div class="feature-card rounded-2xl p-8 text-center">
+                    <div class="text-4xl mb-5">👨‍👩‍👧‍👦</div>
+                    <h3 class="text-xl font-bold mb-3">Share with others</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm">Send anyone the upload link. They add photos from their phone — no app, no account, no Google needed.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Solution -->
-    <section id="features" class="py-24 px-6 relative overflow-hidden">
-        <div class="absolute inset-0 bg-gradient-to-r from-green-900/10 via-transparent to-emerald-900/10"></div>
-        
-        <div class="max-w-6xl mx-auto relative z-10">
-            <h2 class="text-5xl font-bold text-center mb-4">
-                <span class="title-shimmer">InstaPi</span> Just Works
-            </h2>
-            <p class="text-center text-gray-400 mb-16 text-lg">No BS. No subscriptions. Just photos.</p>
-            
-            <div class="grid md:grid-cols-3 gap-8">
-                <div class="hover-card rainbow-border bg-white/5 rounded-2xl p-8 border border-white/10 backdrop-blur-sm">
-                    <div class="text-5xl mb-6 icon-gentle">📱</div>
-                    <h3 class="text-2xl font-bold mb-4">QR Code Setup</h3>
-                    <p class="text-gray-400 leading-relaxed">Scan with your phone. Sign into Google. Pick photos. Done in 30 seconds. No apps to install.</p>
+    <!-- Why InstaPi -->
+    <section class="py-24 px-6 bg-gradient-to-b from-transparent via-white/[0.02] to-transparent">
+        <div class="max-w-5xl mx-auto">
+            <h2 class="text-4xl md:text-5xl font-bold text-center mb-16">Why InstaPi</h2>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="feature-card rounded-2xl p-8">
+                    <h3 class="text-lg font-bold mb-2 text-sage">Privacy first</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">Runs entirely on your Pi. No cloud servers, no tracking, no data collection. Your photos stay yours.</p>
                 </div>
-                
-                <div class="hover-card rainbow-border bg-white/5 rounded-2xl p-8 border border-white/10 backdrop-blur-sm">
-                    <div class="text-5xl mb-6 icon-gentle" style="animation-delay: 0.5s;">🔒</div>
-                    <h3 class="text-2xl font-bold mb-4">Privacy First</h3>
-                    <p class="text-gray-400 leading-relaxed">Runs entirely on your Pi. No cloud servers. No tracking. No data collection. Ever.</p>
+                <div class="feature-card rounded-2xl p-8">
+                    <h3 class="text-lg font-bold mb-2 text-sage">No subscriptions</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">One Raspberry Pi. That's the whole cost. No monthly fees, no premium tiers, no in-app purchases.</p>
                 </div>
-                
-                <div class="hover-card rainbow-border bg-white/5 rounded-2xl p-8 border border-white/10 backdrop-blur-sm">
-                    <div class="text-5xl mb-6 icon-gentle" style="animation-delay: 1s;">🔧</div>
-                    <h3 class="text-2xl font-bold mb-4">Open Source</h3>
-                    <p class="text-gray-400 leading-relaxed">Fork it. Modify it. Make it yours. MIT licensed. Join the community.</p>
+                <div class="feature-card rounded-2xl p-8">
+                    <h3 class="text-lg font-bold mb-2 text-sage">Open source</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">MIT licensed. Fork it, modify it, make it yours. The code is all on GitHub.</p>
+                </div>
+                <div class="feature-card rounded-2xl p-8">
+                    <h3 class="text-lg font-bold mb-2 text-sage">Self-healing</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">A watchdog monitors everything and auto-recovers from crashes, network drops, and USB issues. Set it and forget it.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- How it Works -->
-    <section class="py-24 px-6 bg-gradient-to-b from-black via-gray-900 to-black">
+    <!-- How it works -->
+    <section id="how-it-works" class="py-24 px-6">
+        <div class="max-w-3xl mx-auto">
+            <h2 class="text-4xl md:text-5xl font-bold text-center mb-16">How it works</h2>
+
+            <div class="space-y-16">
+                <div class="flex items-start gap-6 relative">
+                    <div class="step-line"></div>
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[var(--sage)] to-[#5a7d52] flex items-center justify-center text-xl font-bold shrink-0 shadow-lg">1</div>
+                    <div>
+                        <h3 class="text-xl font-bold mb-2">Install on your Pi</h3>
+                        <p class="text-gray-400">One command. Everything sets up automatically.</p>
+                        <code class="inline-block mt-3 px-4 py-2 bg-white/5 rounded-lg text-sage text-sm border border-white/10">curl -sSL https://raw.githubusercontent.com/kellygold/instapi/main/pi-setup/install.sh | bash</code>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-6 relative">
+                    <div class="step-line"></div>
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[var(--sage)] to-[#5a7d52] flex items-center justify-center text-xl font-bold shrink-0 shadow-lg">2</div>
+                    <div>
+                        <h3 class="text-xl font-bold mb-2">Scan the QR code</h3>
+                        <p class="text-gray-400">The frame shows a QR code on first boot. Scan it with your phone.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-6">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[var(--sage)] to-[#5a7d52] flex items-center justify-center text-xl font-bold shrink-0 shadow-lg">3</div>
+                    <div>
+                        <h3 class="text-xl font-bold mb-2">Add photos</h3>
+                        <p class="text-gray-400">Upload from your phone, pick from Google Photos, or share the link with family. Photos appear on the frame instantly.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- For makers -->
+    <section class="py-24 px-6 bg-gradient-to-b from-transparent via-white/[0.02] to-transparent">
         <div class="max-w-4xl mx-auto">
-            <h2 class="text-5xl font-bold text-center mb-16">How It Works</h2>
-            
-            <div class="space-y-12">
-                <div class="flex items-start gap-8 group">
-                    <div class="step-number w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-2xl font-bold shrink-0 group-hover:scale-110 transition-transform shadow-lg shadow-green-500/30">1</div>
-                    <div>
-                        <h3 class="text-2xl font-bold mb-3 group-hover:text-green-400 transition-colors">Install on your Pi</h3>
-                        <p class="text-gray-400 text-lg">One command. Downloads everything, sets up auto-start. You'll be done before your coffee gets cold.</p>
-                        <code class="inline-block mt-4 px-4 py-2 bg-black/50 rounded-lg text-green-400 text-sm border border-green-500/30">curl -sSL https://raw.githubusercontent.com/kellygold/instapi/main/pi-setup/install.sh | bash</code>
-                    </div>
+            <h2 class="text-4xl md:text-5xl font-bold text-center mb-4">For makers</h2>
+            <p class="text-center text-gray-500 mb-12 text-lg">Built on a Raspberry Pi. Runs Flask. Talks to your frame.</p>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="text-lg font-bold mb-4 text-sage">Two display modes</h3>
+                    <ul class="space-y-3 text-gray-400 text-sm">
+                        <li><strong class="text-white">USB mode</strong> — Pi appears as a USB drive. Works with any photo frame that has a USB port.</li>
+                        <li><strong class="text-white">HDMI mode</strong> — Web-based slideshow via Chromium kiosk. Fade, slide, zoom transitions + Ken Burns.</li>
+                    </ul>
                 </div>
-                
-                <div class="flex items-start gap-8 group">
-                    <div class="step-number w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-2xl font-bold shrink-0 group-hover:scale-110 transition-transform shadow-lg shadow-green-500/30" style="animation-delay: 0.1s;">2</div>
-                    <div>
-                        <h3 class="text-2xl font-bold mb-3 group-hover:text-green-400 transition-colors">Scan the QR code</h3>
-                        <p class="text-gray-400 text-lg">Frame shows a QR code. Scan with your phone. Sign into Google. That's it.</p>
-                    </div>
+                <div>
+                    <h3 class="text-lg font-bold mb-4 text-sage">Tech stack</h3>
+                    <ul class="space-y-3 text-gray-400 text-sm">
+                        <li>Python 3 + Flask</li>
+                        <li>Google Photos Picker API</li>
+                        <li>Pillow for thumbnails and watermarks</li>
+                        <li>systemd services + watchdog cron</li>
+                        <li>ngrok for remote access</li>
+                    </ul>
                 </div>
-                
-                <div class="flex items-start gap-8 group">
-                    <div class="step-number w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-2xl font-bold shrink-0 group-hover:scale-110 transition-transform shadow-lg shadow-green-500/30" style="animation-delay: 0.2s;">3</div>
-                    <div>
-                        <h3 class="text-2xl font-bold mb-3 group-hover:text-green-400 transition-colors">Pick your photos</h3>
-                        <p class="text-gray-400 text-lg">Use Google's built-in picker. Select the photos you want. Slideshow starts automatically.</p>
-                    </div>
-                </div>
-                
-                <div class="flex items-start gap-8 group">
-                    <div class="step-number w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-2xl font-bold shrink-0 group-hover:scale-110 transition-transform shadow-lg shadow-green-500/30" style="animation-delay: 0.3s;">4</div>
-                    <div>
-                        <h3 class="text-2xl font-bold mb-3 group-hover:text-green-400 transition-colors">Update anytime</h3>
-                        <p class="text-gray-400 text-lg">Small QR in the corner of your slideshow. Scan to add more photos whenever you want.</p>
-                    </div>
-                </div>
+            </div>
+
+            <div class="mt-12 text-center">
+                <h3 class="text-lg font-bold mb-3 text-sage">Admin panel</h3>
+                <p class="text-gray-400 text-sm max-w-lg mx-auto">Manage photos, slideshow settings, system info, and more — all from your phone. Dark theme, mobile-friendly, built-in help guide.</p>
             </div>
         </div>
     </section>
 
     <!-- CTA -->
-    <section class="py-32 px-6 text-center relative overflow-hidden">
-        <div class="absolute inset-0 bg-gradient-to-t from-green-900/20 to-transparent"></div>
-        
-        <!-- More particles -->
-        <div class="particles">
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-        </div>
-        
-        <div class="max-w-2xl mx-auto relative z-10">
-            <h2 class="text-5xl font-bold mb-6">Ready to Build?</h2>
-            <p class="text-xl text-gray-400 mb-10">
-                All you need is a Raspberry Pi and a screen.<br>
-                <span class="text-green-400">Takes about 5 minutes.</span>
+    <section class="py-28 px-6 text-center">
+        <div class="max-w-2xl mx-auto">
+            <h2 class="text-4xl md:text-5xl font-bold mb-6">Ready to build yours?</h2>
+            <p class="text-lg text-gray-400 mb-10">
+                All you need is a Raspberry Pi and a screen.
             </p>
-            <a href="https://github.com/kellygold/instapi" class="magnetic-btn inline-block px-12 py-6 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl font-bold text-xl shadow-2xl shadow-green-500/30">
-                🚀 Get Started on GitHub
-            </a>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="https://github.com/kellygold/instapi" class="btn-primary px-10 py-5 rounded-xl font-semibold text-lg">
+                    Get Started on GitHub
+                </a>
+                <a href="https://buymeacoffee.com/jankyard" class="btn-secondary px-10 py-5 rounded-xl font-semibold text-lg text-amber">
+                    Buy Me a Coffee
+                </a>
+            </div>
         </div>
     </section>
 
     <!-- Footer -->
-    <footer class="py-12 px-6 border-t border-white/10 text-center">
-        <p class="text-gray-400 text-lg">Built with frustration at expensive frames that don't work. 🖼️</p>
-        <a href="https://buymeacoffee.com/jankyard" class="inline-block mt-6 px-6 py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-xl transition-all hover:scale-105">
-            ☕ Buy Me a Coffee
-        </a>
-        <p class="mt-6 text-gray-500">
-            MIT License &middot;
-            <a href="https://github.com/kellygold/instapi" class="text-green-400 hover:underline hover:text-green-300 transition-colors">GitHub</a> &middot;
-            <a href="/privacy" class="text-green-400 hover:underline hover:text-green-300 transition-colors">Privacy</a> &middot;
-            <a href="/terms" class="text-green-400 hover:underline hover:text-green-300 transition-colors">Terms</a>
+    <footer class="py-10 px-6 border-t border-white/5 text-center">
+        <p class="text-gray-500 text-sm">
+            <a href="https://github.com/kellygold/instapi" class="text-sage hover:underline">GitHub</a>
+            &nbsp;&middot;&nbsp;
+            <a href="/privacy" class="text-sage hover:underline">Privacy</a>
+            &nbsp;&middot;&nbsp;
+            <a href="/terms" class="text-sage hover:underline">Terms</a>
+            &nbsp;&middot;&nbsp;
+            <a href="mailto:hello@instapi.dev" class="text-sage hover:underline">hello@instapi.dev</a>
         </p>
-        <p class="mt-4 text-gray-500">
-            <a href="mailto:hello@instapi.dev" class="text-green-400 hover:underline hover:text-green-300 transition-colors">hello@instapi.dev</a>
-        </p>
-        <div class="mt-6 flex justify-center gap-4">
-            <span class="px-3 py-1 bg-white/5 rounded-full text-sm text-gray-400">Python</span>
-            <span class="px-3 py-1 bg-white/5 rounded-full text-sm text-gray-400">Flask</span>
-            <span class="px-3 py-1 bg-white/5 rounded-full text-sm text-gray-400">Raspberry Pi</span>
-            <span class="px-3 py-1 bg-white/5 rounded-full text-sm text-gray-400">Google Photos</span>
+        <div class="mt-4 flex justify-center gap-3">
+            <span class="px-3 py-1 bg-white/5 rounded-full text-xs text-gray-500">Python</span>
+            <span class="px-3 py-1 bg-white/5 rounded-full text-xs text-gray-500">Flask</span>
+            <span class="px-3 py-1 bg-white/5 rounded-full text-xs text-gray-500">Raspberry Pi</span>
+            <span class="px-3 py-1 bg-white/5 rounded-full text-xs text-gray-500">Google Photos</span>
         </div>
+        <p class="mt-4 text-gray-600 text-xs">MIT License</p>
     </footer>
+
 </body>
 </html>

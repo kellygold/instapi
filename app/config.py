@@ -4,13 +4,9 @@ import json
 
 SCOPES = [
     "https://www.googleapis.com/auth/photospicker.mediaitems.readonly",
-    "https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata",
-    "https://www.googleapis.com/auth/photoslibrary.appendonly",
-    "https://www.googleapis.com/auth/photoslibrary.edit.appcreateddata",
 ]
 
 PICKER_API_BASE_URL = "https://photospicker.googleapis.com/v1"
-LIBRARY_API_BASE_URL = "https://photoslibrary.googleapis.com/v1"
 
 device_state = {}
 
@@ -18,9 +14,7 @@ PHOTOS_DIR = os.path.join(os.path.dirname(__file__), 'static', 'photos')
 STATE_FILE = os.path.join(os.path.dirname(__file__), 'device_state.json')
 
 # Keys safe to persist
-# refresh_token is long-lived and needed for auto-sync (access tokens are short-lived and NOT stored)
 _PERSISTABLE_KEYS = {"photo_urls", "done", "photos_chosen", "current_index",
-                     "refresh_token", "album_id", "synced_media_ids",
                      "upload_token"}
 
 
