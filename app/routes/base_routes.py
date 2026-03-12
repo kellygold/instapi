@@ -112,11 +112,16 @@ def oauth2callback():
 
 @app.route("/choose_mode_qr")
 def choose_mode_qr():
-    """QR to link user to upload page for adding photos."""
-    token = device_state.get("upload_token", "")
-    auth_url = f"{BASE_URL}/upload?t={token}"
+    """QR to link user to upload page for adding photos.
+    Child frames point to master's upload page using their sync token."""
+    if device_state.get("sync_role") == "child" and device_state.get("master_url"):
+        token = device_state.get("sync_token", "")
+        url = f"{device_state['master_url']}/upload?t={token}"
+    else:
+        token = device_state.get("upload_token", "")
+        url = f"{BASE_URL}/upload?t={token}"
     img_io = io.BytesIO()
-    img = qrcode.make(auth_url)
+    img = qrcode.make(url)
     img.save(img_io, 'PNG')
     img_io.seek(0)
     return send_file(img_io, mimetype='image/png')

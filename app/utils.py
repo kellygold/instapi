@@ -18,7 +18,11 @@ with open("secrets.json") as f:
     _WATERMARK_BASE = _redirect.rsplit("/", 1)[0]
 
 def _get_watermark_url():
-    """Build watermark URL pointing to upload page with token."""
+    """Build watermark URL pointing to upload page with token.
+    Child frames point to master's upload page using their sync token."""
+    if device_state.get("sync_role") == "child" and device_state.get("master_url"):
+        token = device_state.get("sync_token", "")
+        return f"{device_state['master_url']}/upload?t={token}"
     token = device_state.get("upload_token", "")
     return f"{_WATERMARK_BASE}/upload?t={token}"
 

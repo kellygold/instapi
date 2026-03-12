@@ -1,5 +1,6 @@
 # routes/upload_routes.py
 import os
+import json
 import time
 import shutil
 from flask import render_template, jsonify, request
@@ -10,21 +11,49 @@ from utils import sync_photos_to_usb, get_display_mode
 from routes.sync_routes import mark_manifest_dirty
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+UPLOAD_META_FILE = os.path.join(PHOTOS_DIR, "upload_meta.json")
+
+
+def _load_upload_meta():
+    try:
+        if os.path.exists(UPLOAD_META_FILE):
+            with open(UPLOAD_META_FILE) as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {}
+
+
+def _save_upload_meta(meta):
+    try:
+        with open(UPLOAD_META_FILE, "w") as f:
+            json.dump(meta, f, indent=2)
+    except Exception as e:
+        print(f"[UPLOAD] Failed to save metadata: {e}")
 
 
 def _validate_token():
-    """Check upload token from query param or form data."""
+    """Check upload token from query param or form data.
+    Returns uploader label string if valid, False if invalid.
+    Master's own upload_token returns 'admin'."""
     token = request.args.get("t") or request.form.get("t")
-    expected = device_state.get("upload_token")
-    if not expected or token != expected:
+    if not token:
         return False
-    return True
+    # Check master's own upload token
+    if token == device_state.get("upload_token"):
+        return "admin"
+    # Check sync child tokens (each child's token doubles as their upload identity)
+    for child in device_state.get("sync_children", []):
+        if child["token"] == token:
+            return child["label"]
+    return False
 
 
 @app.route("/upload")
 def upload_page():
     """Upload page for family photo sharing."""
-    if not _validate_token():
+    uploader = _validate_token()
+    if not uploader:
         return render_template("upload_error.html"), 403
     return render_template("upload.html", token=request.args.get("t", ""))
 
@@ -32,7 +61,8 @@ def upload_page():
 @app.route("/upload", methods=["POST"])
 def upload_photos():
     """Handle photo uploads."""
-    if not _validate_token():
+    uploader = _validate_token()
+    if not uploader:
         return jsonify({"success": False, "error": "Invalid token"}), 403
 
     files = request.files.getlist("photos")
@@ -52,6 +82,7 @@ def upload_photos():
     batch_id = int(time.time())
     uploaded = 0
     skipped = 0
+    uploaded_filenames = []
 
     for i, file in enumerate(files):
         if not file or not file.filename:
@@ -93,9 +124,16 @@ def upload_photos():
         # Add to device state
         url_path = f"/static/photos/upload/{filename}"
         device_state.setdefault("photo_urls", []).append(url_path)
+        uploaded_filenames.append(filename)
         uploaded += 1
 
     if uploaded > 0:
+        # Tag photos with uploader identity
+        meta = _load_upload_meta()
+        for fname in uploaded_filenames:
+            meta[fname] = uploader
+        _save_upload_meta(meta)
+
         device_state["done"] = True
         device_state["photos_chosen"] = True
         save_device_state()
