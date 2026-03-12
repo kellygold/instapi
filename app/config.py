@@ -14,8 +14,10 @@ SYNC_DIR_NAME = "sync"
 
 device_state = {}
 
-PHOTOS_DIR = os.path.join(os.path.dirname(__file__), 'static', 'photos')
-STATE_FILE = os.path.join(os.path.dirname(__file__), 'device_state.json')
+PHOTOS_DIR = os.environ.get('INSTAPI_PHOTOS_DIR',
+             os.path.join(os.path.dirname(__file__), 'static', 'photos'))
+STATE_FILE = os.environ.get('INSTAPI_STATE_FILE',
+             os.path.join(os.path.dirname(__file__), 'device_state.json'))
 
 # Keys safe to persist
 _PERSISTABLE_KEYS = {"photo_urls", "done", "photos_chosen", "current_index",
