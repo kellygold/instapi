@@ -9,6 +9,7 @@ import routes.base_routes
 import routes.picker_routes
 import routes.admin_routes
 import routes.upload_routes
+import routes.sync_routes
 
 
 def reconcile_photos():
@@ -65,10 +66,15 @@ if __name__ == "__main__":
         save_device_state()
         print(f"Upload token: {device_state['upload_token']}")
 
-    # Start album auto-sync if we have a refresh token
-    if device_state.get("refresh_token"):
-        from album_sync import start_sync_timer
-        start_sync_timer()
+    # Initialize sync role
+    if device_state.get("sync_role") == "master":
+        device_state.setdefault("sync_children", [])
+        save_device_state()
+
+    # Start child sync loop if configured
+    if device_state.get("sync_role") == "child" and device_state.get("master_url"):
+        from routes.sync_routes import start_sync_loop
+        start_sync_loop()
 
     port = int(os.environ.get("PORT", 3000))
     print(f"Starting app on port {port}")

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from app import app
 
 
-from config import SCOPES, device_state, save_device_state
+from config import SCOPES, device_state
 from urllib.parse import urlencode
 import os
 
@@ -100,11 +100,7 @@ def oauth2callback():
         device_state["credentials"] = {
             "token": credentials.token,
         }
-        # Store refresh token for auto-sync (persisted to disk)
-        if credentials.refresh_token:
-            device_state["refresh_token"] = credentials.refresh_token
-            save_device_state()
-        
+
         # Immediately create picker session and redirect to picker
         return redirect(url_for("launch_picker"))
     except Exception as e:

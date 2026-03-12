@@ -7,6 +7,7 @@ from PIL import Image
 from app import app
 from config import device_state, PHOTOS_DIR, save_device_state
 from utils import sync_photos_to_usb, get_display_mode
+from routes.sync_routes import mark_manifest_dirty
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
@@ -98,6 +99,7 @@ def upload_photos():
         device_state["done"] = True
         device_state["photos_chosen"] = True
         save_device_state()
+        mark_manifest_dirty()
 
         # Sync to USB if in USB mode
         if get_display_mode() == "usb":

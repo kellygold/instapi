@@ -874,6 +874,7 @@
             </div>
 
             <div class="action-list">
+                {% if sync_role != 'child' %}
                 <div class="action-item">
                     <div class="action-icon blue">🔗</div>
                     <div class="action-content">
@@ -896,6 +897,7 @@
                         <p>Select from Google Photos</p>
                     </div>
                 </a>
+                {% endif %}
                 <div class="action-item sync-needed" id="syncAction" style="display: none;">
                     <div class="action-icon orange">🔄</div>
                     <div class="action-content">
@@ -903,6 +905,91 @@
                         <p>Tap to update the frame with your changes</p>
                     </div>
                     <button class="action-btn secondary" onclick="syncFrame()" id="syncBtn">Sync Now</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Family Sync -->
+        <div class="section" id="syncSection">
+            <div class="section-header">
+                <span class="icon">☁️</span>
+                <h2>Family Sync</h2>
+            </div>
+
+            <!-- Unconfigured -->
+            <div id="syncUnconfigured" {% if sync_role %}style="display:none"{% endif %}>
+                <p class="section-desc">Sync photos between family frames. Choose a role for this frame.</p>
+                <div class="action-list">
+                    <div class="action-item" onclick="configureSyncRole('master')" style="cursor:pointer">
+                        <div class="action-icon green">👑</div>
+                        <div class="action-content">
+                            <h3>This is the primary frame</h3>
+                            <p>Family uploads go here. Other frames sync from this one.</p>
+                        </div>
+                    </div>
+                    <div class="action-item" onclick="showChildSetup()" style="cursor:pointer">
+                        <div class="action-icon blue">🔄</div>
+                        <div class="action-content">
+                            <h3>This syncs from another frame</h3>
+                            <p>Pulls photos from the primary frame automatically.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Child Setup Form (hidden until clicked) -->
+            <div id="syncChildSetup" style="display:none">
+                <p class="section-desc">Enter the master frame's URL and sync token.</p>
+                <div style="padding: 0 16px;">
+                    <div style="margin-bottom: 12px;">
+                        <label style="display:block; font-size:0.85em; color:#999; margin-bottom:4px;">Master URL</label>
+                        <input type="text" id="masterUrlInput" placeholder="https://instapi.ngrok.dev" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.05); color:#fff; font-size:0.95em;">
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display:block; font-size:0.85em; color:#999; margin-bottom:4px;">Sync Token</label>
+                        <input type="text" id="syncTokenInput" placeholder="Paste token from master" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.05); color:#fff; font-size:0.95em;">
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="action-btn primary" onclick="saveChildConfig()">Save & Start Sync</button>
+                        <button class="action-btn secondary" onclick="cancelChildSetup()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Master View -->
+            <div id="syncMaster" {% if sync_role != 'master' %}style="display:none"{% endif %}>
+                <p class="section-desc">This is the primary frame. Other frames sync photos from here.</p>
+                <div class="action-list" id="childFrameList">
+                    <!-- Populated by JS -->
+                </div>
+                <div style="padding: 0 16px; margin-top: 12px; display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="action-btn primary" onclick="addChildFrame()">+ Add Child Frame</button>
+                    <button class="action-btn secondary" onclick="configureSyncRole('')">Disable Sync</button>
+                </div>
+            </div>
+
+            <!-- Child View -->
+            <div id="syncChild" {% if sync_role != 'child' %}style="display:none"{% endif %}>
+                <p class="section-desc">Syncing from: <strong id="syncMasterUrl"></strong></p>
+                <div class="action-list">
+                    <div class="action-item">
+                        <div class="action-icon" id="syncStatusIcon">🔄</div>
+                        <div class="action-content">
+                            <h3 id="syncStatusText">Checking...</h3>
+                            <p id="syncDetailText"></p>
+                        </div>
+                        <button class="action-btn secondary" onclick="triggerSyncNow()" id="syncNowBtn">Sync Now</button>
+                    </div>
+                </div>
+                <div style="padding: 0 16px; margin-top: 12px;">
+                    <label style="font-size:0.85em; color:#999;">Sync Interval</label>
+                    <select id="syncIntervalSelect" onchange="updateSyncInterval(this.value)" style="margin-left:8px; padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.05); color:#fff;">
+                        <option value="900">15 min</option>
+                        <option value="1800">30 min</option>
+                        <option value="3600">1 hour</option>
+                        <option value="7200">2 hours</option>
+                    </select>
+                    <button class="action-btn secondary" onclick="configureSyncRole('')" style="margin-left:8px;">Disconnect</button>
                 </div>
             </div>
         </div>
@@ -963,39 +1050,6 @@
                             <input type="checkbox" id="kenBurns" onchange="saveSetting('ken_burns', this.checked)">
                             <span class="toggle-slider"></span>
                         </label>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Auto-Sync -->
-        <div class="section" id="autoSyncSection">
-            <div class="section-header">
-                <span class="icon">🔄</span>
-                <h2>Auto-Sync <span class="tip" data-tip="Link a Google Photos album to your frame. New photos sync automatically every 30 minutes.">?</span></h2>
-            </div>
-            <div id="syncNotConnected">
-                <p class="section-desc">Connect your Google Photos to automatically sync an album to your frame. Photos you add to the album will appear on the frame within 30 minutes.</p>
-                <div class="action-list">
-                    <a href="{{ auth_url }}" target="_blank" class="action-item" style="text-decoration: none; color: inherit;">
-                        <div class="action-icon green">🔗</div>
-                        <div class="action-content">
-                            <h3>Connect Google Photos</h3>
-                            <p>Sign in to enable auto-sync</p>
-                        </div>
-                    </a>
-                </div>
-            </div>
-            <div id="syncConnected" style="display: none;">
-                <p class="section-desc">Syncing from your <strong>"InstaPi Frame"</strong> album in Google Photos. Add photos to that album and they'll appear here automatically.</p>
-                <div class="action-list">
-                    <div class="action-item">
-                        <div class="action-icon blue">📸</div>
-                        <div class="action-content">
-                            <h3 id="syncStatusText">Synced</h3>
-                            <p id="syncCountText">0 photos from album</p>
-                        </div>
-                        <button class="action-btn secondary" onclick="triggerAlbumSync()" id="albumSyncBtn">Sync Now</button>
                     </div>
                 </div>
             </div>
@@ -1091,13 +1145,6 @@
             <div class="help-section">
                 <h3>➕ Google Photos Picker</h3>
                 <p>Select photos directly from your Google Photos library. Requires signing in with Google each time. Best for picking specific photos you've already organized in Google Photos.</p>
-            </div>
-
-            <hr class="help-divider">
-
-            <div class="help-section">
-                <h3>🔄 Auto-Sync</h3>
-                <p>Connect your Google Photos account to create an "InstaPi Frame" album. Any photos you add to that album will automatically appear on your frame within 30 minutes. Great for hands-off updating.</p>
             </div>
 
             <hr class="help-divider">
@@ -1368,42 +1415,132 @@
             btn.disabled = false;
         }
 
-        // Album auto-sync
-        async function loadAlbumStatus() {
+        // ========== Family Sync ==========
+
+        function showChildSetup() {
+            document.getElementById('syncUnconfigured').style.display = 'none';
+            document.getElementById('syncChildSetup').style.display = '';
+        }
+
+        function cancelChildSetup() {
+            document.getElementById('syncChildSetup').style.display = 'none';
+            document.getElementById('syncUnconfigured').style.display = '';
+        }
+
+        async function configureSyncRole(role) {
             try {
-                const resp = await fetch('/admin/album_status');
+                const resp = await fetch('/admin/sync_config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({sync_role: role})
+                });
                 const data = await resp.json();
-                if (data.has_refresh_token) {
-                    document.getElementById('syncNotConnected').style.display = 'none';
-                    document.getElementById('syncConnected').style.display = '';
-                    document.getElementById('syncCountText').textContent =
-                        `${data.synced_count} photo${data.synced_count !== 1 ? 's' : ''} from album`;
+                if (data.success) {
+                    location.reload();
                 } else {
-                    document.getElementById('syncNotConnected').style.display = '';
-                    document.getElementById('syncConnected').style.display = 'none';
+                    showToast(data.error || 'Failed', true);
                 }
             } catch (e) {
-                console.error('Failed to load album status:', e);
+                showToast('Failed to configure sync', true);
             }
         }
 
-        async function triggerAlbumSync() {
-            const btn = document.getElementById('albumSyncBtn');
+        async function saveChildConfig() {
+            const masterUrl = document.getElementById('masterUrlInput').value.trim();
+            const syncToken = document.getElementById('syncTokenInput').value.trim();
+            if (!masterUrl || !syncToken) {
+                showToast('Master URL and token required', true);
+                return;
+            }
+            try {
+                const resp = await fetch('/admin/sync_config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({sync_role: 'child', master_url: masterUrl, sync_token: syncToken})
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    showToast('Sync configured! Starting first sync...');
+                    location.reload();
+                } else {
+                    showToast(data.error || 'Failed', true);
+                }
+            } catch (e) {
+                showToast('Failed to save config', true);
+            }
+        }
+
+        async function loadSyncStatus() {
+            try {
+                const resp = await fetch('/admin/sync_status');
+                const data = await resp.json();
+
+                // Update child view
+                if (data.sync_role === 'child') {
+                    document.getElementById('syncMasterUrl').textContent = data.master_url || '';
+                    const icon = document.getElementById('syncStatusIcon');
+                    const status = document.getElementById('syncStatusText');
+                    const detail = document.getElementById('syncDetailText');
+
+                    if (data.sync_in_progress) {
+                        icon.textContent = '⏳';
+                        status.textContent = 'Syncing...';
+                        detail.textContent = '';
+                    } else if (data.sync_error) {
+                        icon.textContent = '⚠️';
+                        status.textContent = 'Error';
+                        detail.textContent = data.sync_error;
+                        icon.classList.add('orange');
+                    } else if (data.last_sync) {
+                        icon.textContent = '✅';
+                        status.textContent = `${data.synced_photo_count} photos synced`;
+                        const ago = timeAgo(data.last_sync);
+                        detail.textContent = `Last sync: ${ago}`;
+                    } else {
+                        icon.textContent = '🔄';
+                        status.textContent = 'Waiting for first sync';
+                        detail.textContent = '';
+                    }
+
+                    // Set interval selector
+                    const sel = document.getElementById('syncIntervalSelect');
+                    if (sel) sel.value = String(data.sync_interval || 1800);
+                }
+            } catch (e) {
+                console.error('Failed to load sync status:', e);
+            }
+        }
+
+        function timeAgo(isoStr) {
+            const diff = (Date.now() - new Date(isoStr).getTime()) / 1000;
+            if (diff < 60) return 'just now';
+            if (diff < 3600) return Math.floor(diff / 60) + ' min ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + ' hr ago';
+            return Math.floor(diff / 86400) + ' days ago';
+        }
+
+        async function triggerSyncNow() {
+            const btn = document.getElementById('syncNowBtn');
             btn.textContent = 'Syncing...';
             btn.disabled = true;
             try {
-                const resp = await fetch('/admin/album_sync', { method: 'POST' });
+                const resp = await fetch('/admin/sync_now', {method: 'POST'});
                 const data = await resp.json();
                 if (data.success) {
-                    showToast('Album sync started');
+                    showToast('Sync started');
                     // Poll for completion
-                    setTimeout(async () => {
-                        await loadAlbumStatus();
-                        loadPhotos();
-                        loadSystemInfo();
-                        btn.textContent = 'Sync Now';
-                        btn.disabled = false;
-                    }, 5000);
+                    const poll = setInterval(async () => {
+                        await loadSyncStatus();
+                        const sr = await fetch('/admin/sync_status');
+                        const sd = await sr.json();
+                        if (!sd.sync_in_progress) {
+                            clearInterval(poll);
+                            btn.textContent = 'Sync Now';
+                            btn.disabled = false;
+                            loadPhotos();
+                            loadSystemInfo();
+                        }
+                    }, 2000);
                 } else {
                     showToast(data.error || 'Sync failed', true);
                     btn.textContent = 'Sync Now';
@@ -1413,6 +1550,93 @@
                 showToast('Sync failed', true);
                 btn.textContent = 'Sync Now';
                 btn.disabled = false;
+            }
+        }
+
+        async function updateSyncInterval(value) {
+            try {
+                await fetch('/admin/sync_config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({sync_role: 'child', sync_interval: parseInt(value)})
+                });
+                showToast('Interval updated');
+            } catch (e) {}
+        }
+
+        async function loadChildFrames() {
+            try {
+                const resp = await fetch('/admin/sync_children');
+                const children = await resp.json();
+                const list = document.getElementById('childFrameList');
+                if (!list) return;
+                if (children.length === 0) {
+                    list.innerHTML = '<div class="action-item"><div class="action-content"><h3>No child frames</h3><p>Add a child frame to start sharing photos</p></div></div>';
+                    return;
+                }
+                list.innerHTML = children.map(c => `
+                    <div class="action-item">
+                        <div class="action-icon blue">📺</div>
+                        <div class="action-content">
+                            <h3>${c.label}</h3>
+                            <p style="font-size:0.7em; word-break:break-all; color:#999;">${c.token}</p>
+                        </div>
+                        <div style="display:flex; gap:4px;">
+                            <button class="action-btn secondary" onclick="copySyncConfig('${c.token}')">Copy</button>
+                            <button class="action-btn secondary" onclick="removeChildFrame('${c.token}')" style="color:#ef4444;">✕</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load children:', e);
+            }
+        }
+
+        async function addChildFrame() {
+            const label = prompt('Frame name (e.g. "Gramma"):');
+            if (!label) return;
+            try {
+                const resp = await fetch('/admin/sync_add_child', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({label: label})
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    showToast(`Added ${data.child.label}`);
+                    loadChildFrames();
+                } else {
+                    showToast(data.error || 'Failed', true);
+                }
+            } catch (e) {
+                showToast('Failed to add frame', true);
+            }
+        }
+
+        async function removeChildFrame(token) {
+            if (!confirm('Remove this child frame?')) return;
+            try {
+                await fetch('/admin/sync_remove_child', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({token: token})
+                });
+                loadChildFrames();
+            } catch (e) {
+                showToast('Failed to remove', true);
+            }
+        }
+
+        async function copySyncConfig(token) {
+            const config = JSON.stringify({
+                master_url: window.location.origin,
+                sync_token: token
+            }, null, 2);
+            try {
+                await navigator.clipboard.writeText(config);
+                showToast('Config copied to clipboard');
+            } catch (e) {
+                showToast('Could not copy', true);
             }
         }
 
@@ -1511,8 +1735,9 @@
             loadSystemInfo();
             loadPhotos();
             loadSettings();
-            loadAlbumStatus();
             initShareLink();
+            loadSyncStatus();
+            loadChildFrames();
             lastPhotoCount = parseInt(document.getElementById('photoCount').textContent) || 0;
 
             // Default to compact grid on mobile
@@ -1527,7 +1752,7 @@
             if (!document.hidden) {
                 loadPhotos();
                 loadSystemInfo();
-                loadAlbumStatus();
+                loadSyncStatus();
                 startPolling();
             }
         });

@@ -185,6 +185,11 @@ def fetch_and_download_picker_photos(session_id):
         # Sync to USB if in USB mode
         sync_photos_to_usb()
         save_device_state()
+        try:
+            from routes.sync_routes import mark_manifest_dirty
+            mark_manifest_dirty()
+        except ImportError:
+            pass
     else:
         print("Failed to list media items from picker:", resp_items.status_code, resp_items.text)
 

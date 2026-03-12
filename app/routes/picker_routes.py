@@ -4,6 +4,7 @@ import threading
 from flask import render_template, jsonify, request, redirect, url_for
 from app import app
 from config import device_state, PICKER_API_BASE_URL, save_device_state
+from routes.sync_routes import mark_manifest_dirty
 from utils import (
     parse_time_value,
     poll_for_media_items,
@@ -70,6 +71,7 @@ def finalize_selection():
     device_state["current_index"] = 0
     device_state["done"] = True
     save_device_state()
+    mark_manifest_dirty()
     return redirect(url_for("done", _external=True))
 
 

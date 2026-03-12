@@ -8,7 +8,6 @@ A simple, privacy-focused digital picture frame for Raspberry Pi. Display photos
 
 - **Upload from Any Phone** — Family members scan a QR or open a link, pick photos from their camera roll, done. Works with iCloud, Google Photos, any device.
 - **Google Photos Picker** — Select specific photos from your Google Photos library
-- **Album Auto-Sync** — Link a Google Photos album that syncs to the frame every 30 minutes
 - **Privacy First** — Everything runs locally on your Pi. No cloud servers, no tracking, no data collection.
 - **Self-Healing** — Watchdog monitors all services and auto-recovers from crashes, network drops, and USB issues
 - **Admin Panel** — Manage photos, slideshow settings, and system from your phone
@@ -18,7 +17,7 @@ A simple, privacy-focused digital picture frame for Raspberry Pi. Display photos
 
 1. **Install on your Pi** — One command, 5 minutes
 2. **Scan the QR code** — Frame shows a QR on first boot
-3. **Add photos** — Upload from camera roll, use Google Photos picker, or set up album auto-sync
+3. **Add photos** — Upload from camera roll or use Google Photos picker
 4. **Share with family** — Send them the upload link. They pick photos from their phone, photos appear on the frame.
 
 ## Display Modes
@@ -55,7 +54,6 @@ Access at `http://<pi-ip>:3000/admin` or via ngrok:
 - **Photo Gallery** — View, delete, manage photos with thumbnail previews
 - **Upload Photos** — Add from camera roll directly
 - **Google Photos Picker** — Select from Google Photos
-- **Auto-Sync** — Connect a Google Photos album for automatic updates
 - **Share with Family** — Copy the upload link to share
 - **Slideshow Settings** — Duration (1-60s), transitions, shuffle, Ken Burns
 - **Sync Frame** — Push changes to USB frame (appears after photo changes)
@@ -98,10 +96,10 @@ python3 main.py
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project
-3. Enable **Photos Picker API** and **Photos Library API**
+3. Enable **Photos Picker API**
 4. Create OAuth 2.0 credentials (Web application)
 5. Add redirect URI: `https://your-domain/oauth2callback`
-6. Add scopes: `photospicker.mediaitems.readonly`, `photoslibrary.readonly.appcreateddata`, `photoslibrary.appendonly`, `photoslibrary.edit.appcreateddata`
+6. Add scope: `photospicker.mediaitems.readonly`
 7. Download credentials and save as `app/secrets.json`
 
 ## Remote Access
@@ -134,7 +132,6 @@ instapi/
 │   ├── app.py                    # Flask instance
 │   ├── config.py                 # Configuration + state management
 │   ├── utils.py                  # Download, watermark, USB sync
-│   ├── album_sync.py             # Google Photos album auto-sync
 │   ├── routes/
 │   │   ├── base_routes.py        # OAuth, QR codes, setup page
 │   │   ├── picker_routes.py      # Google Photos picker flow
@@ -150,7 +147,6 @@ instapi/
 │   │   ├── photos/               # Downloaded photos
 │   │   │   ├── picker/           # From Google Photos picker
 │   │   │   ├── upload/           # From family uploads
-│   │   │   ├── album/            # From album auto-sync
 │   │   │   └── thumbs/           # 200px thumbnails for admin
 │   │   ├── manifest.json         # PWA manifest (home screen icon)
 │   │   └── instapi_logo_full.jpg
@@ -177,7 +173,7 @@ instapi/
 ## Tech Stack
 
 - **Python 3** + Flask
-- **Google Photos Picker API** + **Library API**
+- **Google Photos Picker API**
 - **Pillow** — Image processing (thumbnails, watermarks)
 - **HTML/CSS/JS** — No frontend framework
 - **systemd** — Service management
