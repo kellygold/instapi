@@ -7,6 +7,7 @@ from app import app
 from config import device_state, SCOPES, PHOTOS_DIR, load_slideshow_config, save_slideshow_config, save_device_state
 from google_auth_oauthlib.flow import Flow
 from utils import get_display_mode
+from routes.sync_routes import mark_manifest_dirty
 
 MODE_FILE = os.path.join(os.path.dirname(__file__), "..", "..", ".display_mode")
 
@@ -58,7 +59,11 @@ def admin():
     auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
     
     upload_token = device_state.get("upload_token", "")
-    return render_template("admin.html", photo_count=photo_count, auth_url=auth_url, display_mode=display_mode, upload_token=upload_token)
+    sync_role = device_state.get("sync_role", "")
+    return render_template("admin.html",
+        photo_count=photo_count, auth_url=auth_url,
+        display_mode=display_mode, upload_token=upload_token,
+        sync_role=sync_role)
 
 
 
@@ -326,6 +331,7 @@ def delete_single_photo():
                 if url_path in device_state["photo_urls"]:
                     device_state["photo_urls"].remove(url_path)
             save_device_state()
+            mark_manifest_dirty()
             return jsonify({"success": True})
         else:
             return jsonify({"success": False, "error": "File not found"})
