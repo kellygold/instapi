@@ -19,3 +19,4 @@ app/device_state.json
 app/static/photos/*
 !app/static/photos/.gitkeepstatic/photos_backup/
 app/static/photos_backup/
+.claude/worktrees/
