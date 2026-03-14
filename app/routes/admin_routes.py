@@ -60,6 +60,11 @@ def admin():
     
     upload_token = device_state.get("upload_token", "")
     sync_role = device_state.get("sync_role", "")
+    # Infer master role if children exist but role wasn't saved
+    if not sync_role and device_state.get("sync_children"):
+        sync_role = "master"
+        device_state["sync_role"] = "master"
+        save_device_state()
     return render_template("admin.html",
         photo_count=photo_count, auth_url=auth_url,
         display_mode=display_mode, upload_token=upload_token,
