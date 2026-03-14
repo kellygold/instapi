@@ -72,10 +72,27 @@ cd "$INSTALL_DIR"
 echo ""
 echo "🔐 Configuring credentials..."
 
-if [ -f "$INSTALL_DIR/instapi-setup.conf" ]; then
+# Check home dir first (SCP'd before install), then repo dir
+if [ -f "$HOME/instapi-setup.conf" ]; then
+    echo "Found ~/instapi-setup.conf — reading pre-seeded config..."
+    source "$HOME/instapi-setup.conf"
+    # Copy into repo dir for future reference
+    cp "$HOME/instapi-setup.conf" "$INSTALL_DIR/instapi-setup.conf" 2>/dev/null || true
+elif [ -f "$INSTALL_DIR/instapi-setup.conf" ]; then
     echo "Found instapi-setup.conf — reading shared credentials..."
     source "$INSTALL_DIR/instapi-setup.conf"
-    read -p "Enter ngrok domain for this frame (e.g. mom-instapi.ngrok.dev): " NGROK_DOMAIN
+fi
+
+if [ "$SYNC_ROLE" = "child" ]; then
+    echo "Child frame mode — skipping Google OAuth (not needed)"
+    CLIENT_ID="unused"
+    CLIENT_SECRET="unused"
+    # ngrok domain comes from config file, no prompt needed
+elif [ -n "$CLIENT_ID" ]; then
+    # Config file had OAuth creds but no NGROK_DOMAIN — prompt for it
+    if [ -z "$NGROK_DOMAIN" ]; then
+        read -p "Enter ngrok domain for this frame (e.g. mom-instapi.ngrok.dev): " NGROK_DOMAIN
+    fi
 else
     echo "No instapi-setup.conf found. Setting up from scratch."
     echo "(See README for Google Cloud setup instructions)"
@@ -305,6 +322,22 @@ elif [ "$DISPLAY_MODE" = "hdmi" ]; then
 │ 3. Connect HDMI screen to Pi           │
 │                                        │
 │ 4. Screen will show QR code - scan it! │"
+fi
+
+# ==========================================
+# PRE-SEED SYNC CONFIG (for child frames)
+# ==========================================
+if [ "$SYNC_ROLE" = "child" ] && [ -n "$SYNC_TOKEN" ] && [ -n "$MASTER_URL" ]; then
+    echo "🔗 Configuring as child frame syncing from $MASTER_URL..."
+    cat > "$INSTALL_DIR/app/device_state.json" << EOFSTATE
+{
+  "sync_role": "child",
+  "master_url": "$MASTER_URL",
+  "sync_token": "$SYNC_TOKEN",
+  "sync_interval": 1800
+}
+EOFSTATE
+    echo "device_state.json pre-seeded with child sync config"
 fi
 
 echo ""

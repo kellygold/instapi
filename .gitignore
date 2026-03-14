@@ -10,6 +10,7 @@ venv/
 # Secrets (create from secrets.json.template)
 app/secrets.json
 instapi-setup.conf
+configs/
 frame-registry.txt
 family.md
 app/device_state.json
