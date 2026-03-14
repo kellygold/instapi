@@ -18,7 +18,7 @@ done
 echo "Server ready!"
 
 # Launch Chromium in kiosk mode
-exec chromium-browser \
+exec chromium \
     --kiosk \
     --noerrdialogs \
     --disable-infobars \

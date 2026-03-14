@@ -54,7 +54,7 @@ if [ "$DISPLAY_MODE" = "hdmi" ] || [ -z "$DISPLAY_MODE" ]; then
         xserver-xorg \
         x11-xserver-utils \
         xinit \
-        chromium-browser \
+        chromium \
         unclutter
 else
     echo "⏩ Skipping display packages (USB mode — no screen needed)"
