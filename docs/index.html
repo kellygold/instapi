@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InstaPi - Your Photos, Always on Display</title>
+    <title>InstaPi - Your Family Photos, Always on Display</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
         body { font-family: 'Outfit', sans-serif; }
 
-        /* Warm animated gradient background */
+        /* Deep navy/purple/warm animated gradient */
         .gradient-bg {
-            background: linear-gradient(-45deg, #0a0a0a, #1a2e1a, #0d261a, #0a0a0a, #1a2a20);
+            background: linear-gradient(-45deg, #0f0b1e, #1a1040, #0e1a2e, #1c0e2a, #0f1625);
             background-size: 400% 400%;
             animation: gradientShift 20s ease infinite;
         }
@@ -22,16 +22,109 @@
             100% { background-position: 0% 50%; }
         }
 
-        /* Sage/amber palette */
         :root {
-            --sage: #7c9a72;
-            --sage-light: #a3be99;
-            --sage-glow: rgba(124, 154, 114, 0.4);
-            --amber: #d4a24e;
-            --amber-glow: rgba(212, 162, 78, 0.3);
+            --coral: #ff6b6b;
+            --golden: #fbbf24;
+            --pink: #f472b6;
+            --teal: #2dd4bf;
+            --purple: #a78bfa;
+            --coral-glow: rgba(255, 107, 107, 0.3);
+            --golden-glow: rgba(251, 191, 36, 0.3);
         }
 
-        /* Subtle fade-in */
+        /* Floating polaroid cards */
+        .polaroid-field { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+
+        .polaroid {
+            position: absolute;
+            background: white;
+            padding: 6px 6px 22px 6px;
+            border-radius: 4px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            opacity: 0.6;
+        }
+        .polaroid::before {
+            content: '';
+            display: block;
+            width: 80px;
+            height: 80px;
+            border-radius: 2px;
+        }
+
+        .polaroid:nth-child(1) { left: 6%; top: 12%; transform: rotate(-8deg); animation: float1 18s ease-in-out infinite; }
+        .polaroid:nth-child(1)::before { background: linear-gradient(135deg, #ff6b6b, #fbbf24); }
+
+        .polaroid:nth-child(2) { right: 8%; top: 8%; transform: rotate(12deg); animation: float2 22s ease-in-out infinite; }
+        .polaroid:nth-child(2)::before { background: linear-gradient(135deg, #a78bfa, #2dd4bf); }
+
+        .polaroid:nth-child(3) { left: 12%; bottom: 18%; transform: rotate(6deg); animation: float3 20s ease-in-out infinite; }
+        .polaroid:nth-child(3)::before { background: linear-gradient(135deg, #f472b6, #fbbf24); }
+
+        .polaroid:nth-child(4) { right: 5%; bottom: 22%; transform: rotate(-10deg); animation: float1 24s ease-in-out infinite; }
+        .polaroid:nth-child(4)::before { background: linear-gradient(135deg, #2dd4bf, #a78bfa); }
+
+        .polaroid:nth-child(5) { left: 3%; top: 55%; transform: rotate(14deg); animation: float2 19s ease-in-out infinite; }
+        .polaroid:nth-child(5)::before { background: linear-gradient(135deg, #fbbf24, #ff6b6b); }
+
+        .polaroid:nth-child(6) { right: 14%; top: 48%; transform: rotate(-5deg); animation: float3 21s ease-in-out infinite; }
+        .polaroid:nth-child(6)::before { background: linear-gradient(135deg, #f472b6, #a78bfa); }
+
+        @keyframes float1 {
+            0%, 100% { transform: translateY(0) rotate(var(--r, -8deg)); }
+            33% { transform: translateY(-18px) rotate(calc(var(--r, -8deg) + 3deg)); }
+            66% { transform: translateY(-8px) rotate(calc(var(--r, -8deg) - 2deg)); }
+        }
+        @keyframes float2 {
+            0%, 100% { transform: translateY(0) rotate(var(--r, 12deg)); }
+            50% { transform: translateY(-22px) rotate(calc(var(--r, 12deg) - 4deg)); }
+        }
+        @keyframes float3 {
+            0%, 100% { transform: translateY(0) rotate(var(--r, 6deg)); }
+            25% { transform: translateY(-12px) rotate(calc(var(--r, 6deg) + 2deg)); }
+            75% { transform: translateY(-20px) rotate(calc(var(--r, 6deg) - 3deg)); }
+        }
+
+        /* Sparkle particles */
+        .sparkle-field { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+
+        .sparkle {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            animation: twinkle var(--dur, 3s) ease-in-out infinite;
+            animation-delay: var(--delay, 0s);
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0; transform: scale(0.5); }
+            50% { opacity: 1; transform: scale(1.3); }
+        }
+
+        /* Logo glow */
+        .logo-glow {
+            animation: logoGlow 4s ease-in-out infinite;
+        }
+        @keyframes logoGlow {
+            0%, 100% { box-shadow: 0 0 30px var(--coral-glow), 0 0 60px rgba(167, 139, 250, 0.15); }
+            50% { box-shadow: 0 0 50px var(--golden-glow), 0 0 90px var(--coral-glow); }
+        }
+
+        /* Headline shimmer */
+        .text-shimmer {
+            background: linear-gradient(90deg, #ff6b6b, #fbbf24, #f472b6, #2dd4bf, #a78bfa, #ff6b6b);
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 6s linear infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 300% 50%; }
+        }
+
+        /* Fade in on load */
         .fade-in {
             opacity: 0;
             transform: translateY(24px);
@@ -46,19 +139,65 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Logo glow */
-        .logo-glow {
-            box-shadow: 0 0 40px var(--sage-glow), 0 0 80px rgba(124, 154, 114, 0.1);
+        /* Pop-in on scroll */
+        .pop-target {
+            opacity: 0;
+            transform: scale(0.9) translateY(20px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .pop-target.visible {
+            opacity: 1;
+            transform: scale(1) translateY(0);
         }
 
-        /* Warm button hover */
+        /* Feature cards */
+        .feature-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(8px);
+            transition: all 0.4s ease;
+        }
+        .feature-card:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255, 107, 107, 0.3);
+            transform: perspective(600px) rotateY(2deg) rotateX(-1deg) translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        /* Mode cards - bigger, more impactful */
+        .mode-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(8px);
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .mode-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            border-radius: inherit;
+        }
+        .mode-card:hover {
+            border-color: rgba(255,255,255,0.2);
+            transform: translateY(-6px);
+            box-shadow: 0 24px 48px rgba(0,0,0,0.3);
+        }
+        .mode-card:hover::before { opacity: 1; }
+        .mode-card.personal::before { background: linear-gradient(135deg, rgba(255,107,107,0.08), transparent); }
+        .mode-card.family::before { background: linear-gradient(135deg, rgba(167,139,250,0.08), transparent); }
+
+        /* Buttons */
         .btn-primary {
-            background: linear-gradient(135deg, var(--sage), #5a7d52);
+            background: linear-gradient(135deg, #ff6b6b, #e85d5d);
             transition: all 0.3s ease;
         }
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 30px var(--sage-glow);
+            box-shadow: 0 8px 30px var(--coral-glow);
         }
 
         .btn-secondary {
@@ -72,18 +211,12 @@
             transform: translateY(-2px);
         }
 
-        /* Feature cards */
-        .feature-card {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            backdrop-filter: blur(8px);
-            transition: all 0.3s ease;
-        }
-        .feature-card:hover {
-            background: rgba(255,255,255,0.07);
-            border-color: rgba(124, 154, 114, 0.3);
-            transform: translateY(-4px);
-        }
+        /* Wavy divider */
+        .wave-divider svg { display: block; width: 100%; height: auto; }
+
+        /* Badge styles */
+        .badge-primary { background: rgba(255,107,107,0.12); border: 1px solid rgba(255,107,107,0.25); color: #ff8a8a; }
+        .badge-optional { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #9ca3af; }
 
         /* Step connector */
         .step-line {
@@ -92,38 +225,69 @@
             top: 56px;
             bottom: -48px;
             width: 2px;
-            background: linear-gradient(to bottom, var(--sage), transparent);
+            background: linear-gradient(to bottom, #ff6b6b, transparent);
         }
 
-        /* Amber accent */
-        .text-amber { color: var(--amber); }
-        .text-sage { color: var(--sage-light); }
+        /* Hide polaroids and reduce sparkles on mobile */
+        @media (max-width: 768px) {
+            .polaroid-field { display: none; }
+            .sparkle:nth-child(n+7) { display: none; }
+        }
     </style>
 </head>
-<body class="bg-black text-white">
+<body class="bg-[#0f0b1e] text-white">
 
-    <!-- Hero -->
+    <!-- ==================== HERO ==================== -->
     <section class="min-h-screen flex flex-col items-center justify-center px-6 text-center relative overflow-hidden gradient-bg">
+        <!-- Floating polaroids -->
+        <div class="polaroid-field">
+            <div class="polaroid"></div>
+            <div class="polaroid"></div>
+            <div class="polaroid"></div>
+            <div class="polaroid"></div>
+            <div class="polaroid"></div>
+            <div class="polaroid"></div>
+        </div>
+
+        <!-- Sparkles -->
+        <div class="sparkle-field">
+            <span class="sparkle" style="left:10%; top:20%; background:#ff6b6b; --dur:3s; --delay:0s;"></span>
+            <span class="sparkle" style="left:25%; top:35%; background:#fbbf24; --dur:4s; --delay:0.8s;"></span>
+            <span class="sparkle" style="left:75%; top:15%; background:#f472b6; --dur:3.5s; --delay:0.3s;"></span>
+            <span class="sparkle" style="left:85%; top:45%; background:#2dd4bf; --dur:2.8s; --delay:1.2s;"></span>
+            <span class="sparkle" style="left:40%; top:70%; background:#a78bfa; --dur:4.2s; --delay:0.5s;"></span>
+            <span class="sparkle" style="left:60%; top:25%; background:#ff6b6b; --dur:3.2s; --delay:1.5s;"></span>
+            <span class="sparkle" style="left:15%; top:60%; background:#fbbf24; --dur:3.8s; --delay:0.2s;"></span>
+            <span class="sparkle" style="left:50%; top:50%; background:#f472b6; --dur:2.5s; --delay:1.8s;"></span>
+            <span class="sparkle" style="left:90%; top:70%; background:#2dd4bf; --dur:3.6s; --delay:0.7s;"></span>
+            <span class="sparkle" style="left:30%; top:85%; background:#a78bfa; --dur:4.5s; --delay:1.0s;"></span>
+            <span class="sparkle" style="left:70%; top:60%; background:#fbbf24; --dur:3.3s; --delay:2.0s;"></span>
+            <span class="sparkle" style="left:5%; top:40%; background:#ff6b6b; --dur:4.0s; --delay:0.4s;"></span>
+            <span class="sparkle" style="left:45%; top:10%; background:#2dd4bf; --dur:3.7s; --delay:1.3s;"></span>
+            <span class="sparkle" style="left:65%; top:80%; background:#f472b6; --dur:2.9s; --delay:0.9s;"></span>
+            <span class="sparkle" style="left:20%; top:75%; background:#a78bfa; --dur:3.4s; --delay:1.6s;"></span>
+        </div>
+
         <div class="relative z-10 max-w-3xl mx-auto">
             <div class="fade-in mb-8">
                 <img src="assets/logo.jpg" alt="InstaPi" class="w-32 h-32 rounded-3xl logo-glow mx-auto">
             </div>
 
             <h1 class="fade-in text-5xl md:text-7xl font-extrabold mb-6 tracking-tight">
-                Your photos,<br><span class="text-sage">always on display.</span>
+                Your family photos,<br><span class="text-shimmer">always on display.</span>
             </h1>
 
             <p class="fade-in text-lg md:text-xl text-gray-400 mb-10 max-w-xl mx-auto leading-relaxed">
-                An open-source digital picture frame for Raspberry Pi.<br>
-                No apps. No subscriptions. Just your photos.
+                A fun, open-source photo frame for Raspberry Pi.<br>
+                One person sets it up. Everyone enjoys it.
             </p>
 
             <div class="fade-in flex flex-col sm:flex-row gap-4 justify-center">
                 <a href="https://github.com/kellygold/instapi" class="btn-primary px-8 py-4 rounded-xl font-semibold text-lg">
-                    View on GitHub
+                    Get Started
                 </a>
                 <a href="#how-it-works" class="btn-secondary px-8 py-4 rounded-xl font-semibold text-lg">
-                    Learn More
+                    See How It Works
                 </a>
             </div>
         </div>
@@ -135,167 +299,272 @@
         </div>
     </section>
 
-    <!-- Three ways to add photos -->
+    <!-- Wave divider -->
+    <div class="wave-divider">
+        <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+            <path d="M0 40C240 80 480 0 720 40C960 80 1200 0 1440 40V80H0Z" fill="rgba(167,139,250,0.06)"/>
+        </svg>
+    </div>
+
+    <!-- ==================== TWO WAYS TO USE IT ==================== -->
     <section class="py-24 px-6">
         <div class="max-w-5xl mx-auto">
-            <h2 class="text-4xl md:text-5xl font-bold text-center mb-4">Three ways to add photos</h2>
-            <p class="text-center text-gray-500 mb-16 text-lg">Pick whichever works for you. Mix and match.</p>
-
-            <div class="grid md:grid-cols-3 gap-6">
-                <div class="feature-card rounded-2xl p-8 text-center">
-                    <div class="text-4xl mb-5">📱</div>
-                    <h3 class="text-xl font-bold mb-3">Upload from phone</h3>
-                    <p class="text-gray-400 leading-relaxed text-sm">Scan a QR code, pick photos from your camera roll, done. Works from any phone, any service.</p>
-                    <span class="inline-block mt-4 text-xs font-medium text-amber px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">Primary</span>
-                </div>
-
-                <div class="feature-card rounded-2xl p-8 text-center">
-                    <div class="text-4xl mb-5">🖼️</div>
-                    <h3 class="text-xl font-bold mb-3">Google Photos picker</h3>
-                    <p class="text-gray-400 leading-relaxed text-sm">Select specific photos from your Google Photos library. Sign in, pick, and they download to the frame.</p>
-                </div>
-
-                <div class="feature-card rounded-2xl p-8 text-center">
-                    <div class="text-4xl mb-5">👨‍👩‍👧‍👦</div>
-                    <h3 class="text-xl font-bold mb-3">Share with others</h3>
-                    <p class="text-gray-400 leading-relaxed text-sm">Send anyone the upload link. They add photos from their phone — no app, no account, no Google needed.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Why InstaPi -->
-    <section class="py-24 px-6 bg-gradient-to-b from-transparent via-white/[0.02] to-transparent">
-        <div class="max-w-5xl mx-auto">
-            <h2 class="text-4xl md:text-5xl font-bold text-center mb-16">Why InstaPi</h2>
+            <h2 class="text-4xl md:text-5xl font-bold text-center mb-4 pop-target">Two ways to use it</h2>
+            <p class="text-center text-gray-500 mb-16 text-lg pop-target">Whether it's just for you or the whole family.</p>
 
             <div class="grid md:grid-cols-2 gap-8">
-                <div class="feature-card rounded-2xl p-8">
-                    <h3 class="text-lg font-bold mb-2 text-sage">Privacy first</h3>
-                    <p class="text-gray-400 text-sm leading-relaxed">Runs entirely on your Pi. No cloud servers, no tracking, no data collection. Your photos stay yours.</p>
+                <div class="mode-card personal rounded-2xl p-10 pop-target">
+                    <div class="text-5xl mb-5">🖼️</div>
+                    <h3 class="text-2xl font-bold mb-3">Personal Frame</h3>
+                    <p class="text-gray-400 leading-relaxed">Upload photos from your phone. Scan the QR code on the frame, pick from your camera roll, done. Your photos rotate on your frame all day.</p>
                 </div>
-                <div class="feature-card rounded-2xl p-8">
-                    <h3 class="text-lg font-bold mb-2 text-sage">No subscriptions</h3>
-                    <p class="text-gray-400 text-sm leading-relaxed">One Raspberry Pi. That's the whole cost. No monthly fees, no premium tiers, no in-app purchases.</p>
-                </div>
-                <div class="feature-card rounded-2xl p-8">
-                    <h3 class="text-lg font-bold mb-2 text-sage">Open source</h3>
-                    <p class="text-gray-400 text-sm leading-relaxed">MIT licensed. Fork it, modify it, make it yours. The code is all on GitHub.</p>
-                </div>
-                <div class="feature-card rounded-2xl p-8">
-                    <h3 class="text-lg font-bold mb-2 text-sage">Self-healing</h3>
-                    <p class="text-gray-400 text-sm leading-relaxed">A watchdog monitors everything and auto-recovers from crashes, network drops, and USB issues. Set it and forget it.</p>
+
+                <div class="mode-card family rounded-2xl p-10 pop-target">
+                    <div class="text-5xl mb-5">👨‍👩‍👧‍👦</div>
+                    <h3 class="text-2xl font-bold mb-3">Family Frames</h3>
+                    <p class="text-gray-400 leading-relaxed">Set up a host frame. Add child frames for family members. Everyone's frame syncs automatically from the host. Grandma just plugs hers in.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- How it works -->
+    <!-- ==================== HOW PHOTOS GET THERE ==================== -->
+    <section class="py-24 px-6 bg-gradient-to-b from-transparent via-white/[0.02] to-transparent">
+        <div class="max-w-5xl mx-auto">
+            <h2 class="text-4xl md:text-5xl font-bold text-center mb-4 pop-target">How photos get there</h2>
+            <p class="text-center text-gray-500 mb-16 text-lg pop-target">Three ways in. Pick whichever works.</p>
+
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="feature-card rounded-2xl p-8 text-center pop-target">
+                    <div class="text-4xl mb-5">📱</div>
+                    <h3 class="text-xl font-bold mb-3">Phone upload</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm">Scan a QR code, pick photos from your camera roll, done. Works from any phone, any cloud service.</p>
+                    <span class="inline-block mt-4 text-xs font-medium px-3 py-1 rounded-full badge-primary">Primary</span>
+                </div>
+
+                <div class="feature-card rounded-2xl p-8 text-center pop-target">
+                    <div class="text-4xl mb-5">🔗</div>
+                    <h3 class="text-xl font-bold mb-3">Share a link</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm">Send the upload link to anyone. They pick photos from their phone. No app, no account, no sign-in needed.</p>
+                </div>
+
+                <div class="feature-card rounded-2xl p-8 text-center pop-target">
+                    <div class="text-4xl mb-5">☁️</div>
+                    <h3 class="text-xl font-bold mb-3">Google Photos</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm">Connect your Google Photos library if you want to browse and pick from there. Requires Google Cloud setup.</p>
+                    <span class="inline-block mt-4 text-xs font-medium px-3 py-1 rounded-full badge-optional">Optional</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Wave divider -->
+    <div class="wave-divider">
+        <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+            <path d="M0 40C360 0 720 80 1080 40C1260 20 1350 30 1440 40V80H0Z" fill="rgba(255,107,107,0.04)"/>
+        </svg>
+    </div>
+
+    <!-- ==================== SET IT AND FORGET IT ==================== -->
+    <section class="py-24 px-6">
+        <div class="max-w-5xl mx-auto">
+            <h2 class="text-4xl md:text-5xl font-bold text-center mb-4 pop-target">Set it and forget it</h2>
+            <p class="text-center text-gray-500 mb-16 text-lg pop-target">Once it's running, it takes care of itself.</p>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="feature-card rounded-2xl p-8 pop-target">
+                    <div class="text-3xl mb-4">🛡️</div>
+                    <h3 class="text-lg font-bold mb-2 text-[#ff8a8a]">Self-healing watchdog</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">Monitors all services every 5 minutes. Crashes, network drops, USB disconnects &mdash; it detects and fixes them automatically.</p>
+                </div>
+                <div class="feature-card rounded-2xl p-8 pop-target">
+                    <div class="text-3xl mb-4">📡</div>
+                    <h3 class="text-lg font-bold mb-2 text-[#fbbf24]">WiFi self-setup</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">No WiFi? The Pi creates its own hotspot. Connect your phone, pick a network, done. If WiFi drops later, it falls back automatically.</p>
+                </div>
+                <div class="feature-card rounded-2xl p-8 pop-target">
+                    <div class="text-3xl mb-4">🔄</div>
+                    <h3 class="text-lg font-bold mb-2 text-[#2dd4bf]">Over-the-air updates</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">Tap "Update" in the admin panel. The frame pulls the latest code from GitHub and restarts. No SSH, no terminal needed.</p>
+                </div>
+                <div class="feature-card rounded-2xl p-8 pop-target">
+                    <div class="text-3xl mb-4">🖥️</div>
+                    <h3 class="text-lg font-bold mb-2 text-[#a78bfa]">Works anywhere</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">USB mode turns the Pi into a thumb drive for any photo frame. HDMI mode runs a web slideshow on any TV or monitor. Your choice.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== WHY INSTAPI ==================== -->
+    <section class="py-24 px-6 bg-gradient-to-b from-transparent via-white/[0.02] to-transparent">
+        <div class="max-w-5xl mx-auto">
+            <h2 class="text-4xl md:text-5xl font-bold text-center mb-16 pop-target">Why InstaPi</h2>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="feature-card rounded-2xl p-6 text-center pop-target">
+                    <div class="text-3xl mb-3">🔒</div>
+                    <h3 class="text-base font-bold mb-2">Privacy first</h3>
+                    <p class="text-gray-400 text-xs leading-relaxed">Runs entirely on your Pi. No cloud servers, no tracking, no data collection.</p>
+                </div>
+                <div class="feature-card rounded-2xl p-6 text-center pop-target">
+                    <div class="text-3xl mb-3">💸</div>
+                    <h3 class="text-base font-bold mb-2">No subscriptions</h3>
+                    <p class="text-gray-400 text-xs leading-relaxed">One Raspberry Pi. That's the whole cost. No monthly fees, no premium tiers.</p>
+                </div>
+                <div class="feature-card rounded-2xl p-6 text-center pop-target">
+                    <div class="text-3xl mb-3">🧑‍💻</div>
+                    <h3 class="text-base font-bold mb-2">Open source</h3>
+                    <p class="text-gray-400 text-xs leading-relaxed">MIT licensed. Fork it, modify it, make it yours. All on GitHub.</p>
+                </div>
+                <div class="feature-card rounded-2xl p-6 text-center pop-target">
+                    <div class="text-3xl mb-3">👪</div>
+                    <h3 class="text-base font-bold mb-2">Family-friendly</h3>
+                    <p class="text-gray-400 text-xs leading-relaxed">One tech person sets it up. Everyone else just plugs in their frame and enjoys.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== HOW IT WORKS ==================== -->
     <section id="how-it-works" class="py-24 px-6">
         <div class="max-w-3xl mx-auto">
-            <h2 class="text-4xl md:text-5xl font-bold text-center mb-16">How it works</h2>
+            <h2 class="text-4xl md:text-5xl font-bold text-center mb-16 pop-target">How it works</h2>
 
             <div class="space-y-16">
-                <div class="flex items-start gap-6 relative">
+                <div class="flex items-start gap-6 relative pop-target">
                     <div class="step-line"></div>
-                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[var(--sage)] to-[#5a7d52] flex items-center justify-center text-xl font-bold shrink-0 shadow-lg">1</div>
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[#ff6b6b] to-[#e85d5d] flex items-center justify-center text-xl font-bold shrink-0 shadow-lg">1</div>
                     <div>
                         <h3 class="text-xl font-bold mb-2">Install on your Pi</h3>
                         <p class="text-gray-400">One command. Everything sets up automatically.</p>
-                        <code class="inline-block mt-3 px-4 py-2 bg-white/5 rounded-lg text-sage text-sm border border-white/10">curl -sSL https://raw.githubusercontent.com/kellygold/instapi/main/pi-setup/install.sh | bash</code>
+                        <code class="inline-block mt-3 px-4 py-2 bg-white/5 rounded-lg text-[#ff8a8a] text-sm border border-white/10">curl -sSL https://raw.githubusercontent.com/kellygold/instapi/main/pi-setup/install.sh | bash</code>
                     </div>
                 </div>
 
-                <div class="flex items-start gap-6 relative">
+                <div class="flex items-start gap-6 relative pop-target">
                     <div class="step-line"></div>
-                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[var(--sage)] to-[#5a7d52] flex items-center justify-center text-xl font-bold shrink-0 shadow-lg">2</div>
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[#fbbf24] to-[#d4a24e] flex items-center justify-center text-xl font-bold shrink-0 shadow-lg">2</div>
+                    <div>
+                        <h3 class="text-xl font-bold mb-2">Connect to WiFi</h3>
+                        <p class="text-gray-400">If WiFi isn't configured, the Pi creates an "InstaPi-Setup" hotspot. Connect, pick your network, done.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-6 relative pop-target">
+                    <div class="step-line"></div>
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[#2dd4bf] to-[#14b8a6] flex items-center justify-center text-xl font-bold shrink-0 shadow-lg">3</div>
                     <div>
                         <h3 class="text-xl font-bold mb-2">Scan the QR code</h3>
-                        <p class="text-gray-400">The frame shows a QR code on first boot. Scan it with your phone.</p>
+                        <p class="text-gray-400">The frame shows a QR code. Scan it with your phone to start adding photos.</p>
                     </div>
                 </div>
 
-                <div class="flex items-start gap-6">
-                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[var(--sage)] to-[#5a7d52] flex items-center justify-center text-xl font-bold shrink-0 shadow-lg">3</div>
+                <div class="flex items-start gap-6 relative pop-target">
+                    <div class="step-line"></div>
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[#a78bfa] to-[#8b5cf6] flex items-center justify-center text-xl font-bold shrink-0 shadow-lg">4</div>
                     <div>
                         <h3 class="text-xl font-bold mb-2">Add photos</h3>
-                        <p class="text-gray-400">Upload from your phone, pick from Google Photos, or share the link with family. Photos appear on the frame instantly.</p>
+                        <p class="text-gray-400">Upload from your camera roll. Share the link with family so they can add theirs too.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-6 pop-target">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[#f472b6] to-[#ec4899] flex items-center justify-center text-xl font-bold shrink-0 shadow-lg">5</div>
+                    <div>
+                        <h3 class="text-xl font-bold mb-2">Optional: Add family frames</h3>
+                        <p class="text-gray-400">Set this Pi as the host in admin. Generate tokens for family members. They install on their Pi, enter the token, and their frame syncs automatically.</p>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- For makers -->
+    <!-- ==================== FOR MAKERS ==================== -->
     <section class="py-24 px-6 bg-gradient-to-b from-transparent via-white/[0.02] to-transparent">
         <div class="max-w-4xl mx-auto">
-            <h2 class="text-4xl md:text-5xl font-bold text-center mb-4">For makers</h2>
-            <p class="text-center text-gray-500 mb-12 text-lg">Built on a Raspberry Pi. Runs Flask. Talks to your frame.</p>
+            <h2 class="text-4xl md:text-5xl font-bold text-center mb-4 pop-target">For makers</h2>
+            <p class="text-center text-gray-500 mb-12 text-lg pop-target">Built on a Raspberry Pi. Runs Flask. Talks to your frame.</p>
 
-            <div class="grid md:grid-cols-2 gap-8">
-                <div>
-                    <h3 class="text-lg font-bold mb-4 text-sage">Two display modes</h3>
-                    <ul class="space-y-3 text-gray-400 text-sm">
-                        <li><strong class="text-white">USB mode</strong> — Pi appears as a USB drive. Works with any photo frame that has a USB port.</li>
-                        <li><strong class="text-white">HDMI mode</strong> — Web-based slideshow via Chromium kiosk. Fade, slide, zoom transitions + Ken Burns.</li>
-                    </ul>
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="feature-card rounded-2xl p-8 pop-target">
+                    <h3 class="text-lg font-bold mb-3 text-[#ff8a8a]">USB mode</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">Pi appears as a USB drive. Works with any photo frame that has a USB port. Smart reformatting avoids caching issues.</p>
                 </div>
-                <div>
-                    <h3 class="text-lg font-bold mb-4 text-sage">Tech stack</h3>
-                    <ul class="space-y-3 text-gray-400 text-sm">
-                        <li>Python 3 + Flask</li>
-                        <li>Google Photos Picker API</li>
-                        <li>Pillow for thumbnails and watermarks</li>
-                        <li>systemd services + watchdog cron</li>
-                        <li>ngrok for remote access</li>
-                    </ul>
+                <div class="feature-card rounded-2xl p-8 pop-target">
+                    <h3 class="text-lg font-bold mb-3 text-[#ff8a8a]">HDMI mode</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">Web-based slideshow via Chromium kiosk on any TV or monitor. Fade, slide, zoom transitions + Ken Burns effect.</p>
+                </div>
+                <div class="feature-card rounded-2xl p-8 pop-target">
+                    <h3 class="text-lg font-bold mb-3 text-[#ff8a8a]">Admin panel</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">Manage photos, slideshow settings, multi-frame sync, and system info from your phone. Dark theme, built-in help.</p>
                 </div>
             </div>
 
-            <div class="mt-12 text-center">
-                <h3 class="text-lg font-bold mb-3 text-sage">Admin panel</h3>
-                <p class="text-gray-400 text-sm max-w-lg mx-auto">Manage photos, slideshow settings, system info, and more — all from your phone. Dark theme, mobile-friendly, built-in help guide.</p>
+            <div class="mt-8 pop-target">
+                <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider text-center mb-4">Built with</h3>
+                <div class="flex justify-center gap-3 flex-wrap">
+                    <span class="px-4 py-2 bg-white/5 rounded-lg text-sm text-gray-400 border border-white/5">Python + Flask</span>
+                    <span class="px-4 py-2 bg-white/5 rounded-lg text-sm text-gray-400 border border-white/5">Multi-frame sync</span>
+                    <span class="px-4 py-2 bg-white/5 rounded-lg text-sm text-gray-400 border border-white/5">WiFi AP + captive portal</span>
+                    <span class="px-4 py-2 bg-white/5 rounded-lg text-sm text-gray-400 border border-white/5">Pillow</span>
+                    <span class="px-4 py-2 bg-white/5 rounded-lg text-sm text-gray-400 border border-white/5">systemd + watchdog</span>
+                    <span class="px-4 py-2 bg-white/5 rounded-lg text-sm text-gray-400 border border-white/5">ngrok</span>
+                </div>
             </div>
         </div>
     </section>
 
-    <!-- CTA -->
+    <!-- ==================== CTA ==================== -->
     <section class="py-28 px-6 text-center">
         <div class="max-w-2xl mx-auto">
-            <h2 class="text-4xl md:text-5xl font-bold mb-6">Ready to build yours?</h2>
-            <p class="text-lg text-gray-400 mb-10">
-                All you need is a Raspberry Pi and a screen.
+            <h2 class="text-4xl md:text-5xl font-bold mb-6 pop-target">Ready to build one<br>for your family?</h2>
+            <p class="text-lg text-gray-400 mb-10 pop-target">
+                All you need is a Raspberry Pi and a screen. Five minutes to install.
             </p>
-            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <div class="flex flex-col sm:flex-row gap-4 justify-center pop-target">
                 <a href="https://github.com/kellygold/instapi" class="btn-primary px-10 py-5 rounded-xl font-semibold text-lg">
                     Get Started on GitHub
                 </a>
-                <a href="https://buymeacoffee.com/jankyard" class="btn-secondary px-10 py-5 rounded-xl font-semibold text-lg text-amber">
+                <a href="https://buymeacoffee.com/jankyard" class="btn-secondary px-10 py-5 rounded-xl font-semibold text-lg text-[#fbbf24]">
                     Buy Me a Coffee
                 </a>
             </div>
         </div>
     </section>
 
-    <!-- Footer -->
+    <!-- ==================== FOOTER ==================== -->
     <footer class="py-10 px-6 border-t border-white/5 text-center">
         <p class="text-gray-500 text-sm">
-            <a href="https://github.com/kellygold/instapi" class="text-sage hover:underline">GitHub</a>
+            <a href="https://github.com/kellygold/instapi" class="text-[#ff8a8a] hover:underline">GitHub</a>
             &nbsp;&middot;&nbsp;
-            <a href="/privacy" class="text-sage hover:underline">Privacy</a>
+            <a href="/privacy" class="text-[#ff8a8a] hover:underline">Privacy</a>
             &nbsp;&middot;&nbsp;
-            <a href="/terms" class="text-sage hover:underline">Terms</a>
+            <a href="/terms" class="text-[#ff8a8a] hover:underline">Terms</a>
             &nbsp;&middot;&nbsp;
-            <a href="mailto:hello@instapi.dev" class="text-sage hover:underline">hello@instapi.dev</a>
+            <a href="mailto:hello@instapi.dev" class="text-[#ff8a8a] hover:underline">hello@instapi.dev</a>
         </p>
-        <div class="mt-4 flex justify-center gap-3">
+        <div class="mt-4 flex justify-center gap-3 flex-wrap">
             <span class="px-3 py-1 bg-white/5 rounded-full text-xs text-gray-500">Python</span>
             <span class="px-3 py-1 bg-white/5 rounded-full text-xs text-gray-500">Flask</span>
             <span class="px-3 py-1 bg-white/5 rounded-full text-xs text-gray-500">Raspberry Pi</span>
-            <span class="px-3 py-1 bg-white/5 rounded-full text-xs text-gray-500">Google Photos</span>
+            <span class="px-3 py-1 bg-white/5 rounded-full text-xs text-gray-500">Family Sync</span>
         </div>
         <p class="mt-4 text-gray-600 text-xs">MIT License</p>
     </footer>
+
+    <!-- Scroll pop-in observer -->
+    <script>
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.15 });
+
+        document.querySelectorAll('.pop-target').forEach(el => observer.observe(el));
+    </script>
 
 </body>
 </html>
