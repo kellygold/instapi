@@ -20,11 +20,18 @@ mkdir -p "$MOUNT_POINT"
 # Mount the disk image so we can write to it
 sudo mount -o loop "$IMG_FILE" "$MOUNT_POINT"
 
-# Sync photos from app to USB drive
-if [ -d "$PHOTOS_DIR" ] && [ -n "$(ls -A $PHOTOS_DIR 2>/dev/null)" ]; then
+# Sync photos from app to USB drive (including subdirectories)
+if [ -d "$PHOTOS_DIR" ]; then
     cp "$PHOTOS_DIR"/*.jpg "$MOUNT_POINT"/ 2>/dev/null || true
     cp "$PHOTOS_DIR"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null || true
     cp "$PHOTOS_DIR"/*.png "$MOUNT_POINT"/ 2>/dev/null || true
+    for subdir in picker upload album sync sync/picker sync/upload; do
+        if [ -d "$PHOTOS_DIR/$subdir" ]; then
+            cp "$PHOTOS_DIR/$subdir"/*.jpg "$MOUNT_POINT"/ 2>/dev/null || true
+            cp "$PHOTOS_DIR/$subdir"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null || true
+            cp "$PHOTOS_DIR/$subdir"/*.png "$MOUNT_POINT"/ 2>/dev/null || true
+        fi
+    done
 fi
 
 # If no photos yet, copy the QR code placeholder

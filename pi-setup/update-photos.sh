@@ -42,8 +42,8 @@ if [ -d "$PHOTOS_DIR" ]; then
     sudo cp "$PHOTOS_DIR"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null
     sudo cp "$PHOTOS_DIR"/*.png "$MOUNT_POINT"/ 2>/dev/null
 
-    # Copy from subdirectories (picker, upload, album)
-    for subdir in picker upload album; do
+    # Copy from subdirectories (picker, upload, album, sync and its subdirs)
+    for subdir in picker upload album sync sync/picker sync/upload; do
         if [ -d "$PHOTOS_DIR/$subdir" ]; then
             sudo cp "$PHOTOS_DIR/$subdir"/*.jpg "$MOUNT_POINT"/ 2>/dev/null
             sudo cp "$PHOTOS_DIR/$subdir"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null
