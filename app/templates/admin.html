@@ -1427,6 +1427,21 @@
             document.getElementById('syncUnconfigured').style.display = '';
         }
 
+        function showSyncView(role) {
+            ['syncUnconfigured', 'syncChildSetup', 'syncMaster', 'syncChild'].forEach(
+                id => document.getElementById(id).style.display = 'none'
+            );
+            if (role === 'master') {
+                document.getElementById('syncMaster').style.display = '';
+                loadChildFrames();
+            } else if (role === 'child') {
+                document.getElementById('syncChild').style.display = '';
+                loadSyncStatus();
+            } else {
+                document.getElementById('syncUnconfigured').style.display = '';
+            }
+        }
+
         async function configureSyncRole(role) {
             try {
                 const resp = await fetch('/admin/sync_config', {
@@ -1436,7 +1451,7 @@
                 });
                 const data = await resp.json();
                 if (data.success) {
-                    location.reload();
+                    showSyncView(role);
                 } else {
                     showToast(data.error || 'Failed', true);
                 }
@@ -1461,7 +1476,8 @@
                 const data = await resp.json();
                 if (data.success) {
                     showToast('Sync configured! Starting first sync...');
-                    location.reload();
+                    showSyncView('child');
+                    document.getElementById('syncMasterUrl').textContent = masterUrl;
                 } else {
                     showToast(data.error || 'Failed', true);
                 }
