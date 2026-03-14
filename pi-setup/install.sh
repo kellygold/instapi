@@ -38,20 +38,27 @@ sudo apt install -y \
     git \
     curl
 
-# Install ALL dependencies (both modes) - small footprint, no prompts
-echo "📦 Installing display dependencies..."
+# Install core dependencies (both modes)
+echo "📦 Installing core dependencies..."
 sudo apt install -y dosfstools hostapd dnsmasq
 # Disable AP services by default (only started on demand by wifi-setup.sh)
 sudo systemctl stop hostapd 2>/dev/null || true
 sudo systemctl stop dnsmasq 2>/dev/null || true
 sudo systemctl disable hostapd 2>/dev/null || true
 sudo systemctl disable dnsmasq 2>/dev/null || true
-sudo apt install -y --no-install-recommends \
-    xserver-xorg \
-    x11-xserver-utils \
-    xinit \
-    chromium-browser \
-    unclutter
+
+# Install HDMI/kiosk dependencies only if needed
+if [ "$DISPLAY_MODE" = "hdmi" ] || [ -z "$DISPLAY_MODE" ]; then
+    echo "📦 Installing display dependencies (HDMI mode)..."
+    sudo apt install -y --no-install-recommends \
+        xserver-xorg \
+        x11-xserver-utils \
+        xinit \
+        chromium-browser \
+        unclutter
+else
+    echo "⏩ Skipping display packages (USB mode — no screen needed)"
+fi
 
 # Clone or update repo
 INSTALL_DIR="$HOME/instapi"
