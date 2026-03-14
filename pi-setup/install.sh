@@ -253,7 +253,7 @@ if [ "$DISPLAY_MODE" = "usb" ]; then
     if [ ! -f "$IMG_FILE" ]; then
         echo "💾 Creating 256MB USB disk image..."
         dd if=/dev/zero of="$IMG_FILE" bs=1M count=256
-        mkfs.fat -F 32 "$IMG_FILE"
+        /usr/sbin/mkfs.fat -F 32 "$IMG_FILE"
     fi
 
     # Create mount point
