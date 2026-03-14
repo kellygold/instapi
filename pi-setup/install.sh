@@ -40,7 +40,12 @@ sudo apt install -y \
 
 # Install ALL dependencies (both modes) - small footprint, no prompts
 echo "📦 Installing display dependencies..."
-sudo apt install -y dosfstools
+sudo apt install -y dosfstools hostapd dnsmasq
+# Disable AP services by default (only started on demand by wifi-setup.sh)
+sudo systemctl stop hostapd 2>/dev/null || true
+sudo systemctl stop dnsmasq 2>/dev/null || true
+sudo systemctl disable hostapd 2>/dev/null || true
+sudo systemctl disable dnsmasq 2>/dev/null || true
 sudo apt install -y --no-install-recommends \
     xserver-xorg \
     x11-xserver-utils \
@@ -234,15 +239,23 @@ if [ "$DISPLAY_MODE" = "usb" ]; then
     echo "⚙️  Installing services..."
     sudo cp "$INSTALL_DIR/pi-setup/instapi.service" /etc/systemd/system/
     sudo cp "$INSTALL_DIR/pi-setup/usb-gadget.service" /etc/systemd/system/
+    sudo cp "$INSTALL_DIR/pi-setup/instapi-wifi.service" /etc/systemd/system/
 
     # Update service paths
     sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/instapi.service
     sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/usb-gadget.service
+    sudo sed -i "s|/home/instapi|$HOME|g" /etc/systemd/system/instapi-wifi.service
     sudo sed -i "s|User=pi|User=$USER|g" /etc/systemd/system/instapi.service
+
+    # Ensure wpa_supplicant allows wpa_cli config updates
+    if ! grep -q "update_config=1" /etc/wpa_supplicant/wpa_supplicant.conf 2>/dev/null; then
+        echo "update_config=1" | sudo tee -a /etc/wpa_supplicant/wpa_supplicant.conf
+    fi
 
     sudo systemctl daemon-reload
     sudo systemctl enable instapi
     sudo systemctl enable usb-gadget
+    sudo systemctl enable instapi-wifi
 
     NEXT_STEPS="
 │ 3. Plug Pi into photo frame's USB port │
@@ -269,16 +282,24 @@ elif [ "$DISPLAY_MODE" = "hdmi" ]; then
     echo "⚙️  Installing services..."
     sudo cp "$INSTALL_DIR/pi-setup/instapi.service" /etc/systemd/system/
     sudo cp "$INSTALL_DIR/pi-setup/instapi-kiosk.service" /etc/systemd/system/
+    sudo cp "$INSTALL_DIR/pi-setup/instapi-wifi.service" /etc/systemd/system/
 
     # Update service paths
     sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/instapi.service
     sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/instapi-kiosk.service
+    sudo sed -i "s|/home/instapi|$HOME|g" /etc/systemd/system/instapi-wifi.service
     sudo sed -i "s|User=pi|User=$USER|g" /etc/systemd/system/instapi.service
     sudo sed -i "s|User=pi|User=$USER|g" /etc/systemd/system/instapi-kiosk.service
+
+    # Ensure wpa_supplicant allows wpa_cli config updates
+    if ! grep -q "update_config=1" /etc/wpa_supplicant/wpa_supplicant.conf 2>/dev/null; then
+        echo "update_config=1" | sudo tee -a /etc/wpa_supplicant/wpa_supplicant.conf
+    fi
 
     sudo systemctl daemon-reload
     sudo systemctl enable instapi
     sudo systemctl enable instapi-kiosk
+    sudo systemctl enable instapi-wifi
 
     NEXT_STEPS="
 │ 3. Connect HDMI screen to Pi           │

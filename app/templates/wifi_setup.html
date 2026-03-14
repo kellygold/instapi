@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>InstaPi - WiFi Setup</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a472a 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 420px;
+            padding: 32px 24px;
+            text-align: center;
+        }
+        .logo {
+            width: 120px;
+            margin-bottom: 16px;
+            border-radius: 16px;
+        }
+        h1 { font-size: 1.6em; margin-bottom: 8px; }
+        h2 { font-size: 1.2em; margin-bottom: 16px; font-weight: 500; color: #ccc; }
+        .subtitle { color: #999; font-size: 0.95em; margin-bottom: 24px; }
+
+        .step { display: none; }
+        .step.active { display: block; }
+
+        .network-list {
+            max-height: 320px;
+            overflow-y: auto;
+            margin-bottom: 16px;
+        }
+        .network-btn {
+            width: 100%;
+            padding: 14px 16px;
+            margin-bottom: 8px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 1em;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: background 0.2s;
+        }
+        .network-btn:hover, .network-btn:active {
+            background: rgba(255,255,255,0.15);
+        }
+        .network-btn .ssid { flex: 1; }
+        .network-btn .signal { font-size: 1.2em; opacity: 0.7; }
+        .network-btn .lock { font-size: 0.9em; opacity: 0.5; }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            font-size: 1.05em;
+            margin-bottom: 12px;
+            outline: none;
+        }
+        input::placeholder { color: #666; }
+        input:focus { border-color: rgba(74, 222, 128, 0.5); }
+
+        .show-pw {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            color: #999;
+            justify-content: flex-start;
+            padding-left: 4px;
+        }
+        .show-pw input { width: auto; margin: 0; }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            font-size: 1.05em;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: opacity 0.2s;
+        }
+        .btn:active { opacity: 0.8; }
+        .btn-primary {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: #fff;
+        }
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #ccc;
+        }
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .link-btn {
+            background: none;
+            border: none;
+            color: #4ade80;
+            font-size: 0.9em;
+            cursor: pointer;
+            padding: 8px;
+            text-decoration: underline;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(255,255,255,0.15);
+            border-top-color: #4ade80;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 24px auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .success-icon { font-size: 3em; margin: 16px 0; }
+        .error-icon { font-size: 3em; margin: 16px 0; }
+        .error-msg { color: #f87171; font-size: 0.95em; margin-bottom: 16px; }
+
+        /* Kiosk mode (HDMI — show instructions, not form) */
+        .kiosk-instructions {
+            font-size: 1.4em;
+            line-height: 1.8;
+        }
+        .kiosk-instructions .hotspot-name {
+            display: inline-block;
+            background: rgba(74, 222, 128, 0.15);
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            border-radius: 8px;
+            padding: 4px 16px;
+            font-weight: 700;
+            color: #4ade80;
+            font-size: 1.2em;
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="/static/instapi_logo_full.jpg" class="logo" alt="InstaPi"
+             onerror="this.style.display='none'">
+
+        {% if kiosk %}
+        <!-- HDMI kiosk: tell user to use phone -->
+        <h1>WiFi Setup Needed</h1>
+        <div class="kiosk-instructions">
+            <p>On your phone, connect to WiFi network:</p>
+            <p class="hotspot-name">InstaPi-Setup</p>
+            <p style="margin-top: 16px; font-size: 0.8em; color: #999;">
+                A setup page will open automatically.
+            </p>
+        </div>
+        {% else %}
+
+        <!-- Step 1: Pick network -->
+        <div class="step active" id="step-network">
+            <h1>WiFi Setup</h1>
+            <p class="subtitle">Connect your photo frame to WiFi</p>
+            <div class="network-list" id="networkList">
+                <p style="color: #666; padding: 20px;">Scanning...</p>
+            </div>
+            <button class="btn btn-secondary" onclick="rescan()">Refresh</button>
+            <br>
+            <button class="link-btn" onclick="showManual()">My network isn't listed</button>
+            <div id="manualInput" style="display:none; margin-top: 12px;">
+                <input type="text" id="manualSsid" placeholder="Network name (SSID)">
+                <button class="btn btn-primary" onclick="selectManual()">Next</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Enter password -->
+        <div class="step" id="step-password">
+            <h1>Enter Password</h1>
+            <h2 id="selectedSsid"></h2>
+            <input type="password" id="wifiPassword" placeholder="WiFi password" autocomplete="off">
+            <label class="show-pw">
+                <input type="checkbox" onchange="togglePassword(this)">
+                Show password
+            </label>
+            <button class="btn btn-primary" id="connectBtn" onclick="connect()">Connect</button>
+            <button class="btn btn-secondary" onclick="goBack()">Back</button>
+        </div>
+
+        <!-- Step 3: Connecting -->
+        <div class="step" id="step-connecting">
+            <h1>Connecting...</h1>
+            <div class="spinner"></div>
+            <p class="subtitle">This may take up to 20 seconds.<br>Your phone may disconnect briefly.</p>
+        </div>
+
+        <!-- Step 4a: Success -->
+        <div class="step" id="step-success">
+            <div class="success-icon">&#10004;</div>
+            <h1>Connected!</h1>
+            <p class="subtitle">Your photo frame is now online.<br>This page will close automatically.</p>
+        </div>
+
+        <!-- Step 4b: Failure -->
+        <div class="step" id="step-failure">
+            <div class="error-icon">&#9888;</div>
+            <h1>Could Not Connect</h1>
+            <p class="error-msg" id="errorMsg">Check your password and try again.</p>
+            <button class="btn btn-primary" onclick="retry()">Try Again</button>
+        </div>
+
+        {% endif %}
+    </div>
+
+    {% if not kiosk %}
+    <script>
+        let selectedSsid = '';
+        let selectedSecurity = 'wpa';
+
+        function showStep(id) {
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        function signalBars(dbm) {
+            if (dbm > -50) return '&#9608;&#9608;&#9608;&#9608;';
+            if (dbm > -60) return '&#9608;&#9608;&#9608;&#9601;';
+            if (dbm > -70) return '&#9608;&#9608;&#9601;&#9601;';
+            return '&#9608;&#9601;&#9601;&#9601;';
+        }
+
+        function renderNetworks(networks) {
+            const list = document.getElementById('networkList');
+            if (!networks || networks.length === 0) {
+                list.innerHTML = '<p style="color:#666; padding:20px;">No networks found. Try refreshing.</p>';
+                return;
+            }
+            list.innerHTML = networks.map(n => `
+                <button class="network-btn" onclick="selectNetwork('${n.ssid.replace(/'/g, "\\'")}', '${n.security}')">
+                    <span class="signal">${signalBars(n.signal)}</span>
+                    <span class="ssid">${n.ssid}</span>
+                    <span class="lock">${n.security !== 'open' ? '&#128274;' : ''}</span>
+                </button>
+            `).join('');
+        }
+
+        async function loadNetworks() {
+            try {
+                const resp = await fetch('/wifi-setup/scan');
+                const networks = await resp.json();
+                renderNetworks(networks);
+            } catch (e) {
+                document.getElementById('networkList').innerHTML =
+                    '<p style="color:#f87171; padding:20px;">Failed to scan. Try refreshing.</p>';
+            }
+        }
+
+        async function rescan() {
+            document.getElementById('networkList').innerHTML =
+                '<p style="color:#666; padding:20px;">Scanning...</p>';
+            try {
+                const resp = await fetch('/wifi-setup/scan', { method: 'POST' });
+                const networks = await resp.json();
+                renderNetworks(networks);
+            } catch (e) {
+                document.getElementById('networkList').innerHTML =
+                    '<p style="color:#f87171; padding:20px;">Scan failed.</p>';
+            }
+        }
+
+        function selectNetwork(ssid, security) {
+            selectedSsid = ssid;
+            selectedSecurity = security;
+            document.getElementById('selectedSsid').textContent = ssid;
+            if (security === 'open') {
+                // Open network — connect directly
+                connect();
+            } else {
+                showStep('step-password');
+                document.getElementById('wifiPassword').focus();
+            }
+        }
+
+        function showManual() {
+            document.getElementById('manualInput').style.display = '';
+            document.getElementById('manualSsid').focus();
+        }
+
+        function selectManual() {
+            const ssid = document.getElementById('manualSsid').value.trim();
+            if (!ssid) return;
+            selectNetwork(ssid, 'wpa');
+        }
+
+        function togglePassword(cb) {
+            const pw = document.getElementById('wifiPassword');
+            pw.type = cb.checked ? 'text' : 'password';
+        }
+
+        function goBack() {
+            showStep('step-network');
+            document.getElementById('wifiPassword').value = '';
+        }
+
+        async function connect() {
+            const password = document.getElementById('wifiPassword')?.value || '';
+            showStep('step-connecting');
+
+            try {
+                const resp = await fetch('/wifi-setup/connect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ssid: selectedSsid, password: password })
+                });
+                const data = await resp.json();
+
+                if (data.success) {
+                    showStep('step-success');
+                    // Page will likely lose connection since AP is down
+                    // If still reachable, redirect after delay
+                    setTimeout(() => { window.location.href = '/'; }, 3000);
+                } else {
+                    document.getElementById('errorMsg').textContent =
+                        data.error || 'Could not connect. Check your password.';
+                    showStep('step-failure');
+                }
+            } catch (e) {
+                // Connection lost = AP went down = probably connecting
+                // Show success optimistically
+                showStep('step-success');
+                setTimeout(() => {
+                    try { window.location.href = '/'; } catch(e) {}
+                }, 5000);
+            }
+        }
+
+        function retry() {
+            document.getElementById('wifiPassword').value = '';
+            showStep('step-network');
+            loadNetworks();
+        }
+
+        // Initial load
+        loadNetworks();
+    </script>
+    {% endif %}
+</body>
+</html>

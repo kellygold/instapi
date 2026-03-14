@@ -13,3 +13,8 @@
 # Allow mounting USB image
 %sudo ALL=(ALL) NOPASSWD: /bin/mount -o loop *
 %sudo ALL=(ALL) NOPASSWD: /bin/umount *
+
+# Allow WiFi setup operations
+%sudo ALL=(ALL) NOPASSWD: /home/*/instapi/pi-setup/wifi-setup.sh *
+%sudo ALL=(ALL) NOPASSWD: /usr/sbin/iw dev wlan0 scan *
+%sudo ALL=(ALL) NOPASSWD: /sbin/mkfs.fat *

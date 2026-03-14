@@ -1,6 +1,7 @@
 [Unit]
 Description=InstaPi Photo Frame
-After=network.target
+After=network.target instapi-wifi.service
+Wants=instapi-wifi.service
 
 [Service]
 Type=simple

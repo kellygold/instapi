@@ -10,6 +10,7 @@ import routes.picker_routes
 import routes.admin_routes
 import routes.upload_routes
 import routes.sync_routes
+import routes.wifi_routes
 
 
 def reconcile_photos():

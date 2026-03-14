@@ -29,4 +29,4 @@ exec chromium-browser \
     --start-fullscreen \
     --disable-pinch \
     --overscroll-history-navigation=0 \
-    http://localhost:3000
+    "http://localhost:3000?kiosk=1"
