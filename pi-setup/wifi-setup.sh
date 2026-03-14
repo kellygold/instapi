@@ -2,7 +2,8 @@
 # InstaPi WiFi Setup — AP mode for initial config + client connection
 # Usage: wifi-setup.sh {check|start-ap|stop-ap|connect|scan}
 
-set -euo pipefail
+set -uo pipefail
+# Note: no 'set -e' — this script handles errors explicitly
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTAPI_DIR="$(dirname "$SCRIPT_DIR")"
