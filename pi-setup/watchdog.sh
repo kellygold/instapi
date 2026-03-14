@@ -16,11 +16,11 @@ if [ -f "$WIFI_MODE_FILE" ] && grep -q "ap" "$WIFI_MODE_FILE"; then
 else
     if ! ping -c 1 -W 5 8.8.8.8 > /dev/null 2>&1; then
         $LOG "Internet unreachable, attempting recovery"
-        wpa_cli -i wlan0 reconfigure > /dev/null 2>&1
+        nmcli device wifi rescan 2>/dev/null || true
+        nmcli device connect wlan0 2>/dev/null || true
         sleep 5
         if ! ping -c 1 -W 5 8.8.8.8 > /dev/null 2>&1; then
-            $LOG "Still down, restarting dhcpcd"
-            sudo systemctl restart dhcpcd
+            $LOG "Still down after nmcli reconnect attempt"
             sleep 5
 
             # Track consecutive failures

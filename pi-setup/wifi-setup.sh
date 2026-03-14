@@ -1,34 +1,29 @@
 #!/bin/bash
 # InstaPi WiFi Setup — AP mode for initial config + client connection
+# Uses NetworkManager (nmcli) — standard on Raspberry Pi OS Trixie
 # Usage: wifi-setup.sh {check|start-ap|stop-ap|connect|scan}
-
-set -uo pipefail
-# Note: no 'set -e' — this script handles errors explicitly
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTAPI_DIR="$(dirname "$SCRIPT_DIR")"
 MODE_FILE="/tmp/instapi_wifi_mode"
 SCAN_FILE="/tmp/wifi_scan.json"
 LOG="logger -t instapi-wifi"
-
-HOSTAPD_CONF="$SCRIPT_DIR/hostapd.conf"
-DNSMASQ_CONF="$SCRIPT_DIR/dnsmasq-ap.conf"
-
+AP_CON_NAME="InstaPi-Setup"
 AP_IP="192.168.4.1"
 
 # ============================================================
 # check — is WiFi connected? exit 0=yes, 1=no
 # ============================================================
 cmd_check() {
-    # If no network blocks in wpa_supplicant.conf, definitely not configured
-    if ! grep -q 'network=' /etc/wpa_supplicant/wpa_supplicant.conf 2>/dev/null; then
-        $LOG "No WiFi networks configured"
+    # Check if any wifi connection exists in NetworkManager
+    if ! nmcli -t -f TYPE connection show 2>/dev/null | grep -q '802-11-wireless'; then
+        $LOG "No WiFi networks configured in NetworkManager"
         cmd_start_ap
         exit 1
     fi
 
-    # Wait for wlan0 interface to exist (can take a while at boot)
-    $LOG "WiFi configured, waiting for wlan0 interface..."
+    # Wait for wlan0 interface
+    $LOG "WiFi configured, waiting for interface..."
     for i in $(seq 1 30); do
         if ip link show wlan0 >/dev/null 2>&1; then
             break
@@ -36,7 +31,7 @@ cmd_check() {
         sleep 1
     done
 
-    # Try to connect for up to 60 seconds
+    # Wait for connectivity (up to 60 seconds)
     $LOG "Waiting for WiFi connection..."
     for i in $(seq 1 60); do
         if ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1; then
@@ -59,47 +54,43 @@ cmd_check() {
 cmd_scan() {
     $LOG "Scanning for WiFi networks..."
 
-    # iw scan, parse into JSON
-    local scan_output
-    scan_output=$(iw dev wlan0 scan 2>/dev/null || true)
+    # Force a rescan
+    nmcli device wifi rescan 2>/dev/null || true
+    sleep 2
 
-    python3 -c "
-import sys, json, re
+    # Parse nmcli output to JSON
+    nmcli -t -f SSID,SIGNAL,SECURITY device wifi list 2>/dev/null | python3 -c "
+import sys, json
 
-raw = sys.stdin.read()
-networks = []
-current = {}
-
-for line in raw.splitlines():
+networks = {}
+for line in sys.stdin:
     line = line.strip()
-    if line.startswith('BSS '):
-        if current.get('ssid'):
-            networks.append(current)
-        current = {'ssid': '', 'signal': -100, 'security': 'open'}
-    elif line.startswith('SSID: '):
-        current['ssid'] = line[6:]
-    elif line.startswith('signal: '):
-        m = re.search(r'(-?\d+)', line)
-        if m:
-            current['signal'] = int(m.group(1))
-    elif 'WPA' in line or 'RSN' in line:
-        current['security'] = 'wpa'
+    if not line:
+        continue
+    parts = line.split(':')
+    if len(parts) < 3:
+        continue
+    ssid = parts[0].replace('\\\\:', ':')  # unescape colons in SSID
+    if not ssid:
+        continue
+    try:
+        signal = int(parts[1])
+    except ValueError:
+        signal = 0
+    security = 'open' if parts[2] == '' or parts[2] == '--' else 'wpa'
+    # Convert signal percentage to approximate dBm for consistency
+    dbm = -100 + signal  # rough: 0%=-100dBm, 100%=0dBm
+    # Keep strongest signal per SSID
+    if ssid not in networks or dbm > networks[ssid]['signal']:
+        networks[ssid] = {'ssid': ssid, 'signal': dbm, 'security': security}
 
-if current.get('ssid'):
-    networks.append(current)
-
-# Deduplicate by SSID (keep strongest signal)
-seen = {}
-for n in networks:
-    ssid = n['ssid']
-    if ssid and (ssid not in seen or n['signal'] > seen[ssid]['signal']):
-        seen[ssid] = n
-
-result = sorted(seen.values(), key=lambda x: x['signal'], reverse=True)
+result = sorted(networks.values(), key=lambda x: x['signal'], reverse=True)
 json.dump(result, sys.stdout, indent=2)
-" <<< "$scan_output" > "$SCAN_FILE"
+" > "$SCAN_FILE"
 
-    $LOG "Scan complete: $(cat "$SCAN_FILE" | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))') networks found"
+    local count
+    count=$(python3 -c "import json; print(len(json.load(open('$SCAN_FILE'))))" 2>/dev/null || echo 0)
+    $LOG "Scan complete: $count networks found"
 }
 
 # ============================================================
@@ -108,59 +99,45 @@ json.dump(result, sys.stdout, indent=2)
 cmd_start_ap() {
     $LOG "Starting AP mode..."
 
-    # Scan while still in managed mode (before switching to AP)
-    cmd_scan || true
+    # Remove any existing AP connection
+    nmcli connection delete "$AP_CON_NAME" 2>/dev/null || true
 
-    # Stop client-mode services
-    systemctl stop wpa_supplicant 2>/dev/null || true
-    systemctl stop dhcpcd 2>/dev/null || true
-    sleep 1
+    # Create open AP connection
+    nmcli connection add type wifi ifname wlan0 con-name "$AP_CON_NAME" \
+        autoconnect no ssid "$AP_CON_NAME" \
+        802-11-wireless.mode ap \
+        802-11-wireless.band bg \
+        ipv4.method shared \
+        ipv4.addresses "$AP_IP/24"
 
-    # Configure static IP on wlan0
-    ip addr flush dev wlan0 2>/dev/null || true
-    ip addr add "$AP_IP/24" dev wlan0
-    ip link set wlan0 up
+    # Remove security (open network for easy setup)
+    nmcli connection modify "$AP_CON_NAME" wifi-sec.key-mgmt none 2>/dev/null || true
 
-    # Start AP
-    hostapd -B "$HOSTAPD_CONF"
-    sleep 1
-
-    # Start DHCP/DNS (foreground would block, use -d for daemon)
-    dnsmasq -C "$DNSMASQ_CONF" --no-daemon &
-    DNSMASQ_PID=$!
-    echo "$DNSMASQ_PID" > /tmp/instapi_dnsmasq.pid
+    # Bring up the AP
+    nmcli connection up "$AP_CON_NAME"
 
     echo "ap" > "$MODE_FILE"
-    $LOG "AP mode active — SSID: InstaPi-Setup, IP: $AP_IP"
+    $LOG "AP mode active — SSID: $AP_CON_NAME, IP: $AP_IP"
 }
 
 # ============================================================
-# stop-ap — tear down hotspot, restore client mode
+# stop-ap — tear down hotspot
 # ============================================================
 cmd_stop_ap() {
     $LOG "Stopping AP mode..."
 
-    # Kill AP services
-    killall hostapd 2>/dev/null || true
-    if [ -f /tmp/instapi_dnsmasq.pid ]; then
-        kill "$(cat /tmp/instapi_dnsmasq.pid)" 2>/dev/null || true
-        rm -f /tmp/instapi_dnsmasq.pid
-    fi
-    killall dnsmasq 2>/dev/null || true
-    sleep 1
+    nmcli connection down "$AP_CON_NAME" 2>/dev/null || true
+    nmcli connection delete "$AP_CON_NAME" 2>/dev/null || true
 
-    # Restore client mode
-    ip addr flush dev wlan0 2>/dev/null || true
-    systemctl start wpa_supplicant 2>/dev/null || true
+    # NetworkManager will auto-reconnect to known networks
     sleep 2
-    systemctl start dhcpcd 2>/dev/null || true
 
     echo "client" > "$MODE_FILE"
-    $LOG "Client mode restored"
+    $LOG "AP mode stopped"
 }
 
 # ============================================================
-# connect <ssid> <psk> — configure WiFi and switch to client
+# connect <ssid> [psk] — configure WiFi and switch to client
 # ============================================================
 cmd_connect() {
     local ssid="$1"
@@ -168,34 +145,27 @@ cmd_connect() {
 
     $LOG "Connecting to '$ssid'..."
 
-    # Stop AP
+    # Stop AP first
     cmd_stop_ap
-
-    # Wait for wpa_supplicant to be ready
     sleep 2
 
-    # Add network via wpa_cli
-    local net_id
-    net_id=$(wpa_cli -i wlan0 add_network 2>/dev/null | tail -1)
-
-    wpa_cli -i wlan0 set_network "$net_id" ssid "\"$ssid\"" >/dev/null
+    # Connect via nmcli
+    local result
     if [ -n "$psk" ]; then
-        wpa_cli -i wlan0 set_network "$net_id" psk "\"$psk\"" >/dev/null
+        result=$(nmcli device wifi connect "$ssid" password "$psk" ifname wlan0 2>&1)
     else
-        wpa_cli -i wlan0 set_network "$net_id" key_mgmt NONE >/dev/null
+        result=$(nmcli device wifi connect "$ssid" ifname wlan0 2>&1)
     fi
-    wpa_cli -i wlan0 enable_network "$net_id" >/dev/null
-    wpa_cli -i wlan0 save_config >/dev/null
 
-    # Restart dhcpcd to get an IP
-    systemctl restart dhcpcd 2>/dev/null || true
+    if echo "$result" | grep -qi "error\|failed"; then
+        $LOG "nmcli connect failed: $result"
+    fi
 
     # Wait for connectivity (up to 15 seconds)
     for i in $(seq 1 15); do
         if ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1; then
             $LOG "Connected to '$ssid'"
             echo "client" > "$MODE_FILE"
-            # Clear any WiFi fail counter
             rm -f /tmp/wifi_fail_count
             exit 0
         fi

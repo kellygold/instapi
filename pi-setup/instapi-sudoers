@@ -16,5 +16,4 @@
 
 # Allow WiFi setup operations
 %sudo ALL=(ALL) NOPASSWD: /home/*/instapi/pi-setup/wifi-setup.sh *
-%sudo ALL=(ALL) NOPASSWD: /usr/sbin/iw dev wlan0 scan *
 %sudo ALL=(ALL) NOPASSWD: /sbin/mkfs.fat *

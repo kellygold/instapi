@@ -39,13 +39,9 @@ sudo apt install -y \
     curl
 
 # Install core dependencies (both modes)
+# NetworkManager is already on Trixie — no hostapd/dnsmasq needed
 echo "📦 Installing core dependencies..."
-sudo apt install -y dosfstools hostapd dnsmasq
-# Disable AP services by default (only started on demand by wifi-setup.sh)
-sudo systemctl stop hostapd 2>/dev/null || true
-sudo systemctl stop dnsmasq 2>/dev/null || true
-sudo systemctl disable hostapd 2>/dev/null || true
-sudo systemctl disable dnsmasq 2>/dev/null || true
+sudo apt install -y dosfstools
 
 # Install HDMI/kiosk dependencies only if needed
 if [ "$DISPLAY_MODE" = "hdmi" ] || [ -z "$DISPLAY_MODE" ]; then
@@ -271,10 +267,6 @@ if [ "$DISPLAY_MODE" = "usb" ]; then
     sudo sed -i "s|/home/instapi|$HOME|g" /etc/systemd/system/instapi-wifi.service
     sudo sed -i "s|User=pi|User=$USER|g" /etc/systemd/system/instapi.service
 
-    # Ensure wpa_supplicant allows wpa_cli config updates
-    if ! grep -q "update_config=1" /etc/wpa_supplicant/wpa_supplicant.conf 2>/dev/null; then
-        echo "update_config=1" | sudo tee -a /etc/wpa_supplicant/wpa_supplicant.conf
-    fi
 
     sudo systemctl daemon-reload
     sudo systemctl enable instapi
@@ -315,10 +307,6 @@ elif [ "$DISPLAY_MODE" = "hdmi" ]; then
     sudo sed -i "s|User=pi|User=$USER|g" /etc/systemd/system/instapi.service
     sudo sed -i "s|User=pi|User=$USER|g" /etc/systemd/system/instapi-kiosk.service
 
-    # Ensure wpa_supplicant allows wpa_cli config updates
-    if ! grep -q "update_config=1" /etc/wpa_supplicant/wpa_supplicant.conf 2>/dev/null; then
-        echo "update_config=1" | sudo tee -a /etc/wpa_supplicant/wpa_supplicant.conf
-    fi
 
     sudo systemctl daemon-reload
     sudo systemctl enable instapi
