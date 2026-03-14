@@ -26,9 +26,18 @@ cmd_check() {
         exit 1
     fi
 
-    # Try to connect for up to 30 seconds
-    $LOG "WiFi configured, waiting for connection..."
+    # Wait for wlan0 interface to exist (can take a while at boot)
+    $LOG "WiFi configured, waiting for wlan0 interface..."
     for i in $(seq 1 30); do
+        if ip link show wlan0 >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
+
+    # Try to connect for up to 60 seconds
+    $LOG "Waiting for WiFi connection..."
+    for i in $(seq 1 60); do
         if ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1; then
             $LOG "WiFi connected"
             echo "client" > "$MODE_FILE"
@@ -38,7 +47,7 @@ cmd_check() {
     done
 
     # Could not connect — start AP mode
-    $LOG "WiFi configured but cannot connect after 30s, starting AP"
+    $LOG "WiFi configured but cannot connect after 60s, starting AP"
     cmd_start_ap
     exit 1
 }
