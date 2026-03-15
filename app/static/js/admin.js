@@ -37,10 +37,42 @@
             setTimeout(() => { toast.classList.remove('show'); }, 3000);
         }
 
+        // Update disk space bar from storage data
+        function updateDiskBar(storage) {
+            const fill = document.getElementById('diskBarFill');
+            const label = document.getElementById('diskBarLabel');
+            const warning = document.getElementById('diskBarWarning');
+            if (!fill) return;
+
+            const usedPct = storage.total_gb > 0
+                ? Math.round((storage.used_gb / storage.total_gb) * 100)
+                : 0;
+            fill.style.width = usedPct + '%';
+            label.textContent = `${storage.used_gb} GB / ${storage.total_gb} GB (${storage.free_gb} GB free)`;
+
+            // Color coding
+            const freeMB = storage.free_gb * 1024;
+            fill.classList.remove('warning', 'critical');
+            warning.classList.remove('critical');
+            warning.style.display = 'none';
+
+            if (freeMB < 100) {
+                fill.classList.add('critical');
+                warning.classList.add('critical');
+                warning.style.display = '';
+                warning.textContent = 'Uploads disabled - disk nearly full';
+            } else if (freeMB < 500) {
+                fill.classList.add('warning');
+                warning.style.display = '';
+                warning.textContent = 'Low disk space - consider removing some photos';
+            }
+        }
+
         // Load system info
         async function loadSystemInfo() {
             try {
                 const resp = await fetch('/admin/system_info');
+                if (resp.status === 401) { window.location.href = '/admin/login'; return; }
                 const data = await resp.json();
                 document.getElementById('photoCount').textContent = data.photo_count;
                 document.getElementById('storageUsed').textContent = data.storage.photos_mb + ' MB';
@@ -57,6 +89,8 @@
                 } else {
                     freeEl.style.color = '#4ade80';
                 }
+                // Update disk bar
+                updateDiskBar(data.storage);
             } catch (e) {
                 console.error('Failed to load system info:', e);
             }
@@ -334,9 +368,42 @@
             }
         }
 
+        function renderSyncHistory(history) {
+            const section = document.getElementById('syncHistorySection');
+            const list = document.getElementById('syncHistoryList');
+            if (!section || !list || !history || history.length === 0) {
+                if (section) section.style.display = 'none';
+                return;
+            }
+            section.style.display = '';
+            // Show most recent first
+            const sorted = [...history].reverse();
+            list.innerHTML = sorted.map(h => {
+                const icon = h.result === 'success' ? '&#x2705;' : '&#x274C;';
+                const t = new Date(h.timestamp);
+                const timeStr = t.toLocaleString(undefined, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+                let detail = '';
+                if (h.result === 'success') {
+                    const parts = [];
+                    if (h.photos_added > 0) parts.push(`+${h.photos_added}`);
+                    if (h.photos_removed > 0) parts.push(`-${h.photos_removed}`);
+                    detail = parts.length > 0 ? parts.join(' ') : 'No changes';
+                    if (h.duration_s) detail += ` (${h.duration_s}s)`;
+                } else {
+                    detail = `<span class="sh-error">${h.error || 'Unknown error'}</span>`;
+                }
+                return `<div class="sync-history-item">
+                    <span class="sh-icon">${icon}</span>
+                    <span class="sh-time">${timeStr}</span>
+                    <span class="sh-detail">${detail}</span>
+                </div>`;
+            }).join('');
+        }
+
         async function loadSyncStatus() {
             try {
                 const resp = await fetch('/admin/sync_status');
+                if (resp.status === 401) { window.location.href = '/admin/login'; return; }
                 const data = await resp.json();
 
                 // Update child view
@@ -379,6 +446,9 @@
                     // Set interval selector
                     const sel = document.getElementById('syncIntervalSelect');
                     if (sel) sel.value = String(data.sync_interval || 1800);
+
+                    // Render sync history
+                    renderSyncHistory(data.sync_history);
                 }
             } catch (e) {
                 console.error('Failed to load sync status:', e);
@@ -620,6 +690,10 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            // Initialize disk bar from server-rendered data
+            if (window.INSTAPI_CONFIG.storage) {
+                updateDiskBar(window.INSTAPI_CONFIG.storage);
+            }
             loadSystemInfo();
             loadPhotos();
             loadSettings();

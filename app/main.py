@@ -83,4 +83,5 @@ if __name__ == "__main__":
     # Turn off the reloader to avoid double loading confusion:
     #   debug=True but use_reloader=False => You still get debug logs,
     #   but no double "restart with stat" process.
-    app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)
+    debug_mode = os.environ.get("FLASK_DEBUG", "0") == "1"
+    app.run(host="0.0.0.0", port=port, debug=debug_mode, use_reloader=False)

@@ -20,6 +20,7 @@
                 <h1>InstaPi Admin</h1>
             </div>
             <div class="mode-badge {{ display_mode }}">{{ display_mode }} Mode</div>
+            <a href="/admin/logout" class="help-btn" title="Logout" style="text-decoration:none; margin-right:4px; font-size:0.85em;">&#x23FB;</a>
             <button class="help-btn" onclick="document.getElementById('helpOverlay').classList.add('show')" title="Help">?</button>
         </div>
 
@@ -45,6 +46,18 @@
                 <div class="value" id="ipAddress">--</div>
                 <div class="label">IP Address</div>
             </div>
+        </div>
+
+        <!-- Disk Space Bar -->
+        <div class="disk-bar-container" id="diskBarContainer">
+            <div class="disk-bar-header">
+                <span>Disk Usage</span>
+                <span id="diskBarLabel">--</span>
+            </div>
+            <div class="disk-bar">
+                <div class="disk-bar-fill" id="diskBarFill"></div>
+            </div>
+            <div class="disk-bar-warning" id="diskBarWarning" style="display:none;"></div>
         </div>
 
         <!-- Photos Section -->
@@ -189,6 +202,10 @@
                         <option value="7200">2 hours</option>
                     </select>
                     <button class="action-btn secondary" onclick="configureSyncRole('')" style="margin-left:8px;">Disconnect</button>
+                </div>
+                <div id="syncHistorySection" style="padding: 0 16px; margin-top: 16px; display:none;">
+                    <label style="font-size:0.85em; color:#999; display:block; margin-bottom:8px;">Sync History</label>
+                    <div id="syncHistoryList" class="sync-history-list"></div>
                 </div>
             </div>
         </div>
@@ -395,7 +412,13 @@
             syncRole: '{{ sync_role }}',
             syncLabel: '{{ sync_label }}',
             displayMode: '{{ display_mode }}',
-            uploadToken: '{{ upload_token }}'
+            uploadToken: '{{ upload_token }}',
+            storage: {
+                photos_mb: {{ storage.photos_mb }},
+                used_gb: {{ storage.used_gb }},
+                free_gb: {{ storage.free_gb }},
+                total_gb: {{ storage.total_gb }}
+            }
         };
     </script>
     <script src="/static/js/admin.js"></script>

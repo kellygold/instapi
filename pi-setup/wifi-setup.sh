@@ -133,6 +133,11 @@ cmd_start_ap() {
 
     echo "ap" > "$MODE_FILE"
 
+    # Redirect port 80/443 to Flask (port 3000) for captive portal detection
+    sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3000 2>/dev/null || true
+    sudo iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 3000 2>/dev/null || true
+    $LOG "Captive portal redirect: 80/443 -> 3000"
+
     # Pre-scan so networks are ready when user connects via phone
     cmd_scan &
 }
@@ -142,6 +147,10 @@ cmd_start_ap() {
 # ============================================================
 cmd_stop_ap() {
     $LOG "Stopping AP mode..."
+
+    # Remove captive portal redirects
+    sudo iptables -t nat -D PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3000 2>/dev/null || true
+    sudo iptables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 3000 2>/dev/null || true
 
     nmcli connection down "$AP_CON_NAME" 2>/dev/null || true
     nmcli connection delete "$AP_CON_NAME" 2>/dev/null || true

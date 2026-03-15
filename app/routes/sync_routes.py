@@ -6,12 +6,27 @@ import threading
 import shutil
 import secrets as secrets_mod
 import requests
+from datetime import datetime
 from flask import jsonify, request, send_from_directory
 from PIL import Image
 from app import app
 import config
 from config import device_state, save_device_state
 from utils import sync_photos_to_usb, get_display_mode
+
+
+def require_admin(f):
+    """Require admin authentication - local copy to avoid circular import."""
+    from functools import wraps
+    from flask import session, redirect, url_for, jsonify, request
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("admin_authenticated"):
+            if request.is_json:
+                return jsonify({"error": "Authentication required"}), 401
+            return redirect(url_for("admin_login"))
+        return f(*args, **kwargs)
+    return decorated
 
 # --- Manifest cache ---
 _manifest_cache = None
@@ -127,12 +142,14 @@ def sync_photo(photo_path):
 # ============== MASTER ADMIN ENDPOINTS ==============
 
 @app.route("/admin/sync_children")
+@require_admin
 def get_sync_children():
     """Return list of registered child frames."""
     return jsonify(device_state.get("sync_children", []))
 
 
 @app.route("/admin/sync_add_child", methods=["POST"])
+@require_admin
 def add_sync_child():
     """Generate a new child token with a label."""
     data = request.get_json()
@@ -151,6 +168,7 @@ def add_sync_child():
 
 
 @app.route("/admin/sync_remove_child", methods=["POST"])
+@require_admin
 def remove_sync_child():
     """Remove a child token."""
     data = request.get_json()
@@ -237,6 +255,7 @@ def sync_delete_photo():
 # ============== CHILD ENDPOINTS ==============
 
 @app.route("/admin/sync_now", methods=["POST"])
+@require_admin
 def trigger_sync_now():
     """Trigger an immediate sync cycle."""
     if device_state.get("sync_role") != "child":
@@ -250,6 +269,7 @@ def trigger_sync_now():
 
 
 @app.route("/admin/sync_status")
+@require_admin
 def sync_status():
     """Return current sync state."""
     return jsonify({
@@ -264,10 +284,12 @@ def sync_status():
         "sync_total": device_state.get("sync_total", 0),
         "sync_completed": device_state.get("sync_completed", 0),
         "sync_phase": device_state.get("sync_phase", ""),
+        "sync_history": device_state.get("sync_history", []),
     })
 
 
 @app.route("/admin/sync_config", methods=["POST"])
+@require_admin
 def save_sync_config():
     """Save sync configuration (role, master URL, token, interval)."""
     data = request.get_json()
@@ -316,6 +338,20 @@ def save_sync_config():
 
 # ============== SYNC LOGIC ==============
 
+def _add_sync_history(result, photos_added=0, photos_removed=0, duration_s=0, error=None):
+    history = device_state.get("sync_history", [])
+    history.append({
+        "timestamp": datetime.now().isoformat(),
+        "result": result,
+        "photos_added": photos_added,
+        "photos_removed": photos_removed,
+        "duration_s": duration_s,
+        "error": error
+    })
+    # Keep last 20
+    device_state["sync_history"] = history[-20:]
+    save_device_state()
+
 _sync_stop_event = threading.Event()
 _sync_thread = None
 
@@ -362,6 +398,7 @@ def run_sync_cycle():
         return
 
     device_state["sync_in_progress"] = True
+    _sync_start_time = time.time()
     print(f"[SYNC] Starting sync from {master_url}")
 
     try:
@@ -375,11 +412,17 @@ def run_sync_cycle():
         if resp.status_code == 403:
             device_state["sync_error"] = "Invalid sync token"
             device_state["last_sync_result"] = "error"
+            _add_sync_history("error",
+                              duration_s=round(time.time() - _sync_start_time, 1),
+                              error="Invalid sync token")
             print("[SYNC] Invalid sync token (403)")
             return
         elif resp.status_code != 200:
             device_state["sync_error"] = f"Master returned {resp.status_code}"
             device_state["last_sync_result"] = "error"
+            _add_sync_history("error",
+                              duration_s=round(time.time() - _sync_start_time, 1),
+                              error=f"Master returned {resp.status_code}")
             print(f"[SYNC] Master returned {resp.status_code}")
             return
 
@@ -420,6 +463,9 @@ def run_sync_cycle():
         if free < 50 * 1024 * 1024 and to_download:
             device_state["sync_error"] = "Disk full"
             device_state["last_sync_result"] = "error"
+            _add_sync_history("error",
+                              duration_s=round(time.time() - _sync_start_time, 1),
+                              error="Disk full")
             print("[SYNC] Disk full, skipping downloads")
             return
 
@@ -492,21 +538,29 @@ def run_sync_cycle():
             sync_photos_to_usb()
 
         # 9. Update state
-        from datetime import datetime
         device_state["last_sync"] = datetime.now().isoformat(timespec="seconds")
         device_state["last_sync_result"] = "success"
         device_state.pop("sync_error", None)
-        save_device_state()
+        _add_sync_history("success",
+                          photos_added=downloaded,
+                          photos_removed=deleted,
+                          duration_s=round(time.time() - _sync_start_time, 1))
 
         print(f"[SYNC] Complete: {downloaded} downloaded, {deleted} deleted")
 
     except requests.RequestException as e:
         device_state["sync_error"] = str(e)
         device_state["last_sync_result"] = "error"
+        _add_sync_history("error",
+                          duration_s=round(time.time() - _sync_start_time, 1),
+                          error=str(e))
         print(f"[SYNC] Network error: {e}")
     except Exception as e:
         device_state["sync_error"] = str(e)
         device_state["last_sync_result"] = "error"
+        _add_sync_history("error",
+                          duration_s=round(time.time() - _sync_start_time, 1),
+                          error=str(e))
         print(f"[SYNC] Unexpected error: {e}")
         import traceback
         traceback.print_exc()

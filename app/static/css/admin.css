@@ -792,6 +792,95 @@
             color: #4ade80;
         }
 
+        /* Disk space bar */
+        .disk-bar-container {
+            background: rgba(255,255,255,0.04);
+            border-radius: 16px;
+            padding: 14px 18px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .disk-bar-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 8px;
+        }
+
+        .disk-bar {
+            height: 8px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .disk-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: #4ade80;
+            transition: width 0.5s ease, background 0.5s ease;
+        }
+
+        .disk-bar-fill.warning {
+            background: #fb923c;
+        }
+
+        .disk-bar-fill.critical {
+            background: #f87171;
+        }
+
+        .disk-bar-warning {
+            margin-top: 8px;
+            font-size: 0.78em;
+            color: #fb923c;
+            font-weight: 500;
+        }
+
+        .disk-bar-warning.critical {
+            color: #f87171;
+        }
+
+        /* Sync history */
+        .sync-history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .sync-history-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            font-size: 0.8em;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .sync-history-item .sh-icon {
+            font-size: 1em;
+            flex-shrink: 0;
+        }
+
+        .sync-history-item .sh-time {
+            color: rgba(255,255,255,0.45);
+            min-width: 70px;
+        }
+
+        .sync-history-item .sh-detail {
+            color: rgba(255,255,255,0.7);
+            flex: 1;
+        }
+
+        .sync-history-item .sh-error {
+            color: #f87171;
+            font-size: 0.9em;
+        }
+
         /* Responsive */
         @media (max-width: 600px) {
             .header { flex-wrap: wrap; }

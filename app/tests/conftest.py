@@ -81,6 +81,9 @@ def app_client(monkeypatch, tmp_path, mock_secrets):
 
     app.config["TESTING"] = True
     with app.test_client() as client:
+        # Pre-authenticate admin session so existing tests pass
+        with client.session_transaction() as sess:
+            sess["admin_authenticated"] = True
         yield client
 
     config.device_state.clear()

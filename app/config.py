@@ -25,7 +25,7 @@ _PERSISTABLE_KEYS = {"photo_urls", "done", "photos_chosen", "current_index",
                      "sync_role", "sync_token", "sync_children",
                      "master_url", "sync_interval",
                      "last_sync", "last_sync_result", "sync_error",
-                     "sync_label"}
+                     "sync_label", "sync_history"}
 
 
 def save_device_state():

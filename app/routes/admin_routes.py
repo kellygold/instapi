@@ -1,8 +1,10 @@
 import os
+import getpass
 import shutil
 import subprocess
 import socket
-from flask import render_template, jsonify, request
+from functools import wraps
+from flask import render_template, jsonify, request, session, redirect, url_for
 from app import app
 from config import device_state, SCOPES, PHOTOS_DIR, load_slideshow_config, save_slideshow_config, save_device_state
 from google_auth_oauthlib.flow import Flow
@@ -17,8 +19,54 @@ with open("secrets.json") as _f:
     _FALLBACK_REDIRECT_URI = json.load(_f)["web"]["redirect_uris"][0]
 
 
+def verify_password(password):
+    """Verify against system password or test override."""
+    test_pw = os.environ.get("INSTAPI_ADMIN_PASSWORD")
+    if test_pw:
+        return password == test_pw
+    # Production: verify via su command
+    username = getpass.getuser()
+    try:
+        result = subprocess.run(
+            ["/bin/su", "-c", "true", username],
+            input=password + "\n",
+            capture_output=True, text=True, timeout=5
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def require_admin(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("admin_authenticated"):
+            if request.is_json:
+                return jsonify({"error": "Authentication required"}), 401
+            return redirect(url_for("admin_login"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        if verify_password(password):
+            session["admin_authenticated"] = True
+            return redirect(url_for("admin"))
+        return render_template("admin_login.html", error="Invalid password"), 401
+    return render_template("admin_login.html")
+
+
+@app.route("/admin/logout")
+def admin_logout():
+    session.pop("admin_authenticated", None)
+    return redirect(url_for("admin_login"))
+
 
 @app.route("/admin")
+@require_admin
 def admin():
     """Admin page for managing the photo frame."""
     # Count photos
@@ -50,7 +98,6 @@ def admin():
     # Google requires HTTPS for non-localhost redirect URIs
     if redirect_uri.startswith("http://") and "localhost" not in redirect_uri:
         redirect_uri = _FALLBACK_REDIRECT_URI
-    print(f"DEBUG: Host={forwarded_host}, redirect_uri={redirect_uri}")
     flow = Flow.from_client_secrets_file(
         "secrets.json",
         scopes=SCOPES,
@@ -65,15 +112,18 @@ def admin():
         sync_role = "master"
         device_state["sync_role"] = "master"
         save_device_state()
+    storage = get_storage_info()
     return render_template("admin.html",
         photo_count=photo_count, auth_url=auth_url,
         display_mode=display_mode, upload_token=upload_token,
         sync_role=sync_role,
-        sync_label=device_state.get("sync_label", ""))
+        sync_label=device_state.get("sync_label", ""),
+        storage=storage)
 
 
 
 @app.route("/admin/git_pull", methods=["POST"])
+@require_admin
 def git_pull():
     """Pull latest code from git."""
     try:
@@ -115,6 +165,7 @@ def git_pull():
 
 
 @app.route("/admin/restart", methods=["POST"])
+@require_admin
 def restart_service():
     """Restart the instapi service (and kiosk if HDMI mode)."""
     try:
@@ -145,6 +196,7 @@ def restart_service():
 
 
 @app.route("/admin/sync_usb", methods=["POST"])
+@require_admin
 def sync_usb():
     """Sync photos to USB drive (USB mode only)."""
     try:
@@ -165,6 +217,7 @@ def sync_usb():
 
 
 @app.route("/admin/reset", methods=["POST"])
+@require_admin
 def reset_to_setup():
     """Reset to setup screen - behavior depends on display mode."""
     try:
@@ -266,6 +319,7 @@ def get_storage_info():
 
 
 @app.route("/admin/system_info")
+@require_admin
 def system_info():
     """Return system information."""
     storage = get_storage_info()
@@ -287,6 +341,7 @@ def system_info():
 
 
 @app.route("/admin/photos")
+@require_admin
 def list_photos():
     """Return list of all photos with their paths and uploader info."""
     from routes.upload_routes import _load_upload_meta
@@ -311,6 +366,7 @@ def list_photos():
 
 
 @app.route("/admin/delete_photo", methods=["POST"])
+@require_admin
 def delete_single_photo():
     """Delete a single photo. On child frames, proxies to master."""
     try:
@@ -383,12 +439,14 @@ def delete_single_photo():
 
 
 @app.route("/admin/settings", methods=["GET"])
+@require_admin
 def get_settings():
     """Get current slideshow settings."""
     return jsonify(load_slideshow_config())
 
 
 @app.route("/admin/settings", methods=["POST"])
+@require_admin
 def update_settings():
     """Update slideshow settings."""
     try:
@@ -414,6 +472,7 @@ def update_settings():
 
 
 @app.route("/admin/switch_mode", methods=["POST"])
+@require_admin
 def switch_mode():
     """Switch between USB and HDMI display modes."""
     try:
@@ -437,6 +496,7 @@ def switch_mode():
 
 
 @app.route("/admin/download_status")
+@require_admin
 def download_status():
     """Return current photo download progress."""
     return jsonify({
@@ -449,6 +509,7 @@ def download_status():
 
 
 @app.route("/admin/update_and_restart", methods=["POST"])
+@require_admin
 def update_and_restart():
     """Pull latest code and restart the service."""
     try:

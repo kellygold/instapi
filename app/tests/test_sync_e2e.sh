@@ -51,14 +51,22 @@ wait_for_port() {
     return 1
 }
 
+ADMIN_PASSWORD="e2e-test-admin"
+COOKIES_MASTER="$TMPDIR_BASE/cookies_master.txt"
+COOKIES_CHILD="$TMPDIR_BASE/cookies_child.txt"
+
 start_master() {
     cd "$APP_DIR"
     INSTAPI_PHOTOS_DIR="$MASTER_DIR/photos" \
     INSTAPI_STATE_FILE="$MASTER_DIR/device_state.json" \
+    INSTAPI_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
     PORT=$MASTER_PORT \
     python3 main.py >"$TMPDIR_BASE/master.log" 2>&1 &
     MASTER_PID=$!
     wait_for_port $MASTER_PORT
+    # Authenticate for admin endpoints
+    curl -s -c "$COOKIES_MASTER" -X POST -d "password=$ADMIN_PASSWORD" \
+        "http://127.0.0.1:$MASTER_PORT/admin/login" >/dev/null 2>&1
 }
 
 stop_master() {
@@ -76,16 +84,20 @@ start_child() {
     cd "$APP_DIR"
     INSTAPI_PHOTOS_DIR="$CHILD_DIR/photos" \
     INSTAPI_STATE_FILE="$CHILD_DIR/device_state.json" \
+    INSTAPI_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
     PORT=$CHILD_PORT \
     python3 main.py >"$TMPDIR_BASE/child.log" 2>&1 &
     CHILD_PID=$!
     wait_for_port $CHILD_PORT
+    # Authenticate for admin endpoints
+    curl -s -c "$COOKIES_CHILD" -X POST -d "password=$ADMIN_PASSWORD" \
+        "http://127.0.0.1:$CHILD_PORT/admin/login" >/dev/null 2>&1
 }
 
 wait_sync_done() {
     for i in $(seq 1 30); do
         local in_progress
-        in_progress=$(curl -s "http://127.0.0.1:$CHILD_PORT/admin/sync_status" \
+        in_progress=$(curl -s -b "$COOKIES_CHILD" "http://127.0.0.1:$CHILD_PORT/admin/sync_status" \
             | python3 -c "import sys,json; print(json.load(sys.stdin).get('sync_in_progress',False))" 2>/dev/null)
         [ "$in_progress" = "False" ] && return 0
         sleep 1
@@ -200,7 +212,7 @@ done
 restart_master
 
 # Trigger sync on child
-curl -s -X POST "http://127.0.0.1:$CHILD_PORT/admin/sync_now" >/dev/null
+curl -s -b "$COOKIES_CHILD" -X POST "http://127.0.0.1:$CHILD_PORT/admin/sync_now" >/dev/null
 wait_sync_done
 
 # Verify photos landed in child's sync dir
@@ -233,7 +245,7 @@ echo "=== Test 6: Deletion sync ==="
 rm "$MASTER_DIR/photos/photo_2.jpg"
 restart_master
 
-curl -s -X POST "http://127.0.0.1:$CHILD_PORT/admin/sync_now" >/dev/null
+curl -s -b "$COOKIES_CHILD" -X POST "http://127.0.0.1:$CHILD_PORT/admin/sync_now" >/dev/null
 wait_sync_done
 
 CHILD_COUNT=$(find "$CHILD_DIR/photos/sync" -name "*.jpg" 2>/dev/null | wc -l | tr -d ' ')
@@ -250,7 +262,7 @@ echo "=== Test 7: Incremental sync - add photo_4 ==="
 create_test_photo "$MASTER_DIR/photos/photo_4.jpg" "200"
 restart_master
 
-curl -s -X POST "http://127.0.0.1:$CHILD_PORT/admin/sync_now" >/dev/null
+curl -s -b "$COOKIES_CHILD" -X POST "http://127.0.0.1:$CHILD_PORT/admin/sync_now" >/dev/null
 wait_sync_done
 
 CHILD_COUNT=$(find "$CHILD_DIR/photos/sync" -name "*.jpg" 2>/dev/null | wc -l | tr -d ' ')
@@ -264,12 +276,12 @@ CHILD_COUNT=$(find "$CHILD_DIR/photos/sync" -name "*.jpg" 2>/dev/null | wc -l | 
 # ============================================================
 echo ""
 echo "=== Test 8: Sync status reports success ==="
-LAST_RESULT=$(curl -s "http://127.0.0.1:$CHILD_PORT/admin/sync_status" \
+LAST_RESULT=$(curl -s -b "$COOKIES_CHILD" "http://127.0.0.1:$CHILD_PORT/admin/sync_status" \
     | python3 -c "import sys,json; print(json.load(sys.stdin).get('last_sync_result',''))")
 [ "$LAST_RESULT" = "success" ] && result PASS "sync_status reports success" \
                                 || result FAIL "expected 'success', got '$LAST_RESULT'"
 
-SYNCED_COUNT=$(curl -s "http://127.0.0.1:$CHILD_PORT/admin/sync_status" \
+SYNCED_COUNT=$(curl -s -b "$COOKIES_CHILD" "http://127.0.0.1:$CHILD_PORT/admin/sync_status" \
     | python3 -c "import sys,json; print(json.load(sys.stdin).get('synced_photo_count',0))")
 [ "$SYNCED_COUNT" = "3" ] && result PASS "synced_photo_count = $SYNCED_COUNT" \
                            || result FAIL "expected synced_photo_count=3, got $SYNCED_COUNT"
@@ -278,10 +290,10 @@ SYNCED_COUNT=$(curl -s "http://127.0.0.1:$CHILD_PORT/admin/sync_status" \
 echo ""
 echo "=== Test 9: Re-sync downloads 0 photos (no re-download bug) ==="
 # Sync again — nothing changed, should download 0
-curl -s -X POST "http://127.0.0.1:$CHILD_PORT/admin/sync_now" >/dev/null
+curl -s -b "$COOKIES_CHILD" -X POST "http://127.0.0.1:$CHILD_PORT/admin/sync_now" >/dev/null
 wait_sync_done
 # Check logs for "0 to download"
-LAST_SYNC=$(curl -s "http://127.0.0.1:$CHILD_PORT/admin/sync_status" \
+LAST_SYNC=$(curl -s -b "$COOKIES_CHILD" "http://127.0.0.1:$CHILD_PORT/admin/sync_status" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('synced_photo_count',0))")
 [ "$LAST_SYNC" = "3" ] && result PASS "re-sync: still 3 photos (no re-download)" \
                         || result FAIL "expected 3 photos after re-sync, got $LAST_SYNC"
@@ -411,7 +423,7 @@ sleep 5
 restart_master
 
 # Sync to child
-curl -s -X POST "http://127.0.0.1:$CHILD_PORT/admin/sync_now" >/dev/null
+curl -s -b "$COOKIES_CHILD" -X POST "http://127.0.0.1:$CHILD_PORT/admin/sync_now" >/dev/null
 wait_sync_done
 CHILD_HAS=$(find "$CHILD_DIR/photos/sync" -name "*.jpg" 2>/dev/null | wc -l | tr -d ' ')
 [ "$CHILD_HAS" -ge 1 ] && result PASS "photo synced to child ($CHILD_HAS files)" \
@@ -431,7 +443,7 @@ curl -s -X POST -H "Content-Type: application/json" \
 
 # Re-sync child — deleted photo should be removed
 restart_master
-curl -s -X POST "http://127.0.0.1:$CHILD_PORT/admin/sync_now" >/dev/null
+curl -s -b "$COOKIES_CHILD" -X POST "http://127.0.0.1:$CHILD_PORT/admin/sync_now" >/dev/null
 wait_sync_done
 CHILD_AFTER=$(find "$CHILD_DIR/photos/sync" -name "*.jpg" 2>/dev/null | wc -l | tr -d ' ')
 [ "$CHILD_AFTER" -lt "$CHILD_HAS" ] && result PASS "deleted photo removed from child after re-sync ($CHILD_AFTER files)" \
