@@ -1287,7 +1287,9 @@
                 : allPhotos.filter(p => p.uploaded_by === activeFilter);
 
             // Build filter chips
-            const uploaders = [...new Set(allPhotos.map(p => p.uploaded_by).filter(u => u && u !== 'unknown'))];
+            const myKey = syncRole === 'child' ? myLabel : 'admin';
+            const uploaders = [...new Set(allPhotos.map(p => p.uploaded_by).filter(u => u && u !== 'unknown'))]
+                .sort((a, b) => a === myKey ? -1 : b === myKey ? 1 : a.localeCompare(b));
             const filtersEl = document.getElementById('photoFilters');
             if (uploaders.length > 1) {
                 filtersEl.style.display = '';
