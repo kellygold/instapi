@@ -84,7 +84,11 @@ def sync_manifest():
     if not _validate_sync_token(token):
         return jsonify({"error": "Invalid token"}), 403
 
-    return jsonify(_get_manifest())
+    manifest = _get_manifest()
+    # Include upload metadata so children know who uploaded each photo
+    from routes.upload_routes import _load_upload_meta
+    manifest["upload_meta"] = _load_upload_meta()
+    return jsonify(manifest)
 
 
 @app.route("/sync/photo/<path:photo_path>")
@@ -376,6 +380,12 @@ def run_sync_cycle():
 
         manifest = resp.json()
         master_photos = {p["path"]: p["md5"] for p in manifest.get("photos", [])}
+
+        # Save upload metadata from master (who uploaded each photo)
+        upload_meta = manifest.get("upload_meta", {})
+        if upload_meta:
+            from routes.upload_routes import _save_upload_meta
+            _save_upload_meta(upload_meta)
 
         # 2. Build local manifest
         local_photos = _build_local_manifest()

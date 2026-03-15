@@ -1807,8 +1807,10 @@
         const uploadToken = '{{ upload_token }}';
 
         function initShareLink() {
+            const el = document.getElementById('shareUrl');
+            if (!el) return;
             const url = window.location.origin + '/upload?t=' + uploadToken;
-            document.getElementById('shareUrl').textContent = url;
+            el.textContent = url;
         }
 
         async function copyShareLink() {
