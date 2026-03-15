@@ -242,9 +242,18 @@ if [ "$DISPLAY_MODE" = "usb" ]; then
     sudo sed -i '/dtoverlay=dwc2/d' "$BOOT_CONFIG"
     echo "dtoverlay=dwc2" | sudo tee -a "$BOOT_CONFIG"
 
-    # Load dwc2 module on boot
-    if ! grep -q "dwc2" /etc/modules; then
+    # Load dwc2 module on boot (Trixie uses modules-load.d, older uses /etc/modules)
+    echo "dwc2" | sudo tee /etc/modules-load.d/dwc2.conf
+    if ! grep -q "dwc2" /etc/modules 2>/dev/null; then
         echo "dwc2" | sudo tee -a /etc/modules
+    fi
+
+    # Also add to kernel cmdline for reliable early loading
+    CMDLINE_FILE="$BOOT_CONFIG"
+    [ -f "/boot/firmware/cmdline.txt" ] && CMDLINE_FILE="/boot/firmware/cmdline.txt"
+    [ -f "/boot/cmdline.txt" ] && [ ! -f "/boot/firmware/cmdline.txt" ] && CMDLINE_FILE="/boot/cmdline.txt"
+    if ! grep -q "modules-load=dwc2" "$CMDLINE_FILE" 2>/dev/null; then
+        sudo sed -i 's/$/ modules-load=dwc2/' "$CMDLINE_FILE"
     fi
 
     # Create USB disk image (256MB FAT32)
