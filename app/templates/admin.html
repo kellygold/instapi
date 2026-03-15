@@ -1289,8 +1289,13 @@
             const filtersEl = document.getElementById('photoFilters');
             if (uploaders.length > 1) {
                 filtersEl.style.display = '';
+                const displayName = (u) => {
+                    if (u === myLabel && syncRole === 'child') return 'My Photos';
+                    if (u === 'admin') return 'Kelly';
+                    return u;
+                };
                 filtersEl.innerHTML = `<button class="size-btn ${activeFilter === 'all' ? 'active' : ''}" onclick="filterPhotos('all')" style="font-size:0.75em;">All</button> ` +
-                    uploaders.map(u => `<button class="size-btn ${activeFilter === u ? 'active' : ''}" onclick="filterPhotos('${u.replace(/'/g, "\\'")}')" style="font-size:0.75em;">${u}</button>`).join(' ');
+                    uploaders.map(u => `<button class="size-btn ${activeFilter === u ? 'active' : ''}" onclick="filterPhotos('${u.replace(/'/g, "\\'")}')" style="font-size:0.75em;">${displayName(u)}</button>`).join(' ');
             } else {
                 filtersEl.style.display = 'none';
             }
