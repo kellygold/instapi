@@ -177,6 +177,9 @@ def sync_status():
         "sync_in_progress": device_state.get("sync_in_progress", False),
         "sync_error": device_state.get("sync_error"),
         "sync_interval": device_state.get("sync_interval", config.DEFAULT_SYNC_INTERVAL),
+        "sync_total": device_state.get("sync_total", 0),
+        "sync_completed": device_state.get("sync_completed", 0),
+        "sync_phase": device_state.get("sync_phase", ""),
     })
 
 
@@ -309,6 +312,9 @@ def run_sync_cycle():
         ]
 
         print(f"[SYNC] {len(to_download)} to download, {len(to_delete)} to delete")
+        device_state["sync_total"] = len(to_download)
+        device_state["sync_completed"] = 0
+        device_state["sync_phase"] = "downloading"
 
         # 4. Check disk space
         free = shutil.disk_usage("/").free
@@ -360,11 +366,13 @@ def run_sync_cycle():
                         print(f"[SYNC] Watermark failed for {path}: {e}")
 
                 downloaded += 1
+                device_state["sync_completed"] = downloaded
             except requests.RequestException as e:
                 print(f"[SYNC] Download error for {path}: {e}")
                 continue
 
         # 6. Delete removed photos
+        device_state["sync_phase"] = "cleaning"
         deleted = 0
         for path in to_delete:
             full_path = os.path.join(sync_dir, path)
@@ -386,6 +394,7 @@ def run_sync_cycle():
 
         # 8. USB sync if needed
         if get_display_mode() == "usb" and (downloaded > 0 or deleted > 0):
+            device_state["sync_phase"] = "updating_frame"
             sync_photos_to_usb()
 
         # 9. Update state
@@ -409,6 +418,9 @@ def run_sync_cycle():
         traceback.print_exc()
     finally:
         device_state["sync_in_progress"] = False
+        device_state.pop("sync_total", None)
+        device_state.pop("sync_completed", None)
+        device_state.pop("sync_phase", None)
 
 
 def _reconcile_after_sync():

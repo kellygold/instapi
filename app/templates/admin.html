@@ -1499,9 +1499,19 @@
                     const detail = document.getElementById('syncDetailText');
 
                     if (data.sync_in_progress) {
-                        icon.textContent = '⏳';
-                        status.textContent = 'Syncing...';
-                        detail.textContent = '';
+                        if (data.sync_phase === 'updating_frame') {
+                            icon.textContent = '🔄';
+                            status.textContent = 'Updating frame...';
+                            detail.textContent = 'Refreshing USB drive';
+                        } else if (data.sync_total > 0) {
+                            icon.textContent = '⏳';
+                            status.textContent = `Downloading ${data.sync_completed} of ${data.sync_total}`;
+                            detail.textContent = '';
+                        } else {
+                            icon.textContent = '⏳';
+                            status.textContent = 'Checking for changes...';
+                            detail.textContent = '';
+                        }
                     } else if (data.sync_error) {
                         icon.textContent = '⚠️';
                         status.textContent = 'Error';
