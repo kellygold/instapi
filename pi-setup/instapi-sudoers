@@ -24,8 +24,6 @@
 %sudo ALL=(ALL) NOPASSWD: /home/*/instapi/pi-setup/wifi-setup.sh connect *
 %sudo ALL=(ALL) NOPASSWD: /home/*/instapi/pi-setup/wifi-setup.sh scan
 
-# Allow captive portal iptables redirects
-%sudo ALL=(ALL) NOPASSWD: /usr/sbin/iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3000
-%sudo ALL=(ALL) NOPASSWD: /usr/sbin/iptables -t nat -D PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3000
-%sudo ALL=(ALL) NOPASSWD: /usr/sbin/iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 3000
-%sudo ALL=(ALL) NOPASSWD: /usr/sbin/iptables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 3000
+# Allow captive portal (DNS hijack, iptables, dnsmasq)
+%sudo ALL=(ALL) NOPASSWD: /usr/sbin/iptables *
+%sudo ALL=(ALL) NOPASSWD: /usr/sbin/dnsmasq --conf-file=/tmp/instapi-captive-dns.conf *

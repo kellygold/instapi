@@ -105,6 +105,8 @@ _create_ap_connection() {
         ipv4.addresses "$AP_IP/24"
     # Remove any security settings (open network for easy setup)
     nmcli connection modify "$AP_CON_NAME" remove 802-11-wireless-security 2>/dev/null || true
+    # DHCP Option 114 (RFC 8910): tell iOS 14+/Android the captive portal URL directly
+    nmcli connection modify "$AP_CON_NAME" ipv4.dhcp-server-option "114=http://$AP_IP:3000/wifi-setup" 2>/dev/null || true
 }
 
 cmd_start_ap() {
@@ -133,6 +135,29 @@ cmd_start_ap() {
 
     echo "ap" > "$MODE_FILE"
 
+    # DNS hijacking: redirect ALL DNS queries to our AP IP
+    # NetworkManager's shared dnsmasq can override configs, so we redirect DNS
+    # traffic via iptables instead (more reliable)
+    sudo iptables -t nat -A PREROUTING -p udp --dport 53 -j DNAT --to-destination "$AP_IP" 2>/dev/null || true
+    sudo iptables -t nat -A PREROUTING -p tcp --dport 53 -j DNAT --to-destination "$AP_IP" 2>/dev/null || true
+
+    # Write a custom dnsmasq config that resolves ALL domains to our AP IP
+    cat > /tmp/instapi-captive-dns.conf << DNSEOF
+# InstaPi captive portal DNS — resolve everything to AP
+address=/#/$AP_IP
+listen-address=$AP_IP
+bind-interfaces
+no-resolv
+no-daemon
+port=5353
+DNSEOF
+    # Run captive portal DNS on port 5353, redirect port 53 to it
+    sudo iptables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-port 5353 2>/dev/null || true
+    # Start our DNS responder in background
+    sudo dnsmasq --conf-file=/tmp/instapi-captive-dns.conf --pid-file=/tmp/instapi-captive-dns.pid &
+    sleep 1
+    $LOG "DNS hijack configured: all domains -> $AP_IP"
+
     # Redirect port 80/443 to Flask (port 3000) for captive portal detection
     sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3000 2>/dev/null || true
     sudo iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 3000 2>/dev/null || true
@@ -148,9 +173,12 @@ cmd_start_ap() {
 cmd_stop_ap() {
     $LOG "Stopping AP mode..."
 
-    # Remove captive portal redirects
-    sudo iptables -t nat -D PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3000 2>/dev/null || true
-    sudo iptables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 3000 2>/dev/null || true
+    # Stop captive portal DNS and clean up iptables
+    if [ -f /tmp/instapi-captive-dns.pid ]; then
+        sudo kill "$(cat /tmp/instapi-captive-dns.pid)" 2>/dev/null || true
+        sudo rm -f /tmp/instapi-captive-dns.pid /tmp/instapi-captive-dns.conf
+    fi
+    sudo iptables -t nat -F PREROUTING 2>/dev/null || true
 
     nmcli connection down "$AP_CON_NAME" 2>/dev/null || true
     nmcli connection delete "$AP_CON_NAME" 2>/dev/null || true
