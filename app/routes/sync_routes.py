@@ -351,6 +351,14 @@ def run_sync_cycle():
                 except Exception as e:
                     print(f"[SYNC] Thumbnail failed for {path}: {e}")
 
+                # Add QR watermark in USB mode (points to master upload page)
+                if get_display_mode() == "usb":
+                    try:
+                        from utils import add_qr_watermark
+                        add_qr_watermark(dest)
+                    except Exception as e:
+                        print(f"[SYNC] Watermark failed for {path}: {e}")
+
                 downloaded += 1
             except requests.RequestException as e:
                 print(f"[SYNC] Download error for {path}: {e}")

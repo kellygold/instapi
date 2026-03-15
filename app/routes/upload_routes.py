@@ -121,6 +121,11 @@ def upload_photos():
         thumb_img.thumbnail((200, 200))
         thumb_img.save(thumb_path, "JPEG", quality=60)
 
+        # Add QR watermark in USB mode
+        if get_display_mode() == "usb":
+            from utils import add_qr_watermark
+            add_qr_watermark(photo_path)
+
         # Add to device state
         url_path = f"/static/photos/upload/{filename}"
         device_state.setdefault("photo_urls", []).append(url_path)
