@@ -1294,7 +1294,7 @@
             if (uploaders.length > 1) {
                 filtersEl.style.display = '';
                 const displayName = (u) => {
-                    if (u === myLabel && syncRole === 'child') return 'My Photos';
+                    if (u === myKey) return 'My Photos';
                     if (u === 'admin') return 'Kelly';
                     return u;
                 };
