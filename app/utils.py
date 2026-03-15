@@ -38,8 +38,8 @@ def add_qr_watermark(image_path):
         qr.make(fit=True)
         qr_img = qr.make_image(fill_color='black', back_color='white').convert('RGBA')
         
-        # Use longer dimension so portrait and landscape get similar QR size
-        qr_size = max(img.width, img.height) // 14
+        # ~10% of longer dimension — scannable on 1280x800 frames
+        qr_size = max(img.width, img.height) // 10
         qr_img = qr_img.resize((qr_size, qr_size))
         
         # Make semi-transparent
