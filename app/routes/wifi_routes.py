@@ -8,6 +8,7 @@ from app import app
 WIFI_MODE_FILE = "/tmp/instapi_wifi_mode"
 WIFI_SCAN_FILE = "/tmp/wifi_scan.json"
 WIFI_SETUP_SCRIPT = os.path.join(os.path.dirname(__file__), "..", "..", "pi-setup", "wifi-setup.sh")
+SUDO = "/usr/bin/sudo"
 
 
 def is_ap_mode():
@@ -83,7 +84,7 @@ def wifi_rescan():
     """Trigger a new WiFi scan."""
     try:
         subprocess.run(
-            ["sudo", WIFI_SETUP_SCRIPT, "scan"],
+            [SUDO, WIFI_SETUP_SCRIPT, "scan"],
             timeout=15, capture_output=True
         )
         with open(WIFI_SCAN_FILE) as f:
@@ -105,7 +106,7 @@ def wifi_connect():
 
     try:
         # Pass SSID and password as separate arguments (no shell injection)
-        args = ["sudo", WIFI_SETUP_SCRIPT, "connect", ssid]
+        args = [SUDO, WIFI_SETUP_SCRIPT, "connect", ssid]
         if password:
             args.append(password)
 

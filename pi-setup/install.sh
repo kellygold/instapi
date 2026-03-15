@@ -211,6 +211,10 @@ cd "$INSTALL_DIR/app"
 source venv/bin/activate
 python3 ../pi-setup/generate-qr-placeholder.py
 
+# Generate WiFi fix image (shown on USB frame when WiFi is down)
+echo "📶 Generating WiFi fix image..."
+python3 ../pi-setup/generate-wifi-fix-image.py
+
 # ==========================================
 # MODE-SPECIFIC SETUP (only if mode specified)
 # ==========================================

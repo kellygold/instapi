@@ -34,7 +34,12 @@ else
 
                 # Generate WiFi fix image if not already present
                 if [ ! -f "$WIFI_FIX_IMAGE" ]; then
-                    python3 "$SCRIPT_DIR/generate-wifi-fix-image.py" "$WIFI_FIX_IMAGE" 2>/dev/null || true
+                    VENV_PY="$INSTAPI_DIR/app/venv/bin/python3"
+                    if [ -f "$VENV_PY" ]; then
+                        "$VENV_PY" "$SCRIPT_DIR/generate-wifi-fix-image.py" "$WIFI_FIX_IMAGE" 2>&1 || $LOG "wifi-fix image generation failed"
+                    else
+                        python3 "$SCRIPT_DIR/generate-wifi-fix-image.py" "$WIFI_FIX_IMAGE" 2>&1 || $LOG "wifi-fix image generation failed (no venv)"
+                    fi
                 fi
 
                 # In USB mode, swap USB contents to show the fix image
@@ -58,16 +63,17 @@ else
                 # Start AP mode
                 sudo "$SCRIPT_DIR/wifi-setup.sh" start-ap
                 echo "0" > "$WIFI_FAIL_COUNT_FILE"
+                touch /tmp/instapi_ap_recovery
             fi
         fi
     else
         # WiFi is up — reset fail counter
-        if [ -f "$WIFI_FAIL_COUNT_FILE" ]; then
-            OLD_COUNT=$(cat "$WIFI_FAIL_COUNT_FILE")
-            echo "0" > "$WIFI_FAIL_COUNT_FILE"
+        echo "0" > "$WIFI_FAIL_COUNT_FILE"
 
-            # If we were recovering from AP mode, restore photos
-            if [ "$OLD_COUNT" -ge 3 ] && [ -f "$MODE_FILE" ] && grep -q usb "$MODE_FILE"; then
+        # If recovering from AP mode, restore photos to USB
+        if [ -f /tmp/instapi_ap_recovery ]; then
+            rm -f /tmp/instapi_ap_recovery
+            if [ -f "$MODE_FILE" ] && grep -q usb "$MODE_FILE"; then
                 $LOG "WiFi restored after AP recovery, restoring photos to USB"
                 sudo "$SCRIPT_DIR/update-photos.sh"
             fi

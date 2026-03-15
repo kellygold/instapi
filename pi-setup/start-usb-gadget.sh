@@ -20,6 +20,24 @@ mkdir -p "$MOUNT_POINT"
 # Mount the existing disk image (photos from last session are preserved)
 sudo mount -o loop "$IMG_FILE" "$MOUNT_POINT"
 
+# If WiFi is in AP mode, show wifi-fix instructions instead of photos
+WIFI_MODE_FILE="/tmp/instapi_wifi_mode"
+if [ -f "$WIFI_MODE_FILE" ] && grep -q "ap" "$WIFI_MODE_FILE"; then
+    echo "WiFi is in AP mode — showing setup instructions on USB"
+    WIFI_FIX="$SCRIPT_DIR/wifi-fix.jpg"
+    if [ -f "$WIFI_FIX" ]; then
+        for f in "$MOUNT_POINT"/*.jpg "$MOUNT_POINT"/*.jpeg "$MOUNT_POINT"/*.png; do
+            [ -f "$f" ] && sudo rm "$f"
+        done
+        sudo cp "$WIFI_FIX" "$MOUNT_POINT"/
+    fi
+    sync
+    sudo umount "$MOUNT_POINT"
+    sudo modprobe g_mass_storage file="$IMG_FILE" stall=0 removable=1 ro=0
+    echo "USB showing WiFi fix image"
+    exit 0
+fi
+
 # Incremental sync: add new photos, skip existing ones
 ADDED=0
 for subdir in "" upload picker album sync sync/picker sync/upload; do

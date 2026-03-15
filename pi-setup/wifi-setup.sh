@@ -96,6 +96,17 @@ json.dump(result, sys.stdout, indent=2)
 # ============================================================
 # start-ap — create the setup hotspot
 # ============================================================
+_create_ap_connection() {
+    nmcli connection add type wifi ifname wlan0 con-name "$AP_CON_NAME" \
+        autoconnect no ssid "$AP_CON_NAME" \
+        802-11-wireless.mode ap \
+        802-11-wireless.band bg \
+        ipv4.method shared \
+        ipv4.addresses "$AP_IP/24"
+    # Remove any security settings (open network for easy setup)
+    nmcli connection modify "$AP_CON_NAME" remove 802-11-wireless-security 2>/dev/null || true
+}
+
 cmd_start_ap() {
     $LOG "Starting AP mode..."
 
@@ -103,21 +114,27 @@ cmd_start_ap() {
     nmcli connection delete "$AP_CON_NAME" 2>/dev/null || true
 
     # Create open AP connection
-    nmcli connection add type wifi ifname wlan0 con-name "$AP_CON_NAME" \
-        autoconnect no ssid "$AP_CON_NAME" \
-        802-11-wireless.mode ap \
-        802-11-wireless.band bg \
-        ipv4.method shared \
-        ipv4.addresses "$AP_IP/24"
+    _create_ap_connection
 
-    # Remove security (open network for easy setup)
-    nmcli connection modify "$AP_CON_NAME" wifi-sec.key-mgmt none 2>/dev/null || true
-
-    # Bring up the AP
-    nmcli connection up "$AP_CON_NAME"
+    # Bring up the AP (with retry on failure)
+    if nmcli connection up "$AP_CON_NAME" 2>&1; then
+        $LOG "AP mode active — SSID: $AP_CON_NAME, IP: $AP_IP"
+    else
+        $LOG "AP start failed, retrying after cleanup..."
+        nmcli connection delete "$AP_CON_NAME" 2>/dev/null || true
+        sleep 3
+        _create_ap_connection
+        if nmcli connection up "$AP_CON_NAME" 2>&1; then
+            $LOG "AP mode active on retry — SSID: $AP_CON_NAME, IP: $AP_IP"
+        else
+            $LOG "ERROR: AP start failed after retry"
+        fi
+    fi
 
     echo "ap" > "$MODE_FILE"
-    $LOG "AP mode active — SSID: $AP_CON_NAME, IP: $AP_IP"
+
+    # Pre-scan so networks are ready when user connects via phone
+    cmd_scan &
 }
 
 # ============================================================
@@ -166,7 +183,14 @@ cmd_connect() {
         if ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1; then
             $LOG "Connected to '$ssid'"
             echo "client" > "$MODE_FILE"
-            rm -f /tmp/wifi_fail_count
+            rm -f /tmp/wifi_fail_count /tmp/instapi_ap_recovery
+
+            # Restore USB photos if in USB mode (background so connect returns fast)
+            DISPLAY_MODE_FILE="$INSTAPI_DIR/.display_mode"
+            if [ -f "$DISPLAY_MODE_FILE" ] && grep -q usb "$DISPLAY_MODE_FILE"; then
+                $LOG "Restoring photos to USB after WiFi reconnect"
+                sudo "$SCRIPT_DIR/update-photos.sh" &
+            fi
             exit 0
         fi
         sleep 1
