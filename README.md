@@ -169,7 +169,8 @@ instapi/
 ├── app/                          # Flask application
 │   ├── main.py                   # Entry point + photo reconciliation
 │   ├── app.py                    # Flask instance
-│   ├── config.py                 # Configuration + state management
+│   ├── config.py                 # Constants + slideshow config
+│   ├── db.py                     # SQLite database layer
 │   ├── utils.py                  # Download, watermark, USB sync
 │   ├── album_sync.py             # Google Photos album sync
 │   ├── routes/
@@ -194,7 +195,8 @@ instapi/
 │   │   │   └── thumbs/           # 200px thumbnails for admin
 │   │   ├── manifest.json         # PWA manifest (home screen icon)
 │   │   └── instapi_logo_full.jpg
-│   └── tests/                    # Test suite (28 tests)
+│   ├── instapi.db                # SQLite database (auto-created)
+│   └── tests/                    # Test suite (43 tests)
 ├── pi-setup/                     # Raspberry Pi deployment
 │   ├── install.sh                # Main installer
 │   ├── watchdog.sh               # Self-healing service monitor
@@ -219,12 +221,45 @@ instapi/
 
 - **Python 3** + Flask
 - **Multi-frame sync** — Manifest-based protocol with MD5 diffing
-- **WiFi AP mode** — hostapd + dnsmasq with captive portal
+- **SQLite** — Zero-config database (auto-created on first run, auto-migrates from JSON)
+- **WiFi AP mode** — NetworkManager (nmcli) with captive portal
 - **Pillow** — Image processing (thumbnails, watermarks)
 - **HTML/CSS/JS** — No frontend framework
 - **systemd** — Service management + watchdog
 - **ngrok** — Remote access tunnel
 - **Google Photos Picker API** — Optional photo source
+
+## Database
+
+InstaPi uses a single SQLite file (`app/instapi.db`) — no setup required. The database is created automatically on first run. Existing JSON config files are migrated automatically and renamed to `.migrated`.
+
+### Schema
+
+```
+settings
+├── key    TEXT PRIMARY KEY    -- e.g. "sync_role", "upload_token", "slideshow_slide_duration"
+└── value  TEXT                -- JSON-encoded (strings, numbers, bools, lists, dicts)
+
+photos
+├── id           INTEGER PRIMARY KEY AUTOINCREMENT
+├── filename     TEXT UNIQUE NOT NULL   -- "upload_1710456000_0.jpg"
+├── subdir       TEXT DEFAULT ''        -- "upload", "picker", "sync/upload"
+├── uploaded_by  TEXT DEFAULT 'admin'   -- uploader label for attribution/permissions
+├── created_at   TIMESTAMP             -- auto-set on insert
+├── size_bytes   INTEGER DEFAULT 0
+└── md5          TEXT                   -- for sync manifest diffing
+
+sync_log
+├── id             INTEGER PRIMARY KEY AUTOINCREMENT
+├── timestamp      TIMESTAMP           -- auto-set on insert
+├── result         TEXT NOT NULL        -- "success" or "error"
+├── photos_added   INTEGER DEFAULT 0
+├── photos_removed INTEGER DEFAULT 0
+├── duration_s     REAL DEFAULT 0
+└── error          TEXT                 -- error message (null on success)
+```
+
+Photos stay as files on disk — only metadata is in the database. The `settings` table is a flexible key-value store so the schema doesn't need to change when new settings are added.
 
 ## Privacy
 
