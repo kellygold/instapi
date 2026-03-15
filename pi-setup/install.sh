@@ -6,6 +6,10 @@
 #   ./install.sh         # Install all, configure later
 #   ./install.sh usb     # Install and configure USB mode
 #   ./install.sh hdmi    # Install and configure HDMI mode
+#
+# Environment variables (for curl | bash):
+#   DISPLAY_MODE=usb|hdmi
+#   NGROK_TOKEN, NGROK_DOMAIN, SYNC_ROLE, etc.
 
 set -e
 
@@ -14,15 +18,24 @@ echo "🖼️  InstaPi Installer"
 echo "====================="
 echo ""
 
-# Check if mode passed as argument
-DISPLAY_MODE=""
+# Check if mode passed as argument or environment variable
 if [ "$1" = "usb" ] || [ "$1" = "hdmi" ]; then
     DISPLAY_MODE="$1"
     echo "Mode: $DISPLAY_MODE (from argument)"
+elif [ "$DISPLAY_MODE" = "usb" ] || [ "$DISPLAY_MODE" = "hdmi" ]; then
+    echo "Mode: $DISPLAY_MODE (from environment)"
 elif [ -n "$1" ]; then
     echo "Unknown mode: $1"
     echo "Usage: ./install.sh [usb|hdmi]"
     exit 1
+else
+    DISPLAY_MODE=""
+fi
+
+# Detect if running non-interactively (curl | bash)
+IS_INTERACTIVE=true
+if [ ! -t 0 ]; then
+    IS_INTERACTIVE=false
 fi
 
 # Update system
@@ -97,14 +110,21 @@ elif [ -n "$CLIENT_ID" ]; then
         read -p "Enter ngrok domain for this frame (e.g. mom-instapi.ngrok.dev): " NGROK_DOMAIN
     fi
 else
-    echo "No instapi-setup.conf found. Setting up from scratch."
-    echo "(See README for Google Cloud setup instructions)"
-    echo ""
-    read -p "Google OAuth Client ID: " CLIENT_ID
-    read -p "Google OAuth Client Secret: " CLIENT_SECRET
-    read -p "ngrok authtoken (press enter to skip ngrok): " NGROK_TOKEN
-    if [ -n "$NGROK_TOKEN" ]; then
-        read -p "ngrok domain (e.g. my-frame.ngrok.dev): " NGROK_DOMAIN
+    if [ "$IS_INTERACTIVE" = true ]; then
+        echo "No instapi-setup.conf found. Setting up from scratch."
+        echo "(See README for Google Cloud setup instructions)"
+        echo ""
+        read -p "Google OAuth Client ID (press enter to skip): " CLIENT_ID
+        read -p "Google OAuth Client Secret: " CLIENT_SECRET
+        read -p "ngrok authtoken (press enter to skip ngrok): " NGROK_TOKEN
+        if [ -n "$NGROK_TOKEN" ]; then
+            read -p "ngrok domain (e.g. my-frame.ngrok.dev): " NGROK_DOMAIN
+        fi
+    else
+        echo "Non-interactive mode — skipping credential prompts."
+        echo "Set up credentials later via instapi-setup.conf or admin panel."
+        CLIENT_ID="${CLIENT_ID:-unused}"
+        CLIENT_SECRET="${CLIENT_SECRET:-unused}"
     fi
 fi
 
@@ -245,7 +265,14 @@ if [ "$DISPLAY_MODE" = "usb" ]; then
 
     # Remove any existing dwc2 line (may have dr_mode=host which breaks gadget)
     sudo sed -i '/dtoverlay=dwc2/d' "$BOOT_CONFIG"
-    echo "dtoverlay=dwc2" | sudo tee -a "$BOOT_CONFIG"
+    # Add under [all] section so it applies to all Pi models (not just cm4/cm5)
+    if grep -q '^\[all\]' "$BOOT_CONFIG"; then
+        # Insert after [all] line
+        sudo sed -i '/^\[all\]/a dtoverlay=dwc2' "$BOOT_CONFIG"
+    else
+        # No [all] section — add one at the end
+        echo -e "\n[all]\ndtoverlay=dwc2" | sudo tee -a "$BOOT_CONFIG"
+    fi
 
     # Load dwc2 module on boot (Trixie uses modules-load.d, older uses /etc/modules)
     echo "dwc2" | sudo tee /etc/modules-load.d/dwc2.conf
