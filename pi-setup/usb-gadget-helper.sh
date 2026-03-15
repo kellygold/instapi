@@ -3,8 +3,8 @@
 # Source this file: . "$(dirname "$0")/usb-gadget-helper.sh"
 #
 # Tune these delays if your photo frame needs more/less time:
-USB_STOP_DELAY=1    # seconds after removing gadget
-USB_START_DELAY=1   # seconds between double-connect (forces frame to re-read)
+USB_STOP_DELAY=2    # seconds after removing gadget
+USB_START_DELAY=2   # seconds between double-connect (forces frame to re-read)
 
 usb_gadget_stop() {
     sudo modprobe -r g_mass_storage 2>/dev/null || true
