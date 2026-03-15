@@ -38,6 +38,7 @@ fi
 
 # Incremental sync: add new photos, skip existing ones
 ADDED=0
+NEW_FILES=""
 for subdir in "" upload picker album sync sync/picker sync/upload; do
     dir="$PHOTOS_DIR"
     [ -n "$subdir" ] && dir="$PHOTOS_DIR/$subdir"
@@ -45,9 +46,11 @@ for subdir in "" upload picker album sync sync/picker sync/upload; do
     for ext in jpg jpeg png; do
         for f in "$dir"/*."$ext"; do
             [ -f "$f" ] || continue
-            dest="$MOUNT_POINT/$(basename "$f")"
+            fname=$(basename "$f")
+            dest="$MOUNT_POINT/$fname"
             if [ ! -f "$dest" ]; then
                 cp "$f" "$dest" 2>/dev/null && ADDED=$((ADDED + 1))
+                NEW_FILES="$NEW_FILES $fname"
             fi
         done
     done
@@ -65,21 +68,25 @@ if [ "$PHOTO_COUNT" -eq 0 ]; then
     fi
 fi
 
-# Watermark new USB copies with this Pi's unique QR code
+# Watermark only newly added photos (not all — avoids OOM on Pi Zero)
 if [ "$ADDED" -gt 0 ]; then
-    echo "Watermarking new photos..."
+    echo "Watermarking $ADDED new photos..."
     APP_DIR="$INSTAPI_DIR/app"
     VENV="$APP_DIR/venv/bin/python3"
     if [ -f "$VENV" ]; then
         cd "$APP_DIR"
         "$VENV" -c "
+import sys, os, gc
 from utils import add_qr_watermark
-import glob, os
 mount = '$MOUNT_POINT'
-for f in glob.glob(os.path.join(mount, '*.jpg')) + glob.glob(os.path.join(mount, '*.jpeg')) + glob.glob(os.path.join(mount, '*.png')):
-    if 'qr-placeholder' not in f:
-        add_qr_watermark(f)
-print(f'Watermarked photos on USB')
+files = '''$NEW_FILES'''.split()
+for i, fname in enumerate(files):
+    path = os.path.join(mount, fname)
+    if os.path.exists(path) and 'qr-placeholder' not in fname:
+        add_qr_watermark(path)
+    if (i + 1) % 3 == 0:
+        gc.collect()
+print(f'Watermarked {len(files)} new photos')
 " 2>/dev/null || echo "Watermark failed (non-fatal)"
     fi
 fi

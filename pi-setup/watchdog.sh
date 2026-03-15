@@ -104,4 +104,10 @@ fi
 if ! curl -s -o /dev/null --max-time 5 http://localhost:3000/ 2>/dev/null; then
     $LOG "Flask not responding, restarting instapi"
     sudo systemctl restart instapi
+    # In USB mode, refresh the frame after Flask restart
+    if [ -f "$MODE_FILE" ] && grep -q usb "$MODE_FILE"; then
+        sleep 5
+        $LOG "Refreshing USB frame after Flask restart"
+        sudo systemctl restart usb-gadget
+    fi
 fi
