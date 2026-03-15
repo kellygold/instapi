@@ -68,9 +68,7 @@ def admin():
     return render_template("admin.html",
         photo_count=photo_count, auth_url=auth_url,
         display_mode=display_mode, upload_token=upload_token,
-        sync_role=sync_role,
-        master_url=device_state.get("master_url", ""),
-        sync_token=device_state.get("sync_token", ""))
+        sync_role=sync_role)
 
 
 
@@ -313,30 +311,63 @@ def list_photos():
 
 @app.route("/admin/delete_photo", methods=["POST"])
 def delete_single_photo():
-    """Delete a single photo."""
+    """Delete a single photo. On child frames, proxies to master."""
     try:
         data = request.get_json()
         photo_path = data.get("path", "")
-        
+
         # Security: ensure path is within photos dir
         if not photo_path.startswith("/static/photos/"):
             return jsonify({"success": False, "error": "Invalid path"})
-        
-        # Convert URL path to file path
+
+        filename = os.path.basename(photo_path)
+
+        # Child frame: proxy delete to master
+        if device_state.get("sync_role") == "child" and "/sync/" in photo_path:
+            master_url = device_state.get("master_url")
+            sync_token = device_state.get("sync_token")
+            if not master_url or not sync_token:
+                return jsonify({"success": False, "error": "Not configured for sync"})
+
+            import requests as req
+            try:
+                resp = req.post(
+                    f"{master_url}/sync/delete_photo",
+                    json={"token": sync_token, "filename": filename},
+                    timeout=15
+                )
+                result = resp.json()
+                if result.get("success"):
+                    # Also delete local synced copy + thumbnail
+                    file_path = os.path.join(os.path.dirname(PHOTOS_DIR), photo_path.lstrip("/static/"))
+                    file_path = os.path.normpath(file_path)
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                    thumb_path = os.path.join(PHOTOS_DIR, "thumbs", filename)
+                    if os.path.exists(thumb_path):
+                        os.remove(thumb_path)
+                    if "photo_urls" in device_state:
+                        device_state["photo_urls"] = [u for u in device_state["photo_urls"] if os.path.basename(u) != filename]
+                    save_device_state()
+                    return jsonify({"success": True})
+                else:
+                    return jsonify(result), resp.status_code
+            except Exception as e:
+                return jsonify({"success": False, "error": f"Could not reach master: {e}"})
+
+        # Master or standalone: delete locally
         file_path = os.path.join(os.path.dirname(PHOTOS_DIR), photo_path.lstrip("/static/"))
         file_path = os.path.normpath(file_path)
-        
+
         # Verify it's within PHOTOS_DIR
         if not file_path.startswith(os.path.normpath(PHOTOS_DIR)):
             return jsonify({"success": False, "error": "Invalid path"})
-        
+
         if os.path.exists(file_path):
             os.remove(file_path)
-            # Also delete thumbnail
-            thumb_path = os.path.join(PHOTOS_DIR, "thumbs", os.path.basename(file_path))
+            thumb_path = os.path.join(PHOTOS_DIR, "thumbs", filename)
             if os.path.exists(thumb_path):
                 os.remove(thumb_path)
-            # Also remove from device_state if present
             if "photo_urls" in device_state:
                 url_path = photo_path
                 if url_path in device_state["photo_urls"]:
