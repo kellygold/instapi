@@ -53,6 +53,9 @@ usb_prepare_and_swap() {
 
     if [ "$reformat" = "true" ]; then
         /usr/sbin/mkfs.fat -F 32 "$img_file" > /dev/null 2>&1
+    else
+        # Auto-repair FAT corruption (e.g. from OOM crash mid-write)
+        sudo /usr/sbin/fsck.fat -a "$img_file" > /dev/null 2>&1 || true
     fi
 
     usb_mount "$img_file" "$mount_point"

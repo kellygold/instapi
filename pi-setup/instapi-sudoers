@@ -14,8 +14,9 @@
 %sudo ALL=(ALL) NOPASSWD: /bin/mount -o loop /home/*/usb_drive.img /home/*/usb_mount
 %sudo ALL=(ALL) NOPASSWD: /bin/umount /home/*/usb_mount
 
-# Allow formatting USB image (restricted to user home paths)
+# Allow formatting/repairing USB image (restricted to user home paths)
 %sudo ALL=(ALL) NOPASSWD: /sbin/mkfs.fat /home/*/usb_drive.img
+%sudo ALL=(ALL) NOPASSWD: /usr/sbin/fsck.fat -a /home/*/usb_drive.img
 
 # Allow WiFi setup operations (restricted to known subcommands)
 %sudo ALL=(ALL) NOPASSWD: /home/*/instapi/pi-setup/wifi-setup.sh check
