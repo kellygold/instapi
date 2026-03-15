@@ -1,6 +1,7 @@
 #!/bin/bash
-# Update photos on the USB drive — incremental add/remove, no reformat
-# Called by Flask app after new photos are uploaded or synced
+# Update photos on the USB drive — prepare in staging, then quick swap.
+# Frame stays up during preparation, only goes down briefly for the swap.
+# Called by Flask app after new photos are uploaded or synced.
 
 # Set PATH since web app context has minimal PATH
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
@@ -14,47 +15,19 @@ IMG_FILE="$USER_HOME/usb_drive.img"
 MOUNT_POINT="$USER_HOME/usb_mount"
 PHOTOS_DIR="$INSTAPI_DIR/app/static/photos"
 QR_PLACEHOLDER="$INSTAPI_DIR/pi-setup/qr-placeholder.jpg"
+STAGING="$USER_HOME/usb_staging"
 
 . "$SCRIPT_DIR/usb-gadget-helper.sh"
 
 echo "Updating photos on USB drive..."
 
-# Stop the USB gadget
-usb_gadget_stop
+# ============================================================
+# Phase 1: Prepare in staging (frame stays up during this)
+# ============================================================
+rm -rf "$STAGING"
+mkdir -p "$STAGING"
 
-# Mount the existing image (no reformat — preserves existing photos)
-usb_mount "$IMG_FILE" "$MOUNT_POINT"
-
-# Build list of photo filenames that SHOULD be on USB
-EXPECTED=$(mktemp)
-for subdir in "" upload picker album sync sync/picker sync/upload; do
-    dir="$PHOTOS_DIR"
-    [ -n "$subdir" ] && dir="$PHOTOS_DIR/$subdir"
-    [ -d "$dir" ] || continue
-    for ext in jpg jpeg png; do
-        for f in "$dir"/*."$ext"; do
-            [ -f "$f" ] && basename "$f" >> "$EXPECTED"
-        done
-    done
-done
-
-# Remove QR placeholder from expected (it's a fallback, not a photo)
-sed -i '/^qr-placeholder\.jpg$/d' "$EXPECTED" 2>/dev/null
-
-# Delete files from USB that are no longer in source
-DELETED=0
-for f in "$MOUNT_POINT"/*.jpg "$MOUNT_POINT"/*.jpeg "$MOUNT_POINT"/*.png; do
-    [ -f "$f" ] || continue
-    fname=$(basename "$f")
-    if ! grep -qx "$fname" "$EXPECTED"; then
-        sudo rm "$f"
-        DELETED=$((DELETED + 1))
-    fi
-done
-
-# Copy new or changed files (skip if same name + same size already on USB)
-ADDED=0
-NEW_FILES=""
+# Copy all current photos to staging
 for subdir in "" upload picker album sync sync/picker sync/upload; do
     dir="$PHOTOS_DIR"
     [ -n "$subdir" ] && dir="$PHOTOS_DIR/$subdir"
@@ -63,64 +36,67 @@ for subdir in "" upload picker album sync sync/picker sync/upload; do
         for f in "$dir"/*."$ext"; do
             [ -f "$f" ] || continue
             fname=$(basename "$f")
-            dest="$MOUNT_POINT/$fname"
-            if [ ! -f "$dest" ]; then
-                sudo cp "$f" "$dest"
-                ADDED=$((ADDED + 1))
-                NEW_FILES="$NEW_FILES $fname"
-            elif [ "$(stat -c%s "$f" 2>/dev/null)" != "$(stat -c%s "$dest" 2>/dev/null)" ]; then
-                sudo cp "$f" "$dest"
-                ADDED=$((ADDED + 1))
-                NEW_FILES="$NEW_FILES $fname"
-            fi
+            # Skip if already in staging (first copy wins)
+            [ -f "$STAGING/$fname" ] && continue
+            cp "$f" "$STAGING/$fname"
         done
     done
 done
 
-# Count final photos on USB
-PHOTO_COUNT=$(ls -1 "$MOUNT_POINT"/*.jpg "$MOUNT_POINT"/*.jpeg "$MOUNT_POINT"/*.png 2>/dev/null | wc -l)
+# Count photos in staging
+PHOTO_COUNT=$(ls -1 "$STAGING"/*.jpg "$STAGING"/*.jpeg "$STAGING"/*.png 2>/dev/null | wc -l)
 
 if [ "$PHOTO_COUNT" -eq 0 ]; then
-    # No photos, show QR placeholder
+    # No photos — stage QR placeholder instead
     if [ -f "$QR_PLACEHOLDER" ]; then
-        sudo cp "$QR_PLACEHOLDER" "$MOUNT_POINT"/
+        cp "$QR_PLACEHOLDER" "$STAGING/"
     fi
-    echo "No photos yet, showing QR code"
+    echo "No photos, staging QR placeholder"
 else
-    # Remove QR placeholder if real photos exist
-    sudo rm -f "$MOUNT_POINT/qr-placeholder.jpg" 2>/dev/null
+    # Remove QR placeholder from staging if real photos exist
+    rm -f "$STAGING/qr-placeholder.jpg" 2>/dev/null
 fi
 
-echo "Added $ADDED, removed $DELETED, total $PHOTO_COUNT photos"
-
-# Watermark only newly added USB copies (not all — avoids OOM on Pi Zero)
-# Each Pi has its own QR URL — child points to master with child token
-if [ "$ADDED" -gt 0 ]; then
-    echo "Watermarking $ADDED new photos..."
-    APP_DIR="$INSTAPI_DIR/app"
-    VENV="$APP_DIR/venv/bin/python3"
-    if [ -f "$VENV" ]; then
-        cd "$APP_DIR"
-        "$VENV" -c "
-import sys, os, gc
-from utils import add_qr_watermark
-mount = '$MOUNT_POINT'
-files = '''$NEW_FILES'''.split()
-for i, fname in enumerate(files):
-    path = os.path.join(mount, fname)
-    if os.path.exists(path) and 'qr-placeholder' not in fname:
-        add_qr_watermark(path)
-    if (i + 1) % 3 == 0:
-        gc.collect()
-print(f'Watermarked {len(files)} new photos')
-" 2>/dev/null || echo "Watermark failed (non-fatal)"
-    fi
+# Determine which files are new (not on current USB)
+# Mount USB briefly (read-only check) to compare
+NEW_FILES=""
+mkdir -p "$MOUNT_POINT"
+if sudo mount -o loop,ro "$IMG_FILE" "$MOUNT_POINT" 2>/dev/null; then
+    for f in "$STAGING"/*; do
+        [ -f "$f" ] || continue
+        fname=$(basename "$f")
+        usb_file="$MOUNT_POINT/$fname"
+        if [ ! -f "$usb_file" ] || [ "$(stat -c%s "$f" 2>/dev/null)" != "$(stat -c%s "$usb_file" 2>/dev/null)" ]; then
+            NEW_FILES="$NEW_FILES $fname"
+        fi
+    done
+    sudo umount "$MOUNT_POINT"
+else
+    # Can't mount (first run or corrupt) — all files are new
+    for f in "$STAGING"/*; do
+        [ -f "$f" ] && NEW_FILES="$NEW_FILES $(basename "$f")"
+    done
 fi
 
-# Unmount
-usb_unmount "$MOUNT_POINT"
+# Watermark new photos in staging (frame still showing old photos)
+if [ -n "$NEW_FILES" ]; then
+    ADDED=$(echo "$NEW_FILES" | wc -w)
+    echo "Watermarking $ADDED new photos in staging..."
+    usb_watermark "$STAGING" "$NEW_FILES"
+else
+    echo "No new photos to watermark"
+fi
 
-# Restart USB gadget
-usb_gadget_start "$IMG_FILE"
+echo "Staging ready: $PHOTO_COUNT photos"
 
-echo "✅ USB drive updated! Frame should refresh."
+# ============================================================
+# Phase 2: Quick swap (frame down briefly ~5s)
+# ============================================================
+usb_prepare_and_swap "$IMG_FILE" "$MOUNT_POINT" "$STAGING"
+
+# ============================================================
+# Phase 3: Cleanup
+# ============================================================
+rm -rf "$STAGING"
+
+echo "USB drive updated! Frame should refresh."

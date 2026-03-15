@@ -48,13 +48,12 @@ else
                     USER_HOME="$(dirname "$INSTAPI_DIR")"
                     IMG_FILE="$USER_HOME/usb_drive.img"
                     MOUNT_POINT="$USER_HOME/usb_mount"
+                    STAGING="$USER_HOME/usb_staging"
 
-                    usb_gadget_stop
-                    sudo mkfs.fat -F 32 "$IMG_FILE" > /dev/null 2>&1
-                    usb_mount "$IMG_FILE" "$MOUNT_POINT"
-                    [ -f "$WIFI_FIX_IMAGE" ] && sudo cp "$WIFI_FIX_IMAGE" "$MOUNT_POINT"/
-                    usb_unmount "$MOUNT_POINT"
-                    usb_gadget_start "$IMG_FILE"
+                    rm -rf "$STAGING" && mkdir -p "$STAGING"
+                    [ -f "$WIFI_FIX_IMAGE" ] && cp "$WIFI_FIX_IMAGE" "$STAGING/"
+                    usb_prepare_and_swap "$IMG_FILE" "$MOUNT_POINT" "$STAGING" true
+                    rm -rf "$STAGING"
                     $LOG "USB swapped to WiFi fix image"
                 fi
 
