@@ -208,7 +208,7 @@ def sync_delete_photo():
     # Check upload_meta — did this uploader upload this file?
     meta = db.get_upload_meta()
     if uploader != "admin" and meta.get(filename) != uploader:
-        return jsonify({"success": False, "error": "Not your photo"}), 403
+        return jsonify({"success": False, "error": "Access denied"}), 403
 
     # Find and delete the file
     deleted = False

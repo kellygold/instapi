@@ -16,6 +16,21 @@ from routes.sync_routes import mark_manifest_dirty
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 STAGING_DIR = os.path.join(config.PHOTOS_DIR, ".staging")
 
+# Magic bytes for supported image formats
+_IMAGE_SIGNATURES = [
+    (b'\xff\xd8\xff', 'jpeg'),    # JPEG
+    (b'\x89PNG\r\n\x1a\n', 'png'),  # PNG
+    (b'GIF87a', 'gif'),           # GIF87a
+    (b'GIF89a', 'gif'),           # GIF89a
+]
+
+
+def _is_valid_image(file):
+    """Check file magic bytes to verify it's a real image."""
+    header = file.read(8)
+    file.seek(0)
+    return any(header.startswith(sig) for sig, _ in _IMAGE_SIGNATURES)
+
 
 def _validate_token():
     """Check upload token from query param or form data.
@@ -67,6 +82,12 @@ def upload_photos():
 
     for i, file in enumerate(files):
         if not file or not file.filename:
+            continue
+
+        # Validate file is a real image (magic bytes)
+        if not _is_valid_image(file):
+            skipped += 1
+            print(f"[UPLOAD] Skipped {file.filename}: not a valid image")
             continue
 
         # Validate file size

@@ -136,6 +136,7 @@ cat > "$INSTALL_DIR/app/secrets.json" << EOFJSON
   }
 }
 EOFJSON
+chmod 600 "$INSTALL_DIR/app/secrets.json"
 echo "secrets.json created with redirect URI: $REDIRECT_URI"
 
 # ==========================================

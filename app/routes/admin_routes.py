@@ -11,6 +11,7 @@ from config import SCOPES, PHOTOS_DIR, load_slideshow_config, save_slideshow_con
 from google_auth_oauthlib.flow import Flow
 from utils import get_display_mode
 from routes.sync_routes import mark_manifest_dirty
+from rate_limit import rate_limit, clear_rate_limit
 
 MODE_FILE = os.path.join(os.path.dirname(__file__), "..", "..", ".display_mode")
 
@@ -50,11 +51,13 @@ def require_admin(f):
 
 
 @app.route("/admin/login", methods=["GET", "POST"])
+@rate_limit(max_attempts=5, window_seconds=300, message="Too many login attempts. Try again in 5 minutes.")
 def admin_login():
     if request.method == "POST":
         password = request.form.get("password", "")
         if verify_password(password):
             session["admin_authenticated"] = True
+            clear_rate_limit(request.remote_addr)
             return redirect(url_for("admin"))
         return render_template("admin_login.html", error="Invalid password"), 401
     return render_template("admin_login.html")
