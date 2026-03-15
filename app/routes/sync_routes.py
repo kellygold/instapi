@@ -482,7 +482,7 @@ def run_sync_cycle():
                 file_size = os.path.getsize(dest)
 
                 # Track in DB
-                uploader = upload_meta.get(path, "")
+                uploader = upload_meta.get(os.path.basename(path), "")
                 db.add_photo(os.path.basename(path), subdir="sync",
                              uploaded_by=uploader,
                              size_bytes=file_size, md5=file_md5)
