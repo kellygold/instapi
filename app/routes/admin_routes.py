@@ -289,7 +289,10 @@ def system_info():
 
 @app.route("/admin/photos")
 def list_photos():
-    """Return list of all photos with their paths."""
+    """Return list of all photos with their paths and uploader info."""
+    from routes.upload_routes import _load_upload_meta
+    meta = _load_upload_meta()
+
     photos = []
     if os.path.exists(PHOTOS_DIR):
         for root, dirs, files in os.walk(PHOTOS_DIR):
@@ -302,7 +305,8 @@ def list_photos():
                         "path": f"/static/{rel_path}",
                         "thumb": f"/static/photos/thumbs/{f}",
                         "name": f,
-                        "size": os.path.getsize(full_path)
+                        "size": os.path.getsize(full_path),
+                        "uploaded_by": meta.get(f, "unknown")
                     })
     return jsonify(photos)
 

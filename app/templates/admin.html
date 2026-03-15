@@ -866,6 +866,8 @@
 
             <div class="grid-controls">
                 <span class="grid-photo-count" id="gridPhotoCount"></span>
+                <span id="photoFilters" style="display:none; margin-left:8px;"></span>
+                <span style="flex:1"></span>
                 <button class="size-btn" onclick="setGridSize('compact')" id="sizeCompact">Small</button>
                 <button class="size-btn active" onclick="setGridSize('normal')" id="sizeNormal">Large</button>
             </div>
@@ -1257,24 +1259,57 @@
             }
         }
 
+        let allPhotos = [];
+        let activeFilter = 'all';
+
+        function filterPhotos(uploader) {
+            activeFilter = uploader;
+            renderPhotos();
+        }
+
         // Load photos grid
         async function loadPhotos() {
             try {
                 const resp = await fetch('/admin/photos');
-                const photos = await resp.json();
-                const grid = document.getElementById('photoGrid');
+                allPhotos = await resp.json();
+                renderPhotos();
+            } catch (e) {
+                console.error('Failed to load photos:', e);
+            }
+        }
 
-                document.getElementById('gridPhotoCount').textContent =
-                    photos.length > 0 ? `${photos.length} photos` : '';
+        function renderPhotos() {
+            const grid = document.getElementById('photoGrid');
+            const filtered = activeFilter === 'all'
+                ? allPhotos
+                : allPhotos.filter(p => p.uploaded_by === activeFilter);
 
-                if (photos.length === 0) {
-                    grid.classList.add('empty');
-                    grid.innerHTML = '<div class="no-photos">No photos yet.<br>Tap "Select Photos" below to get started!</div>';
-                    return;
-                }
+            // Build filter chips
+            const uploaders = [...new Set(allPhotos.map(p => p.uploaded_by).filter(u => u && u !== 'unknown'))];
+            const filtersEl = document.getElementById('photoFilters');
+            if (uploaders.length > 1) {
+                filtersEl.style.display = '';
+                filtersEl.innerHTML = `<button class="size-btn ${activeFilter === 'all' ? 'active' : ''}" onclick="filterPhotos('all')" style="font-size:0.75em;">All</button> ` +
+                    uploaders.map(u => `<button class="size-btn ${activeFilter === u ? 'active' : ''}" onclick="filterPhotos('${u.replace(/'/g, "\\'")}')" style="font-size:0.75em;">${u}</button>`).join(' ');
+            } else {
+                filtersEl.style.display = 'none';
+            }
 
-                grid.classList.remove('empty');
-                grid.innerHTML = photos.map(photo => `
+            document.getElementById('gridPhotoCount').textContent =
+                filtered.length > 0 ? `${filtered.length} of ${allPhotos.length} photos` : (allPhotos.length > 0 ? `${allPhotos.length} photos` : '');
+
+            if (filtered.length === 0 && allPhotos.length === 0) {
+                grid.classList.add('empty');
+                grid.innerHTML = '<div class="no-photos">No photos yet.<br>Tap "Select Photos" below to get started!</div>';
+                return;
+            } else if (filtered.length === 0) {
+                grid.classList.add('empty');
+                grid.innerHTML = '<div class="no-photos">No photos from this uploader.</div>';
+                return;
+            }
+
+            grid.classList.remove('empty');
+            grid.innerHTML = filtered.map(photo => `
                     <div class="photo-thumb">
                         <img src="${photo.thumb}" alt="${photo.name}" loading="lazy"
                              onerror="this.style.opacity='0.3'; setTimeout(() => { this.src=this.src+'?r='+Date.now(); this.style.opacity='1'; }, 2000);">
