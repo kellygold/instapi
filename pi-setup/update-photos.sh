@@ -57,35 +57,10 @@ else
     rm -f "$STAGING/qr-placeholder.jpg" 2>/dev/null
 fi
 
-# Determine which files are new (not on current USB)
-# Mount USB briefly (read-only check) to compare
-NEW_FILES=""
-mkdir -p "$MOUNT_POINT"
-if sudo mount -o loop,ro "$IMG_FILE" "$MOUNT_POINT" 2>/dev/null; then
-    for f in "$STAGING"/*; do
-        [ -f "$f" ] || continue
-        fname=$(basename "$f")
-        usb_file="$MOUNT_POINT/$fname"
-        if [ ! -f "$usb_file" ] || [ "$(stat -c%s "$f" 2>/dev/null)" != "$(stat -c%s "$usb_file" 2>/dev/null)" ]; then
-            NEW_FILES="$NEW_FILES $fname"
-        fi
-    done
-    sudo umount "$MOUNT_POINT"
-else
-    # Can't mount (first run or corrupt) — all files are new
-    for f in "$STAGING"/*; do
-        [ -f "$f" ] && NEW_FILES="$NEW_FILES $(basename "$f")"
-    done
-fi
-
-# Watermark new photos in staging (frame still showing old photos)
-if [ -n "$NEW_FILES" ]; then
-    ADDED=$(echo "$NEW_FILES" | wc -w)
-    echo "Watermarking $ADDED new photos in staging..."
-    usb_watermark "$STAGING" "$NEW_FILES"
-else
-    echo "No new photos to watermark"
-fi
+# Watermark all photos in staging (they're fresh copies from source, unwatermarked)
+# Frame stays up during this — watermarking happens on staging copies, not USB
+echo "Watermarking photos in staging..."
+usb_watermark "$STAGING" "all"
 
 echo "Staging ready: $PHOTO_COUNT photos"
 
