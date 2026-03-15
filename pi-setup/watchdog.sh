@@ -9,6 +9,7 @@ WIFI_MODE_FILE="/tmp/instapi_wifi_mode"
 WIFI_FAIL_COUNT_FILE="/tmp/wifi_fail_count"
 WIFI_FIX_IMAGE="$SCRIPT_DIR/wifi-fix.jpg"
 MODE_FILE="$INSTAPI_DIR/.display_mode"
+. "$SCRIPT_DIR/usb-gadget-helper.sh"
 
 # 1. Check internet connectivity (skip if in AP mode)
 if [ -f "$WIFI_MODE_FILE" ] && grep -q "ap" "$WIFI_MODE_FILE"; then
@@ -48,15 +49,14 @@ else
                     IMG_FILE="$USER_HOME/usb_drive.img"
                     MOUNT_POINT="$USER_HOME/usb_mount"
 
-                    sudo modprobe -r g_mass_storage 2>/dev/null || true
-                    sleep 2
+                    usb_gadget_stop
                     sudo mkfs.fat -F 32 "$IMG_FILE" > /dev/null 2>&1
                     mkdir -p "$MOUNT_POINT"
                     sudo mount -o loop "$IMG_FILE" "$MOUNT_POINT"
                     [ -f "$WIFI_FIX_IMAGE" ] && sudo cp "$WIFI_FIX_IMAGE" "$MOUNT_POINT"/
                     sync
                     sudo umount "$MOUNT_POINT"
-                    sudo modprobe g_mass_storage file="$IMG_FILE" stall=0 removable=1 ro=0
+                    usb_gadget_start "$IMG_FILE"
                     $LOG "USB swapped to WiFi fix image"
                 fi
 

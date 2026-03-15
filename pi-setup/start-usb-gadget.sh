@@ -12,6 +12,8 @@ MOUNT_POINT="$USER_HOME/usb_mount"
 PHOTOS_DIR="$INSTAPI_DIR/app/static/photos"
 QR_PLACEHOLDER="$INSTAPI_DIR/pi-setup/qr-placeholder.jpg"
 
+. "$SCRIPT_DIR/usb-gadget-helper.sh"
+
 echo "Using paths: IMG=$IMG_FILE, MOUNT=$MOUNT_POINT"
 
 # Create mount point if needed
@@ -33,7 +35,7 @@ if [ -f "$WIFI_MODE_FILE" ] && grep -q "ap" "$WIFI_MODE_FILE"; then
     fi
     sync
     sudo umount "$MOUNT_POINT"
-    sudo modprobe g_mass_storage file="$IMG_FILE" stall=0 removable=1 ro=0
+    usb_gadget_start "$IMG_FILE"
     echo "USB showing WiFi fix image"
     exit 0
 fi
@@ -91,6 +93,6 @@ sync
 sudo umount "$MOUNT_POINT"
 
 # Load the USB mass storage gadget
-sudo modprobe g_mass_storage file="$IMG_FILE" stall=0 removable=1 ro=0
+usb_gadget_start "$IMG_FILE"
 
 echo "USB Gadget started - Pi is now a USB drive ($PHOTO_COUNT photos)"

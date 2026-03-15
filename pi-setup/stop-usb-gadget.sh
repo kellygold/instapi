@@ -2,7 +2,8 @@
 # Stop USB Mass Storage Gadget
 # Called when we need to update photos
 
-# Unload the gadget module
-sudo modprobe -r g_mass_storage
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/usb-gadget-helper.sh"
 
+usb_gadget_stop
 echo "USB Gadget stopped"

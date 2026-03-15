@@ -15,11 +15,12 @@ MOUNT_POINT="$USER_HOME/usb_mount"
 PHOTOS_DIR="$INSTAPI_DIR/app/static/photos"
 QR_PLACEHOLDER="$INSTAPI_DIR/pi-setup/qr-placeholder.jpg"
 
+. "$SCRIPT_DIR/usb-gadget-helper.sh"
+
 echo "Updating photos on USB drive..."
 
-# Stop the USB gadget (frame needs time to fully deregister the device)
-sudo modprobe -r g_mass_storage 2>/dev/null || true
-sleep 3
+# Stop the USB gadget
+usb_gadget_stop
 
 # Create mount point if needed
 mkdir -p "$MOUNT_POINT"
@@ -117,6 +118,6 @@ sync
 sudo umount "$MOUNT_POINT"
 
 # Restart USB gadget
-sudo modprobe g_mass_storage file="$IMG_FILE" stall=0 removable=1 ro=0
+usb_gadget_start "$IMG_FILE"
 
 echo "✅ USB drive updated! Frame should refresh."

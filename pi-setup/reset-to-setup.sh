@@ -18,13 +18,12 @@ QR_PLACEHOLDER="$SCRIPT_DIR/qr-placeholder.jpg"
 
 echo "USER_HOME=$USER_HOME"
 
-echo "Resetting USB image to setup QR..."
-echo "Script dir: $SCRIPT_DIR"
-echo "QR placeholder: $QR_PLACEHOLDER"
+. "$SCRIPT_DIR/usb-gadget-helper.sh"
 
-# Stop USB gadget (frame needs time to fully deregister the device)
-/usr/bin/sudo /sbin/modprobe -r g_mass_storage 2>/dev/null || true
-sleep 3
+echo "Resetting USB image to setup QR..."
+
+# Stop USB gadget
+usb_gadget_stop
 
 # Reformat the FAT32 image (clean filesystem avoids stale FAT entries that confuse frames)
 /usr/bin/sudo /sbin/mkfs.fat -F 32 "$IMG_FILE" > /dev/null
@@ -46,6 +45,6 @@ fi
 /usr/bin/sudo /bin/umount "$MOUNT_POINT"
 
 # Restart USB gadget
-/usr/bin/sudo /sbin/modprobe g_mass_storage file="$IMG_FILE" stall=0 removable=1 ro=0
+usb_gadget_start "$IMG_FILE"
 
 echo "USB reset complete - frame should show QR code"
