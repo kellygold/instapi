@@ -6,8 +6,8 @@ Wants=instapi.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/home/pi/instapi/pi-setup/start-usb-gadget.sh
-ExecStop=/home/pi/instapi/pi-setup/stop-usb-gadget.sh
+ExecStart=@@HOME@@/instapi/pi-setup/start-usb-gadget.sh
+ExecStop=@@HOME@@/instapi/pi-setup/stop-usb-gadget.sh
 
 [Install]
 WantedBy=multi-user.target

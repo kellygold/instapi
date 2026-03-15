@@ -5,10 +5,10 @@ Wants=instapi.service
 
 [Service]
 Type=simple
-User=pi
+User=@@USER@@
 Environment=DISPLAY=:0
 ExecStartPre=/bin/sleep 10
-ExecStart=/home/pi/instapi/pi-setup/kiosk.sh
+ExecStart=@@HOME@@/instapi/pi-setup/kiosk.sh
 Restart=on-failure
 RestartSec=5
 

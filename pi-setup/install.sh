@@ -299,17 +299,11 @@ if [ "$DISPLAY_MODE" = "usb" ]; then
     # Create mount point
     mkdir -p "$HOME/usb_mount"
 
-    # Install systemd services for USB mode
+    # Install systemd services for USB mode (substitute placeholders)
     echo "⚙️  Installing services..."
-    sudo cp "$INSTALL_DIR/pi-setup/instapi.service" /etc/systemd/system/
-    sudo cp "$INSTALL_DIR/pi-setup/usb-gadget.service" /etc/systemd/system/
-    sudo cp "$INSTALL_DIR/pi-setup/instapi-wifi.service" /etc/systemd/system/
-
-    # Update service paths
-    sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/instapi.service
-    sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/usb-gadget.service
-    sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/instapi-wifi.service
-    sudo sed -i "s|User=pi|User=$USER|g" /etc/systemd/system/instapi.service
+    for svc in instapi.service usb-gadget.service instapi-wifi.service; do
+        sed "s|@@USER@@|$USER|g; s|@@HOME@@|$HOME|g" "$INSTALL_DIR/pi-setup/$svc" | sudo tee "/etc/systemd/system/$svc" > /dev/null
+    done
 
 
     sudo systemctl daemon-reload
@@ -342,18 +336,11 @@ elif [ "$DISPLAY_MODE" = "hdmi" ]; then
         sudo sed -i 's/$/ consoleblank=0/' "$CMDLINE_FILE"
     fi
 
-    # Install systemd services for HDMI mode
+    # Install systemd services for HDMI mode (substitute placeholders)
     echo "⚙️  Installing services..."
-    sudo cp "$INSTALL_DIR/pi-setup/instapi.service" /etc/systemd/system/
-    sudo cp "$INSTALL_DIR/pi-setup/instapi-kiosk.service" /etc/systemd/system/
-    sudo cp "$INSTALL_DIR/pi-setup/instapi-wifi.service" /etc/systemd/system/
-
-    # Update service paths
-    sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/instapi.service
-    sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/instapi-kiosk.service
-    sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/instapi-wifi.service
-    sudo sed -i "s|User=pi|User=$USER|g" /etc/systemd/system/instapi.service
-    sudo sed -i "s|User=pi|User=$USER|g" /etc/systemd/system/instapi-kiosk.service
+    for svc in instapi.service instapi-kiosk.service instapi-wifi.service; do
+        sed "s|@@USER@@|$USER|g; s|@@HOME@@|$HOME|g" "$INSTALL_DIR/pi-setup/$svc" | sudo tee "/etc/systemd/system/$svc" > /dev/null
+    done
 
 
     sudo systemctl daemon-reload

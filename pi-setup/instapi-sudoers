@@ -6,16 +6,23 @@
 %sudo ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart instapi-kiosk
 %sudo ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart usb-gadget
 
-# Allow USB gadget operations
+# Allow USB gadget operations (both paths for compatibility)
 %sudo ALL=(ALL) NOPASSWD: /sbin/modprobe g_mass_storage *
 %sudo ALL=(ALL) NOPASSWD: /sbin/modprobe -r g_mass_storage
+%sudo ALL=(ALL) NOPASSWD: /usr/sbin/modprobe g_mass_storage *
+%sudo ALL=(ALL) NOPASSWD: /usr/sbin/modprobe -r g_mass_storage
 
 # Allow mounting USB image (restricted to user home paths)
+%sudo ALL=(ALL) NOPASSWD: /usr/bin/mount -o loop /home/*/usb_drive.img /home/*/usb_mount
 %sudo ALL=(ALL) NOPASSWD: /bin/mount -o loop /home/*/usb_drive.img /home/*/usb_mount
+%sudo ALL=(ALL) NOPASSWD: /usr/bin/umount /home/*/usb_mount
 %sudo ALL=(ALL) NOPASSWD: /bin/umount /home/*/usb_mount
 
 # Allow formatting/repairing USB image (restricted to user home paths)
 %sudo ALL=(ALL) NOPASSWD: /sbin/mkfs.fat /home/*/usb_drive.img
+%sudo ALL=(ALL) NOPASSWD: /usr/sbin/mkfs.fat /home/*/usb_drive.img
+%sudo ALL=(ALL) NOPASSWD: /sbin/mkfs.fat -F 32 /home/*/usb_drive.img
+%sudo ALL=(ALL) NOPASSWD: /usr/sbin/mkfs.fat -F 32 /home/*/usb_drive.img
 %sudo ALL=(ALL) NOPASSWD: /usr/sbin/fsck.fat -a /home/*/usb_drive.img
 
 # Allow WiFi setup operations (restricted to known subcommands)
@@ -25,8 +32,16 @@
 %sudo ALL=(ALL) NOPASSWD: /home/*/instapi/pi-setup/wifi-setup.sh connect *
 %sudo ALL=(ALL) NOPASSWD: /home/*/instapi/pi-setup/wifi-setup.sh scan
 
+# Allow update-photos.sh for USB sync
+%sudo ALL=(ALL) NOPASSWD: /home/*/instapi/pi-setup/update-photos.sh
+%sudo ALL=(ALL) NOPASSWD: /usr/bin/bash /home/*/instapi/pi-setup/update-photos.sh
+%sudo ALL=(ALL) NOPASSWD: /bin/bash /home/*/instapi/pi-setup/update-photos.sh
+
 # Allow captive portal (DNS config, nftables)
 %sudo ALL=(ALL) NOPASSWD: /bin/mkdir -p /etc/NetworkManager/dnsmasq-shared.d
 %sudo ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/NetworkManager/dnsmasq-shared.d/captive-portal.conf
 %sudo ALL=(ALL) NOPASSWD: /bin/rm -f /etc/NetworkManager/dnsmasq-shared.d/captive-portal.conf
 %sudo ALL=(ALL) NOPASSWD: /usr/sbin/nft *
+
+# Allow git pull for OTA updates
+%sudo ALL=(ALL) NOPASSWD: /usr/bin/git -C /home/*/instapi pull

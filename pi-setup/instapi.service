@@ -4,10 +4,10 @@ After=network.target instapi-wifi.service
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/instapi/app
-Environment=PATH=/home/pi/instapi/app/venv/bin
-ExecStart=/home/pi/instapi/app/venv/bin/python main.py
+User=@@USER@@
+WorkingDirectory=@@HOME@@/instapi/app
+Environment=PATH=@@HOME@@/instapi/app/venv/bin
+ExecStart=@@HOME@@/instapi/app/venv/bin/python main.py
 Restart=always
 RestartSec=5
 
