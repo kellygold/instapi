@@ -2,7 +2,7 @@
 import io
 import json
 import qrcode
-from flask import render_template, jsonify, redirect, url_for, request, send_file
+from flask import render_template, jsonify, redirect, url_for, request, send_file, send_from_directory
 from google_auth_oauthlib.flow import Flow
 from datetime import datetime, timedelta
 from app import app
@@ -13,6 +13,12 @@ from urllib.parse import urlencode
 import os
 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
+
+@app.route("/favicon.ico")
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, "static"),
+                               "favicon.ico", mimetype="image/x-icon")
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 
 # Load redirect URI from secrets.json and derive base URL
