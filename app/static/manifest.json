@@ -3,9 +3,14 @@
   "short_name": "InstaPi",
   "icons": [
     {
-      "src": "/static/instapi_logo_full.jpg",
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icon-512.png",
       "sizes": "512x512",
-      "type": "image/jpeg"
+      "type": "image/png"
     }
   ],
   "start_url": "/admin",
