@@ -234,10 +234,13 @@ echo "$DISPLAY_MODE" > "$INSTALL_DIR/.display_mode"
 if [ "$DISPLAY_MODE" = "usb" ]; then
     echo "🔌 Configuring USB Gadget mode..."
 
-    # Enable dwc2 overlay for USB gadget
-    if ! grep -q "dtoverlay=dwc2" /boot/config.txt; then
-        echo "dtoverlay=dwc2" | sudo tee -a /boot/config.txt
-    fi
+    # Enable dwc2 overlay for USB gadget (Trixie uses /boot/firmware/, older uses /boot/)
+    BOOT_CONFIG="/boot/firmware/config.txt"
+    [ ! -f "$BOOT_CONFIG" ] && BOOT_CONFIG="/boot/config.txt"
+
+    # Remove any existing dwc2 line (may have dr_mode=host which breaks gadget)
+    sudo sed -i '/dtoverlay=dwc2/d' "$BOOT_CONFIG"
+    echo "dtoverlay=dwc2" | sudo tee -a "$BOOT_CONFIG"
 
     # Load dwc2 module on boot
     if ! grep -q "dwc2" /etc/modules; then
