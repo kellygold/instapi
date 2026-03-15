@@ -1289,15 +1289,15 @@
             // Build filter chips
             const uploaders = [...new Set(allPhotos.map(p => p.uploaded_by).filter(u => u && u !== 'unknown'))];
             const filtersEl = document.getElementById('photoFilters');
+            const chipName = (u) => {
+                if (syncRole === 'child' && u === myLabel) return 'My Photos';
+                if (u === 'admin') return 'Kelly';
+                return u;
+            };
             if (uploaders.length > 1) {
                 filtersEl.style.display = '';
-                const displayName = (u) => {
-                    if (u === myLabel && syncRole === 'child') return 'My Photos';
-                    if (u === 'admin') return 'Kelly';
-                    return u;
-                };
                 filtersEl.innerHTML = `<button class="size-btn ${activeFilter === 'all' ? 'active' : ''}" onclick="filterPhotos('all')" style="font-size:0.75em;">All</button> ` +
-                    uploaders.map(u => `<button class="size-btn ${activeFilter === u ? 'active' : ''}" onclick="filterPhotos('${u.replace(/'/g, "\\'")}')" style="font-size:0.75em;">${displayName(u)}</button>`).join(' ');
+                    uploaders.map(u => `<button class="size-btn ${activeFilter === u ? 'active' : ''}" onclick="filterPhotos('${u.replace(/'/g, "\\'")}')" style="font-size:0.75em;">${chipName(u)}</button>`).join(' ');
             } else {
                 filtersEl.style.display = 'none';
             }
@@ -1316,16 +1316,55 @@
             }
 
             grid.classList.remove('empty');
-            grid.innerHTML = filtered.map(photo => {
-                // Children can only delete their own photos; master/admin can delete any
-                const canDelete = syncRole !== 'child' || photo.uploaded_by === myLabel;
-                return `
-                    <div class="photo-thumb">
+
+            const displayName = (u) => {
+                if (syncRole === 'child' && u === myLabel) return 'My Photos';
+                if (syncRole !== 'child' && u === 'admin') return 'Kelly';
+                if (u === 'admin') return 'Kelly';
+                return u;
+            };
+
+            // If filtering by one uploader, just show flat grid
+            if (activeFilter !== 'all') {
+                grid.innerHTML = filtered.map(photo => {
+                    const canDelete = syncRole !== 'child' || photo.uploaded_by === myLabel;
+                    return `<div class="photo-thumb">
                         <img src="${photo.thumb}" alt="${photo.name}" loading="lazy"
                              onerror="this.style.opacity='0.3'; setTimeout(() => { this.src=this.src+'?r='+Date.now(); this.style.opacity='1'; }, 2000);">
                         ${canDelete ? `<button class="delete-btn" onclick="deletePhoto('${photo.path}')" title="Delete">×</button>` : ''}
                     </div>`;
-            }).join('');
+                }).join('');
+            } else {
+                // Group by uploader, own photos first
+                const groups = {};
+                filtered.forEach(p => {
+                    const key = p.uploaded_by || 'unknown';
+                    if (!groups[key]) groups[key] = [];
+                    groups[key].push(p);
+                });
+
+                // Sort: own photos first, then alphabetical
+                const myKey = syncRole === 'child' ? myLabel : 'admin';
+                const sortedKeys = Object.keys(groups).sort((a, b) => {
+                    if (a === myKey) return -1;
+                    if (b === myKey) return 1;
+                    return displayName(a).localeCompare(displayName(b));
+                });
+
+                grid.innerHTML = sortedKeys.map(key => {
+                    const photos = groups[key];
+                    const canDelete = syncRole !== 'child' || key === myLabel;
+                    return `<div style="grid-column: 1 / -1; margin-top: 12px; padding: 4px 0; font-size: 0.8em; color: #999; border-bottom: 1px solid rgba(255,255,255,0.08); display:flex; align-items:center; gap:6px;">
+                        <span style="font-weight:600; color:#ccc;">${displayName(key)}</span>
+                        <span style="color:#666;">${photos.length} photo${photos.length !== 1 ? 's' : ''}</span>
+                    </div>` +
+                    photos.map(photo => `<div class="photo-thumb">
+                        <img src="${photo.thumb}" alt="${photo.name}" loading="lazy"
+                             onerror="this.style.opacity='0.3'; setTimeout(() => { this.src=this.src+'?r='+Date.now(); this.style.opacity='1'; }, 2000);">
+                        ${canDelete ? `<button class="delete-btn" onclick="deletePhoto('${photo.path}')" title="Delete">×</button>` : ''}
+                    </div>`).join('');
+                }).join('');
+            }
         }
 
         // Load slideshow settings
