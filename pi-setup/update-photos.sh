@@ -1,6 +1,6 @@
 #!/bin/bash
-# Update photos on the USB drive
-# Called by Flask app after new photos are downloaded
+# Update photos on the USB drive — incremental add/remove, no reformat
+# Called by Flask app after new photos are uploaded or synced
 
 # Set PATH since web app context has minimal PATH
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
@@ -15,53 +15,82 @@ MOUNT_POINT="$USER_HOME/usb_mount"
 PHOTOS_DIR="$INSTAPI_DIR/app/static/photos"
 QR_PLACEHOLDER="$INSTAPI_DIR/pi-setup/qr-placeholder.jpg"
 
-echo "DEBUG: USER_HOME=$USER_HOME"
-echo "DEBUG: PHOTOS_DIR=$PHOTOS_DIR"
-echo "DEBUG: PICKER exists: $([ -d "$PHOTOS_DIR/picker" ] && echo yes || echo no)"
-
 echo "Updating photos on USB drive..."
 
 # Stop the USB gadget (frame needs time to fully deregister the device)
 sudo modprobe -r g_mass_storage 2>/dev/null || true
 sleep 3
 
-# Reformat the FAT32 image (clean filesystem avoids stale FAT entries that confuse frames)
-sudo mkfs.fat -F 32 "$IMG_FILE" > /dev/null
-
 # Create mount point if needed
 mkdir -p "$MOUNT_POINT"
 
-# Mount the fresh image
+# Mount the existing image (no reformat — preserves existing photos)
 sudo mount -o loop "$IMG_FILE" "$MOUNT_POINT"
 
-# Copy new photos (including from picker subdirectory, excluding thumbs)
-PHOTO_COUNT=0
-if [ -d "$PHOTOS_DIR" ]; then
-    # Copy from main photos dir
-    sudo cp "$PHOTOS_DIR"/*.jpg "$MOUNT_POINT"/ 2>/dev/null && PHOTO_COUNT=$((PHOTO_COUNT + 1))
-    sudo cp "$PHOTOS_DIR"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null
-    sudo cp "$PHOTOS_DIR"/*.png "$MOUNT_POINT"/ 2>/dev/null
-
-    # Copy from subdirectories (picker, upload, album, sync and its subdirs)
-    for subdir in picker upload album sync sync/picker sync/upload; do
-        if [ -d "$PHOTOS_DIR/$subdir" ]; then
-            sudo cp "$PHOTOS_DIR/$subdir"/*.jpg "$MOUNT_POINT"/ 2>/dev/null
-            sudo cp "$PHOTOS_DIR/$subdir"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null
-            sudo cp "$PHOTOS_DIR/$subdir"/*.png "$MOUNT_POINT"/ 2>/dev/null
-        fi
+# Build list of photo filenames that SHOULD be on USB
+EXPECTED=$(mktemp)
+for subdir in "" upload picker album sync sync/picker sync/upload; do
+    dir="$PHOTOS_DIR"
+    [ -n "$subdir" ] && dir="$PHOTOS_DIR/$subdir"
+    [ -d "$dir" ] || continue
+    for ext in jpg jpeg png; do
+        for f in "$dir"/*."$ext"; do
+            [ -f "$f" ] && basename "$f" >> "$EXPECTED"
+        done
     done
+done
 
-    PHOTO_COUNT=$(ls -1 "$MOUNT_POINT"/*.jpg "$MOUNT_POINT"/*.jpeg "$MOUNT_POINT"/*.png 2>/dev/null | wc -l)
-    echo "Copied $PHOTO_COUNT photos"
-fi
+# Remove QR placeholder from expected (it's a fallback, not a photo)
+sed -i '/^qr-placeholder\.jpg$/d' "$EXPECTED" 2>/dev/null
+
+# Delete files from USB that are no longer in source
+DELETED=0
+for f in "$MOUNT_POINT"/*.jpg "$MOUNT_POINT"/*.jpeg "$MOUNT_POINT"/*.png; do
+    [ -f "$f" ] || continue
+    fname=$(basename "$f")
+    if ! grep -qx "$fname" "$EXPECTED"; then
+        sudo rm "$f"
+        DELETED=$((DELETED + 1))
+    fi
+done
+
+# Copy new or changed files (skip if same name + same size already on USB)
+ADDED=0
+for subdir in "" upload picker album sync sync/picker sync/upload; do
+    dir="$PHOTOS_DIR"
+    [ -n "$subdir" ] && dir="$PHOTOS_DIR/$subdir"
+    [ -d "$dir" ] || continue
+    for ext in jpg jpeg png; do
+        for f in "$dir"/*."$ext"; do
+            [ -f "$f" ] || continue
+            fname=$(basename "$f")
+            dest="$MOUNT_POINT/$fname"
+            if [ ! -f "$dest" ]; then
+                sudo cp "$f" "$dest"
+                ADDED=$((ADDED + 1))
+            elif [ "$(stat -c%s "$f" 2>/dev/null)" != "$(stat -c%s "$dest" 2>/dev/null)" ]; then
+                sudo cp "$f" "$dest"
+                ADDED=$((ADDED + 1))
+            fi
+        done
+    done
+done
+
+# Count final photos on USB
+PHOTO_COUNT=$(ls -1 "$MOUNT_POINT"/*.jpg "$MOUNT_POINT"/*.jpeg "$MOUNT_POINT"/*.png 2>/dev/null | wc -l)
 
 if [ "$PHOTO_COUNT" -eq 0 ]; then
-    # No photos yet, show QR placeholder
+    # No photos, show QR placeholder
     if [ -f "$QR_PLACEHOLDER" ]; then
         sudo cp "$QR_PLACEHOLDER" "$MOUNT_POINT"/
     fi
     echo "No photos yet, showing QR code"
+else
+    # Remove QR placeholder if real photos exist
+    sudo rm -f "$MOUNT_POINT/qr-placeholder.jpg" 2>/dev/null
 fi
+
+echo "Added $ADDED, removed $DELETED, total $PHOTO_COUNT photos"
 
 # Sync and unmount
 sync

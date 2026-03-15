@@ -1,6 +1,6 @@
 #!/bin/bash
 # Start USB Mass Storage Gadget
-# Called by systemd on boot
+# Called by systemd on boot — syncs photos incrementally, then loads gadget
 
 # Derive paths from script location (systemd doesn't set $HOME reliably)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,25 +17,30 @@ echo "Using paths: IMG=$IMG_FILE, MOUNT=$MOUNT_POINT"
 # Create mount point if needed
 mkdir -p "$MOUNT_POINT"
 
-# Mount the disk image so we can write to it
+# Mount the existing disk image (photos from last session are preserved)
 sudo mount -o loop "$IMG_FILE" "$MOUNT_POINT"
 
-# Sync photos from app to USB drive (including subdirectories)
-if [ -d "$PHOTOS_DIR" ]; then
-    cp "$PHOTOS_DIR"/*.jpg "$MOUNT_POINT"/ 2>/dev/null || true
-    cp "$PHOTOS_DIR"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null || true
-    cp "$PHOTOS_DIR"/*.png "$MOUNT_POINT"/ 2>/dev/null || true
-    for subdir in picker upload album sync sync/picker sync/upload; do
-        if [ -d "$PHOTOS_DIR/$subdir" ]; then
-            cp "$PHOTOS_DIR/$subdir"/*.jpg "$MOUNT_POINT"/ 2>/dev/null || true
-            cp "$PHOTOS_DIR/$subdir"/*.jpeg "$MOUNT_POINT"/ 2>/dev/null || true
-            cp "$PHOTOS_DIR/$subdir"/*.png "$MOUNT_POINT"/ 2>/dev/null || true
-        fi
+# Incremental sync: add new photos, skip existing ones
+ADDED=0
+for subdir in "" upload picker album sync sync/picker sync/upload; do
+    dir="$PHOTOS_DIR"
+    [ -n "$subdir" ] && dir="$PHOTOS_DIR/$subdir"
+    [ -d "$dir" ] || continue
+    for ext in jpg jpeg png; do
+        for f in "$dir"/*."$ext"; do
+            [ -f "$f" ] || continue
+            dest="$MOUNT_POINT/$(basename "$f")"
+            if [ ! -f "$dest" ]; then
+                cp "$f" "$dest" 2>/dev/null && ADDED=$((ADDED + 1))
+            fi
+        done
     done
-fi
+done
+[ "$ADDED" -gt 0 ] && echo "Added $ADDED new photos to USB"
 
-# If no photos yet, copy the QR code placeholder
-if [ -z "$(ls -A $MOUNT_POINT/*.jpg 2>/dev/null)" ]; then
+# If no photos at all, show QR placeholder
+PHOTO_COUNT=$(ls -1 "$MOUNT_POINT"/*.jpg "$MOUNT_POINT"/*.jpeg "$MOUNT_POINT"/*.png 2>/dev/null | wc -l)
+if [ "$PHOTO_COUNT" -eq 0 ]; then
     if [ -f "$QR_PLACEHOLDER" ]; then
         cp "$QR_PLACEHOLDER" "$MOUNT_POINT"/
         echo "Copied QR placeholder"
@@ -51,4 +56,4 @@ sudo umount "$MOUNT_POINT"
 # Load the USB mass storage gadget
 sudo modprobe g_mass_storage file="$IMG_FILE" stall=0 removable=1 ro=0
 
-echo "USB Gadget started - Pi is now a USB drive"
+echo "USB Gadget started - Pi is now a USB drive ($PHOTO_COUNT photos)"
