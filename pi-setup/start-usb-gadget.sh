@@ -16,11 +16,8 @@ QR_PLACEHOLDER="$INSTAPI_DIR/pi-setup/qr-placeholder.jpg"
 
 echo "Using paths: IMG=$IMG_FILE, MOUNT=$MOUNT_POINT"
 
-# Create mount point if needed
-mkdir -p "$MOUNT_POINT"
-
 # Mount the existing disk image (photos from last session are preserved)
-sudo mount -o loop "$IMG_FILE" "$MOUNT_POINT"
+usb_mount "$IMG_FILE" "$MOUNT_POINT"
 
 # If WiFi is in AP mode, show wifi-fix instructions instead of photos
 WIFI_MODE_FILE="/tmp/instapi_wifi_mode"
@@ -33,8 +30,7 @@ if [ -f "$WIFI_MODE_FILE" ] && grep -q "ap" "$WIFI_MODE_FILE"; then
         done
         sudo cp "$WIFI_FIX" "$MOUNT_POINT"/
     fi
-    sync
-    sudo umount "$MOUNT_POINT"
+    usb_unmount "$MOUNT_POINT"
     usb_gadget_start "$IMG_FILE"
     echo "USB showing WiFi fix image"
     exit 0
@@ -88,9 +84,8 @@ print(f'Watermarked photos on USB')
     fi
 fi
 
-# Sync and unmount (frame needs exclusive access)
-sync
-sudo umount "$MOUNT_POINT"
+# Unmount (frame needs exclusive access)
+usb_unmount "$MOUNT_POINT"
 
 # Load the USB mass storage gadget
 usb_gadget_start "$IMG_FILE"

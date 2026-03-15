@@ -51,11 +51,9 @@ else
 
                     usb_gadget_stop
                     sudo mkfs.fat -F 32 "$IMG_FILE" > /dev/null 2>&1
-                    mkdir -p "$MOUNT_POINT"
-                    sudo mount -o loop "$IMG_FILE" "$MOUNT_POINT"
+                    usb_mount "$IMG_FILE" "$MOUNT_POINT"
                     [ -f "$WIFI_FIX_IMAGE" ] && sudo cp "$WIFI_FIX_IMAGE" "$MOUNT_POINT"/
-                    sync
-                    sudo umount "$MOUNT_POINT"
+                    usb_unmount "$MOUNT_POINT"
                     usb_gadget_start "$IMG_FILE"
                     $LOG "USB swapped to WiFi fix image"
                 fi

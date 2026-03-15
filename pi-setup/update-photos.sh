@@ -22,11 +22,8 @@ echo "Updating photos on USB drive..."
 # Stop the USB gadget
 usb_gadget_stop
 
-# Create mount point if needed
-mkdir -p "$MOUNT_POINT"
-
 # Mount the existing image (no reformat — preserves existing photos)
-sudo mount -o loop "$IMG_FILE" "$MOUNT_POINT"
+usb_mount "$IMG_FILE" "$MOUNT_POINT"
 
 # Build list of photo filenames that SHOULD be on USB
 EXPECTED=$(mktemp)
@@ -113,9 +110,8 @@ print(f'Watermarked photos on USB')
     fi
 fi
 
-# Sync and unmount
-sync
-sudo umount "$MOUNT_POINT"
+# Unmount
+usb_unmount "$MOUNT_POINT"
 
 # Restart USB gadget
 usb_gadget_start "$IMG_FILE"

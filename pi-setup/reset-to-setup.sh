@@ -29,8 +29,7 @@ usb_gadget_stop
 /usr/bin/sudo /sbin/mkfs.fat -F 32 "$IMG_FILE" > /dev/null
 
 # Mount the fresh image
-/bin/mkdir -p "$MOUNT_POINT"
-/usr/bin/sudo /bin/mount -o loop "$IMG_FILE" "$MOUNT_POINT"
+usb_mount "$IMG_FILE" "$MOUNT_POINT"
 
 # Copy QR placeholder
 if [ -f "$QR_PLACEHOLDER" ]; then
@@ -40,9 +39,8 @@ else
     echo "Warning: QR placeholder not found at $QR_PLACEHOLDER"
 fi
 
-# Sync and unmount
-/bin/sync
-/usr/bin/sudo /bin/umount "$MOUNT_POINT"
+# Unmount
+usb_unmount "$MOUNT_POINT"
 
 # Restart USB gadget
 usb_gadget_start "$IMG_FILE"
