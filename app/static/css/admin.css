@@ -1,8 +1,10 @@
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(-45deg, #0a0a0a, #1a472a, #0d3320, #000000);
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(-45deg, #0f0b1e, #1a1040, #0e1a2e, #1c0e2a, #0f1625);
             background-size: 400% 400%;
             animation: gradient 15s ease infinite;
             min-height: 100vh;
@@ -39,10 +41,17 @@
 
         .header h1 {
             font-size: 1.8em;
-            background: linear-gradient(90deg, #4ade80, #22d3ee);
+            background: linear-gradient(90deg, #ff6b6b, #fbbf24, #f472b6, #2dd4bf, #a78bfa, #ff6b6b);
+            background-size: 300% 100%;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            animation: shimmer 6s linear infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 300% 50%; }
         }
 
         .header .mode-badge {
@@ -53,8 +62,8 @@
             font-weight: 600;
             text-transform: uppercase;
         }
-        .mode-badge.hdmi { background: rgba(59, 130, 246, 0.3); color: #60a5fa; }
-        .mode-badge.usb { background: rgba(168, 85, 247, 0.3); color: #c084fc; }
+        .mode-badge.hdmi { background: rgba(45, 212, 191, 0.3); color: #2dd4bf; }
+        .mode-badge.usb { background: rgba(167, 139, 250, 0.3); color: #a78bfa; }
 
         /* System Info Bar */
         .system-bar {
@@ -69,13 +78,20 @@
             border-radius: 12px;
             padding: 16px;
             text-align: center;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
 
         .stat-card .value {
             font-size: 1.4em;
             font-weight: 700;
-            color: #4ade80;
+            color: #ff6b6b;
         }
+
+        .stat-card:nth-child(2) .value { color: #fbbf24; }
+        .stat-card:nth-child(3) .value { color: #2dd4bf; }
+        .stat-card:nth-child(4) .value { color: #a78bfa; }
+        .stat-card:nth-child(5) .value { color: #f472b6; }
 
         .stat-card .label {
             font-size: 0.75em;
@@ -92,6 +108,8 @@
             border-radius: 16px;
             padding: 24px;
             margin-bottom: 20px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
 
         .section-header {
@@ -119,8 +137,8 @@
 
         /* Download Progress */
         .download-progress {
-            background: rgba(74, 222, 128, 0.1);
-            border: 1px solid rgba(74, 222, 128, 0.2);
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.2);
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 16px;
@@ -128,7 +146,7 @@
 
         .progress-text {
             font-size: 0.9em;
-            color: #4ade80;
+            color: #ff6b6b;
             margin-bottom: 8px;
         }
 
@@ -141,7 +159,7 @@
 
         .progress-fill {
             height: 100%;
-            background: #4ade80;
+            background: #ff6b6b;
             border-radius: 3px;
             transition: width 0.3s ease;
             width: 0%;
@@ -209,16 +227,16 @@
         }
 
         .size-btn.active {
-            background: rgba(74, 222, 128, 0.2);
-            border-color: rgba(74, 222, 128, 0.3);
-            color: #4ade80;
+            background: rgba(255, 107, 107, 0.2);
+            border-color: rgba(255, 107, 107, 0.3);
+            color: #ff6b6b;
         }
 
         .photo-thumb {
             position: relative;
             border-radius: 6px;
             overflow: hidden;
-            /* No aspect-ratio — grid-auto-rows controls height */
+            cursor: pointer;
         }
 
         .photo-thumb img {
@@ -226,6 +244,12 @@
             height: 100%;
             object-fit: cover;
             display: block;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .photo-thumb img.loaded {
+            opacity: 1;
         }
 
         .no-photos {
@@ -249,6 +273,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            z-index: 2;
         }
 
         .photo-thumb:hover .delete-btn {
@@ -304,9 +329,9 @@
             flex-shrink: 0;
         }
 
-        .action-icon.green { background: rgba(74, 222, 128, 0.2); }
-        .action-icon.blue { background: rgba(59, 130, 246, 0.2); }
-        .action-icon.purple { background: rgba(168, 85, 247, 0.2); }
+        .action-icon.green { background: rgba(255, 107, 107, 0.2); }
+        .action-icon.blue { background: rgba(45, 212, 191, 0.2); }
+        .action-icon.purple { background: rgba(167, 139, 250, 0.2); }
         .action-icon.orange { background: rgba(251, 146, 60, 0.2); }
         .action-icon.red { background: rgba(239, 68, 68, 0.2); }
 
@@ -356,12 +381,12 @@
         }
 
         .action-btn.primary {
-            background: linear-gradient(135deg, #4ade80, #22c55e);
-            color: #000;
+            background: linear-gradient(135deg, #ff6b6b, #e85d5d);
+            color: #fff;
         }
         .action-btn.primary:hover {
             transform: translateY(-1px);
-            box-shadow: 0 4px 15px rgba(74, 222, 128, 0.3);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
         }
 
         .action-btn.secondary {
@@ -412,7 +437,7 @@
         }
 
         .setting-item select option {
-            background: #1a1a1a;
+            background: #150e2b;
         }
 
         .settings-disabled {
@@ -428,7 +453,7 @@
             padding: 10px 14px;
             background: rgba(255,255,255,0.03);
             border-radius: 8px;
-            border-left: 3px solid rgba(168, 85, 247, 0.5);
+            border-left: 3px solid rgba(167, 139, 250, 0.5);
         }
 
         /* Toggle Switch */
@@ -489,7 +514,7 @@
         }
 
         .toggle input:checked + .toggle-slider {
-            background: #4ade80;
+            background: #ff6b6b;
         }
 
         .toggle input:checked + .toggle-slider:before {
@@ -544,7 +569,7 @@
         }
 
         .modal {
-            background: #1a1a2e;
+            background: #1a1040;
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 16px;
             padding: 28px;
@@ -586,8 +611,8 @@
         }
 
         .modal-btn.confirm-action {
-            background: linear-gradient(135deg, #4ade80, #22c55e);
-            color: #000;
+            background: linear-gradient(135deg, #ff6b6b, #e85d5d);
+            color: #fff;
         }
 
         /* Photo count label */
@@ -618,7 +643,7 @@
         }
 
         .toast.success {
-            background: rgba(74, 222, 128, 0.95);
+            background: rgba(45, 212, 191, 0.95);
             color: #000;
         }
 
@@ -646,9 +671,9 @@
         }
 
         .help-btn:hover {
-            background: rgba(74, 222, 128, 0.15);
-            border-color: rgba(74, 222, 128, 0.3);
-            color: #4ade80;
+            background: rgba(255, 107, 107, 0.15);
+            border-color: rgba(255, 107, 107, 0.3);
+            color: #ff6b6b;
         }
 
         /* Help overlay */
@@ -700,10 +725,12 @@
         .help-content h2 {
             font-size: 1.6em;
             margin-bottom: 24px;
-            background: linear-gradient(90deg, #4ade80, #22d3ee);
+            background: linear-gradient(90deg, #ff6b6b, #fbbf24, #f472b6, #2dd4bf, #a78bfa, #ff6b6b);
+            background-size: 300% 100%;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            animation: shimmer 6s linear infinite;
         }
 
         .help-section {
@@ -712,7 +739,7 @@
 
         .help-section h3 {
             font-size: 1.05em;
-            color: #4ade80;
+            color: #ff6b6b;
             margin-bottom: 8px;
         }
 
@@ -753,7 +780,7 @@
             bottom: calc(100% + 8px);
             left: 50%;
             transform: translateX(-50%);
-            background: #1a1a2e;
+            background: #1a1040;
             border: 1px solid rgba(255,255,255,0.15);
             color: #ccc;
             font-size: 12px;
@@ -789,7 +816,7 @@
         }
 
         .footer a:hover {
-            color: #4ade80;
+            color: #ff6b6b;
         }
 
         /* Disk space bar */
@@ -818,7 +845,7 @@
         .disk-bar-fill {
             height: 100%;
             border-radius: 4px;
-            background: #4ade80;
+            background: #2dd4bf;
             transition: width 0.5s ease, background 0.5s ease;
         }
 
@@ -841,45 +868,91 @@
             color: #f87171;
         }
 
-        /* Sync history */
-        .sync-history-list {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            max-height: 300px;
-            overflow-y: auto;
+        /* Sync status card */
+        .sync-status-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 16px;
         }
 
-        .sync-history-item {
+        .sync-status-row {
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 8px 12px;
-            background: rgba(255,255,255,0.03);
-            border-radius: 10px;
-            font-size: 0.8em;
-            border: 1px solid rgba(255,255,255,0.06);
+            margin-bottom: 8px;
+            font-weight: 500;
         }
 
-        .sync-history-item .sh-icon {
-            font-size: 1em;
+        .sync-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
             flex-shrink: 0;
         }
 
-        .sync-history-item .sh-time {
-            color: rgba(255,255,255,0.45);
-            min-width: 70px;
+        .sync-dot.connected { background: #2dd4bf; box-shadow: 0 0 8px rgba(45, 212, 191, 0.5); }
+        .sync-dot.error { background: #f87171; box-shadow: 0 0 8px rgba(248, 113, 113, 0.5); }
+        .sync-dot.syncing { background: #fbbf24; animation: syncPulse 1s ease-in-out infinite; }
+
+        .sync-status-details {
+            font-size: 0.8em;
+            color: rgba(255,255,255,0.5);
+            line-height: 1.6;
         }
 
-        .sync-history-item .sh-detail {
-            color: rgba(255,255,255,0.7);
-            flex: 1;
+        .sync-status-details .stale-warning {
+            color: #fb923c;
+            font-weight: 500;
         }
 
-        .sync-history-item .sh-error {
-            color: #f87171;
-            font-size: 0.9em;
+        /* Lightbox */
+        .lightbox-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.92);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2500;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
         }
+
+        .lightbox-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .lightbox-img {
+            max-width: 90vw;
+            max-height: 90vh;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .lightbox-close {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #ccc;
+            font-size: 1.5em;
+            cursor: pointer;
+            z-index: 2501;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .lightbox-close:hover { background: rgba(255,255,255,0.2); }
 
         /* Responsive */
         @media (max-width: 600px) {

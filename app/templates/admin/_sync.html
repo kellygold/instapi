@@ -1,0 +1,93 @@
+<!-- Family Sync -->
+<div class="section" id="syncSection">
+    <div class="section-header">
+        <span class="icon">☁️</span>
+        <h2>Family Sync</h2>
+    </div>
+
+    <!-- Unconfigured -->
+    <div id="syncUnconfigured" {% if sync_role %}style="display:none"{% endif %}>
+        <p class="section-desc">Sync photos between family frames. Choose a role for this frame.</p>
+        <div class="action-list">
+            <div class="action-item" onclick="configureSyncRole('master')" style="cursor:pointer">
+                <div class="action-icon green">👑</div>
+                <div class="action-content">
+                    <h3>This is the primary frame</h3>
+                    <p>Family uploads go here. Other frames sync from this one.</p>
+                </div>
+            </div>
+            <div class="action-item" onclick="showChildSetup()" style="cursor:pointer">
+                <div class="action-icon blue">🔄</div>
+                <div class="action-content">
+                    <h3>This syncs from another frame</h3>
+                    <p>Pulls photos from the primary frame automatically.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Child Setup Form (hidden until clicked) -->
+    <div id="syncChildSetup" style="display:none">
+        <p class="section-desc">Enter the master frame's URL and sync token.</p>
+        <div style="padding: 0 16px;">
+            <div style="margin-bottom: 12px;">
+                <label style="display:block; font-size:0.85em; color:#999; margin-bottom:4px;">Master URL</label>
+                <input type="text" id="masterUrlInput" placeholder="https://instapi.ngrok.dev" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.05); color:#fff; font-size:0.95em;">
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display:block; font-size:0.85em; color:#999; margin-bottom:4px;">Sync Token</label>
+                <input type="text" id="syncTokenInput" placeholder="Paste token from master" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.05); color:#fff; font-size:0.95em;">
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button class="action-btn primary" onclick="saveChildConfig()">Save & Start Sync</button>
+                <button class="action-btn secondary" onclick="cancelChildSetup()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Master View -->
+    <div id="syncMaster" {% if sync_role != 'master' %}style="display:none"{% endif %}>
+        <p class="section-desc">This is the primary frame. Other frames sync photos from here.</p>
+        <div class="action-list" id="childFrameList">
+            <!-- Populated by JS -->
+        </div>
+        <div style="padding: 0 16px; margin-top: 12px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="action-btn primary" onclick="addChildFrame()">+ Add Child Frame</button>
+            <button class="action-btn secondary" onclick="configureSyncRole('')">Disable Sync</button>
+        </div>
+    </div>
+
+    <!-- Child View -->
+    <div id="syncChild" {% if sync_role != 'child' %}style="display:none"{% endif %}>
+        <p class="section-desc">Syncing from: <strong id="syncMasterUrl"></strong></p>
+        <div class="action-list">
+            <div class="action-item">
+                <div class="action-icon" id="syncStatusIcon">🔄</div>
+                <div class="action-content">
+                    <h3 id="syncStatusText">Checking...</h3>
+                    <p id="syncDetailText"></p>
+                </div>
+                <button class="action-btn secondary" onclick="triggerSyncNow()" id="syncNowBtn">Sync Now</button>
+            </div>
+        </div>
+        <div style="padding: 0 16px; margin-top: 12px;">
+            <label style="font-size:0.85em; color:#999;">Sync Interval</label>
+            <select id="syncIntervalSelect" onchange="updateSyncInterval(this.value)" style="margin-left:8px; padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.05); color:#fff;">
+                <option value="900">15 min</option>
+                <option value="1800">30 min</option>
+                <option value="3600">1 hour</option>
+                <option value="7200">2 hours</option>
+            </select>
+            <button class="action-btn secondary" onclick="configureSyncRole('')" style="margin-left:8px;">Disconnect</button>
+        </div>
+        <div id="syncStatusCard" style="padding: 0 16px; margin-top: 16px; display:none;">
+            <div class="sync-status-card">
+                <div class="sync-status-row">
+                    <span class="sync-dot" id="syncDot"></span>
+                    <span id="syncConnectionText">Checking...</span>
+                </div>
+                <div class="sync-status-details" id="syncStatusDetails"></div>
+            </div>
+        </div>
+    </div>
+</div>

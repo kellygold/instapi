@@ -1,0 +1,56 @@
+<!-- Frame Controls -->
+<div class="section">
+    <div class="section-header">
+        <span class="icon">🖼️</span>
+        <h2>Frame Controls</h2>
+    </div>
+
+    <div class="action-list">
+        <div class="action-item">
+            <div class="action-icon green">▶️</div>
+            <div class="action-content">
+                <h3>Preview Slideshow</h3>
+                <p>See how your photos look in the slideshow</p>
+            </div>
+            <a href="/slideshow" class="action-btn primary">Preview</a>
+        </div>
+        <div class="action-item">
+            <div class="action-icon orange">↩️</div>
+            <div class="action-content">
+                <h3>Factory Reset</h3>
+                <p>Clear everything and return to setup screen</p>
+            </div>
+            <button class="action-btn secondary" onclick="resetToSetup()">Reset</button>
+        </div>
+    </div>
+</div>
+
+<!-- System (collapsible) -->
+<details class="section">
+    <summary>
+        <div class="section-header">
+            <span class="icon">⚙️</span>
+            <h2>System</h2>
+            <span class="chevron">▶</span>
+        </div>
+    </summary>
+
+    <div class="action-list" style="margin-top: 16px;">
+        <div class="action-item">
+            <div class="action-icon blue">⬇️</div>
+            <div class="action-content">
+                <h3>Update & Restart</h3>
+                <p>Download latest version and restart the app</p>
+            </div>
+            <button class="action-btn secondary" onclick="updateAndRestart()">Update</button>
+        </div>
+        <div class="action-item">
+            <div class="action-icon blue">🔧</div>
+            <div class="action-content">
+                <h3>Switch Mode</h3>
+                <p>Currently: <strong>{{ display_mode|upper }}</strong> — Toggle between USB and HDMI</p>
+            </div>
+            <button class="action-btn secondary" onclick="switchMode()">Switch to {{ 'USB' if display_mode == 'hdmi' else 'HDMI' }}</button>
+        </div>
+    </div>
+</details>

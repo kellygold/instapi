@@ -1,0 +1,60 @@
+<!-- Photos Section -->
+<div class="section">
+    <div class="section-header">
+        <span class="icon">📸</span>
+        <h2>Photo Management</h2>
+    </div>
+    <p class="section-desc">View and manage photos on your frame. Add new photos from Google Photos or remove existing ones.</p>
+
+    <!-- Download Progress (hidden by default) -->
+    <div class="download-progress" id="downloadProgress" style="display: none;">
+        <div class="progress-text" id="progressText">Downloading photos...</div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <div class="grid-controls">
+        <span class="grid-photo-count" id="gridPhotoCount"></span>
+        <span id="photoFilters" style="display:none; margin-left:8px;"></span>
+        <span style="flex:1"></span>
+        <button class="size-btn" onclick="setGridSize('compact')" id="sizeCompact">Small</button>
+        <button class="size-btn active" onclick="setGridSize('normal')" id="sizeNormal">Large</button>
+    </div>
+    <div class="photo-grid" id="photoGrid">
+        <div class="no-photos">Loading photos...</div>
+    </div>
+
+    <div class="action-list">
+        {% if sync_role != 'child' %}
+        <div class="action-item">
+            <div class="action-icon blue">🔗</div>
+            <div class="action-content">
+                <h3>Share with Family</h3>
+                <p id="shareUrl" style="font-size: 0.7em; word-break: break-all; color: #ff6b6b;"></p>
+            </div>
+            <button class="action-btn primary" onclick="copyShareLink()" id="copyBtn">Copy Link</button>
+        </div>
+        <a href="/upload?t={{ upload_token }}" class="action-item" style="text-decoration: none; color: inherit;">
+            <div class="action-icon green">📷</div>
+            <div class="action-content">
+                <h3>Upload Photos</h3>
+                <p>From camera roll</p>
+            </div>
+        </a>
+        <a href="{{ auth_url }}" target="_blank" class="action-item" style="text-decoration: none; color: inherit;">
+            <div class="action-icon green">➕</div>
+            <div class="action-content">
+                <h3>Google Photos Picker</h3>
+                <p>Select from Google Photos</p>
+            </div>
+        </a>
+        {% endif %}
+        <div class="action-item sync-needed" id="syncAction" style="display: none;">
+            <div class="action-icon orange">🔄</div>
+            <div class="action-content">
+                <h3>Frame out of sync <span class="tip" data-tip="The USB frame still has the old photos. Tap Sync Now to update it with your changes.">?</span></h3>
+                <p>Tap to update the frame with your changes</p>
+            </div>
+            <button class="action-btn secondary" onclick="syncFrame()" id="syncBtn">Sync Now</button>
+        </div>
+    </div>
+</div>

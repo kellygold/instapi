@@ -1,0 +1,85 @@
+<!-- Confirm Modal -->
+<div id="confirmModal" class="modal-overlay">
+    <div class="modal">
+        <p id="confirmMessage"></p>
+        <div class="modal-actions">
+            <button class="modal-btn cancel" id="confirmCancel">Cancel</button>
+            <button class="modal-btn confirm-danger" id="confirmOk">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" class="lightbox-overlay" onclick="if(event.target===this)closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+    <img id="lightboxImg" class="lightbox-img" src="" alt="">
+</div>
+
+<!-- Help Overlay -->
+<div id="helpOverlay" class="help-overlay" onclick="if(event.target===this)this.classList.remove('show')">
+    <button class="help-close" onclick="document.getElementById('helpOverlay').classList.remove('show')">×</button>
+    <div class="help-content">
+        <h2>InstaPi Guide</h2>
+
+        <div class="help-section">
+            <h3>📷 Adding Photos</h3>
+            <p><strong>Upload from phone:</strong> Tap "Upload Photos" to pick images from your camera roll. Works from any device — iPhone, Android, or computer.<br>
+            <strong>Share with family:</strong> Tap "Copy Link" to get a shareable upload link. Anyone with the link can add photos — no app or account needed.<br>
+            <strong>Google Photos:</strong> Optional. Select photos from your Google Photos library. Requires signing in with Google each time.</p>
+        </div>
+
+        <hr class="help-divider">
+
+        <div class="help-section">
+            <h3>🖼️ Photo Gallery</h3>
+            <p>View all photos on your frame. Tap any photo to see it full size. Tap the × to delete it. Use the <strong>Small/Large</strong> buttons to change the grid size. If multiple people have uploaded photos, use the <strong>filter chips</strong> to view by uploader.<br>
+            <span style="color:#888; font-size:0.9em;">On USB mode, remember to hit "Sync Frame" after making changes.</span></p>
+        </div>
+
+        <hr class="help-divider">
+
+        <div class="help-section">
+            <h3>☁️ Family Sync</h3>
+            <p><strong>Personal frame:</strong> If it's just your frame, you don't need sync at all — just upload photos directly.<br>
+            <strong>Host frame (master):</strong> Set this as the primary frame. Add child frames and share tokens with family. All uploads go here, and child frames pull from it automatically.<br>
+            <strong>Child frame:</strong> Syncs photos from the host frame every 30 minutes (configurable). A status card shows connection state, photo count, and next sync time. You can also tap "Sync Now" to pull immediately.</p>
+        </div>
+
+        <hr class="help-divider">
+
+        <div class="help-section">
+            <h3>🔄 Sync Frame (USB mode)</h3>
+            <p>When you add or delete photos, the USB frame doesn't update immediately. An orange "Sync Frame" button appears — tap it to push your changes. The frame will briefly disconnect and reconnect.</p>
+        </div>
+
+        <hr class="help-divider">
+
+        <div class="help-section">
+            <h3>🎬 Slideshow Settings</h3>
+            <p><strong>Slide Duration:</strong> How long each photo is shown (3–60 seconds).<br>
+            <strong>Transition:</strong> How photos change — fade, slide, or zoom.<br>
+            <strong>Shuffle:</strong> Random order instead of sequential.<br>
+            <strong>Ken Burns:</strong> A gentle slow pan and zoom effect on each photo.</p>
+            <p style="margin-top:8px">In HDMI mode, these control the actual slideshow. In USB mode, they only affect the browser preview — your frame uses its own built-in slideshow.</p>
+        </div>
+
+        <hr class="help-divider">
+
+        <div class="help-section">
+            <h3>⚙️ System</h3>
+            <p><strong>Update & Restart:</strong> Pulls the latest code from GitHub and restarts the app. This is how your frame gets over-the-air updates — no SSH needed.<br>
+            <strong>Switch Mode:</strong> Toggle between USB and HDMI display modes. Requires a restart to take full effect.<br>
+            <strong>Factory Reset:</strong> Deletes all photos and returns the frame to the setup screen. This cannot be undone.</p>
+        </div>
+
+        <hr class="help-divider">
+
+        <div class="help-section">
+            <h3>🌐 More Info</h3>
+            <p>Visit <a href="https://instapi.dev" target="_blank" style="color:#ff6b6b;">instapi.dev</a> for full documentation, source code, and support.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast" class="toast"></div>
