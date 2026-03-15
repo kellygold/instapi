@@ -6,7 +6,8 @@ import socket
 from functools import wraps
 from flask import render_template, jsonify, request, session, redirect, url_for
 from app import app
-from config import device_state, SCOPES, PHOTOS_DIR, load_slideshow_config, save_slideshow_config, save_device_state
+import db
+from config import SCOPES, PHOTOS_DIR, load_slideshow_config, save_slideshow_config
 from google_auth_oauthlib.flow import Flow
 from utils import get_display_mode
 from routes.sync_routes import mark_manifest_dirty
@@ -70,20 +71,16 @@ def admin_logout():
 def admin():
     """Admin page for managing the photo frame."""
     # Count photos
-    photo_count = 0
-    if os.path.exists(PHOTOS_DIR):
-        for root, dirs, files in os.walk(PHOTOS_DIR):
-            dirs[:] = [d for d in dirs if d != 'thumbs']
-            photo_count += len([f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))])
+    photo_count = db.get_photo_count()
 
     # Check display mode
     display_mode = get_display_mode()
-    
+
     # Generate auth URL for "Pick New Photos"
     # Check forwarded headers for ngrok/reverse proxy, fall back to request.url_root
     forwarded_host = request.headers.get('X-Forwarded-Host') or request.headers.get('Host')
     forwarded_proto = request.headers.get('X-Forwarded-Proto', 'http')
-    
+
     if forwarded_host and 'ngrok' in forwarded_host:
         # Behind ngrok - use forwarded headers
         base_url = f"https://{forwarded_host}"
@@ -93,7 +90,7 @@ def admin():
     else:
         # Direct access
         base_url = request.url_root.rstrip('/')
-    
+
     redirect_uri = base_url + '/oauth2callback'
     # Google requires HTTPS for non-localhost redirect URIs
     if redirect_uri.startswith("http://") and "localhost" not in redirect_uri:
@@ -104,20 +101,19 @@ def admin():
         redirect_uri=redirect_uri
     )
     auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
-    
-    upload_token = device_state.get("upload_token", "")
-    sync_role = device_state.get("sync_role", "")
+
+    upload_token = db.get_setting("upload_token", "")
+    sync_role = db.get_setting("sync_role", "")
     # Infer master role if children exist but role wasn't saved
-    if not sync_role and device_state.get("sync_children"):
+    if not sync_role and db.get_setting("sync_children"):
         sync_role = "master"
-        device_state["sync_role"] = "master"
-        save_device_state()
+        db.set_setting("sync_role", "master")
     storage = get_storage_info()
     return render_template("admin.html",
         photo_count=photo_count, auth_url=auth_url,
         display_mode=display_mode, upload_token=upload_token,
         sync_role=sync_role,
-        sync_label=device_state.get("sync_label", ""),
+        sync_label=db.get_setting("sync_label", ""),
         storage=storage)
 
 
@@ -130,7 +126,7 @@ def git_pull():
         # Get the repo root (parent of app directory)
         repo_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         print(f"[GIT PULL] Starting git pull in: {repo_root}")
-        
+
         # First check current branch and status
         status_result = subprocess.run(
             ["/usr/bin/git", "status", "--short"],
@@ -140,7 +136,7 @@ def git_pull():
             timeout=10
         )
         print(f"[GIT PULL] Current status: {status_result.stdout.strip() or 'clean'}")
-        
+
         result = subprocess.run(
             ["/usr/bin/git", "pull"],
             cwd=repo_root,
@@ -149,12 +145,12 @@ def git_pull():
             timeout=30,
             env={**os.environ, "PATH": "/usr/bin:/bin:/usr/local/bin"}
         )
-        
+
         print(f"[GIT PULL] Return code: {result.returncode}")
         print(f"[GIT PULL] stdout: {result.stdout}")
         if result.stderr:
             print(f"[GIT PULL] stderr: {result.stderr}")
-        
+
         if result.returncode == 0:
             return jsonify({"success": True, "output": result.stdout})
         else:
@@ -174,14 +170,14 @@ def restart_service():
         if os.path.exists(MODE_FILE):
             with open(MODE_FILE) as f:
                 mode = f.read().strip()
-        
+
         # Restart the flask app service
         subprocess.Popen(
             ["/usr/bin/sudo", "/usr/bin/systemctl", "restart", "instapi"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
-        
+
         # If HDMI mode, also restart the kiosk
         if mode == "hdmi":
             subprocess.Popen(
@@ -189,7 +185,7 @@ def restart_service():
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
-        
+
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
@@ -231,12 +227,12 @@ def reset_to_setup():
                     os.remove(item_path)
 
         # Clear app state
-        device_state.clear()
-        save_device_state()
-        
+        db.clear_all_settings()
+        db.clear_all_photos()
+
         # Check which mode we're in
         mode = get_display_mode()
-        
+
         if mode == "hdmi":
             # HDMI mode: restart kiosk to go back to index page
             subprocess.Popen(
@@ -304,10 +300,10 @@ def get_storage_info():
             for root, dirs, files in os.walk(PHOTOS_DIR):
                 for f in files:
                     photos_size += os.path.getsize(os.path.join(root, f))
-        
+
         # Get total disk usage
         total, used, free = shutil.disk_usage("/")
-        
+
         return {
             "photos_mb": round(photos_size / (1024 * 1024), 1),
             "used_gb": round(used / (1024 ** 3), 1),
@@ -323,13 +319,9 @@ def get_storage_info():
 def system_info():
     """Return system information."""
     storage = get_storage_info()
-    
+
     # Count photos
-    photo_count = 0
-    if os.path.exists(PHOTOS_DIR):
-        for root, dirs, files in os.walk(PHOTOS_DIR):
-            dirs[:] = [d for d in dirs if d != 'thumbs']
-            photo_count += len([f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))])
+    photo_count = db.get_photo_count()
 
     return jsonify({
         "ip_address": get_local_ip(),
@@ -344,8 +336,7 @@ def system_info():
 @require_admin
 def list_photos():
     """Return list of all photos with their paths and uploader info."""
-    from routes.upload_routes import _load_upload_meta
-    meta = _load_upload_meta()
+    meta = db.get_upload_meta()
 
     photos = []
     if os.path.exists(PHOTOS_DIR):
@@ -380,9 +371,9 @@ def delete_single_photo():
         filename = os.path.basename(photo_path)
 
         # Child frame: proxy delete to master
-        if device_state.get("sync_role") == "child" and "/sync/" in photo_path:
-            master_url = device_state.get("master_url")
-            sync_token = device_state.get("sync_token")
+        if db.get_setting("sync_role") == "child" and "/sync/" in photo_path:
+            master_url = db.get_setting("master_url")
+            sync_token = db.get_setting("sync_token")
             if not master_url or not sync_token:
                 return jsonify({"success": False, "error": "Not configured for sync"})
 
@@ -403,9 +394,7 @@ def delete_single_photo():
                     thumb_path = os.path.join(PHOTOS_DIR, "thumbs", filename)
                     if os.path.exists(thumb_path):
                         os.remove(thumb_path)
-                    if "photo_urls" in device_state:
-                        device_state["photo_urls"] = [u for u in device_state["photo_urls"] if os.path.basename(u) != filename]
-                    save_device_state()
+                    db.remove_photo(filename)
                     return jsonify({"success": True})
                 else:
                     return jsonify(result), resp.status_code
@@ -425,11 +414,7 @@ def delete_single_photo():
             thumb_path = os.path.join(PHOTOS_DIR, "thumbs", filename)
             if os.path.exists(thumb_path):
                 os.remove(thumb_path)
-            if "photo_urls" in device_state:
-                url_path = photo_path
-                if url_path in device_state["photo_urls"]:
-                    device_state["photo_urls"].remove(url_path)
-            save_device_state()
+            db.remove_photo(filename)
             mark_manifest_dirty()
             return jsonify({"success": True})
         else:
@@ -452,7 +437,7 @@ def update_settings():
     try:
         data = request.get_json()
         config = load_slideshow_config()
-        
+
         # Update only valid keys
         if "slide_duration" in data:
             config["slide_duration"] = max(1, min(60, int(data["slide_duration"])))
@@ -462,7 +447,7 @@ def update_settings():
             config["shuffle"] = bool(data["shuffle"])
         if "ken_burns" in data:
             config["ken_burns"] = bool(data["ken_burns"])
-        
+
         if save_slideshow_config(config):
             return jsonify({"success": True, "config": config})
         else:
@@ -478,16 +463,16 @@ def switch_mode():
     try:
         data = request.get_json()
         new_mode = data.get("mode", "").lower()
-        
+
         if new_mode not in ["usb", "hdmi"]:
             return jsonify({"success": False, "error": "Invalid mode. Use 'usb' or 'hdmi'"})
-        
+
         # Write new mode
         with open(MODE_FILE, 'w') as f:
             f.write(new_mode)
-        
+
         return jsonify({
-            "success": True, 
+            "success": True,
             "mode": new_mode,
             "message": f"Mode switched to {new_mode.upper()}. Restart required for full effect."
         })
@@ -500,11 +485,11 @@ def switch_mode():
 def download_status():
     """Return current photo download progress."""
     return jsonify({
-        "downloading": device_state.get("downloading", False),
-        "download_total": device_state.get("download_total", 0),
-        "download_completed": device_state.get("download_completed", 0),
-        "done": device_state.get("done", False),
-        "photo_count": len(device_state.get("photo_urls", []))
+        "downloading": db.get_setting("downloading", False),
+        "download_total": db.get_setting("download_total", 0),
+        "download_completed": db.get_setting("download_completed", 0),
+        "done": db.get_setting("done", False),
+        "photo_count": db.get_photo_count()
     })
 
 
@@ -536,5 +521,3 @@ def update_and_restart():
         return jsonify({"success": True, "message": "Updated! Restarting..."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
-
-

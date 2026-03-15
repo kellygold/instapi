@@ -11,7 +11,7 @@ from flask import jsonify, request, send_from_directory
 from PIL import Image
 from app import app
 import config
-from config import device_state, save_device_state
+import db
 from utils import sync_photos_to_usb, get_display_mode
 
 
@@ -83,7 +83,7 @@ def _get_manifest():
 
 def _validate_sync_token(token):
     """Check if token matches any registered child token on this master."""
-    children = device_state.get("sync_children", [])
+    children = db.get_setting("sync_children", [])
     return any(c["token"] == token for c in children)
 
 
@@ -92,7 +92,7 @@ def _validate_sync_token(token):
 @app.route("/sync/manifest")
 def sync_manifest():
     """Serve photo manifest for child Pis to sync from."""
-    if device_state.get("sync_role") != "master":
+    if db.get_setting("sync_role") != "master":
         return jsonify({"error": "Not a master"}), 404
 
     token = request.args.get("token", "")
@@ -101,10 +101,9 @@ def sync_manifest():
 
     manifest = _get_manifest()
     # Include upload metadata so children know who uploaded each photo
-    from routes.upload_routes import _load_upload_meta
-    manifest["upload_meta"] = _load_upload_meta()
+    manifest["upload_meta"] = db.get_upload_meta()
     # Tell the child its own label (based on which token authenticated)
-    for child in device_state.get("sync_children", []):
+    for child in db.get_setting("sync_children", []):
         if child["token"] == token:
             manifest["your_label"] = child["label"]
             break
@@ -114,7 +113,7 @@ def sync_manifest():
 @app.route("/sync/photo/<path:photo_path>")
 def sync_photo(photo_path):
     """Serve a single photo file for child download."""
-    if device_state.get("sync_role") != "master":
+    if db.get_setting("sync_role") != "master":
         return jsonify({"error": "Not a master"}), 404
 
     token = request.args.get("token", "")
@@ -145,7 +144,7 @@ def sync_photo(photo_path):
 @require_admin
 def get_sync_children():
     """Return list of registered child frames."""
-    return jsonify(device_state.get("sync_children", []))
+    return jsonify(db.get_setting("sync_children", []))
 
 
 @app.route("/admin/sync_add_child", methods=["POST"])
@@ -160,9 +159,9 @@ def add_sync_child():
     token = secrets_mod.token_urlsafe(16)
     child = {"label": label, "token": token}
 
-    children = device_state.setdefault("sync_children", [])
+    children = db.get_setting("sync_children", [])
     children.append(child)
-    save_device_state()
+    db.set_setting("sync_children", children)
 
     return jsonify({"success": True, "child": child})
 
@@ -174,9 +173,9 @@ def remove_sync_child():
     data = request.get_json()
     token = data.get("token", "")
 
-    children = device_state.get("sync_children", [])
-    device_state["sync_children"] = [c for c in children if c["token"] != token]
-    save_device_state()
+    children = db.get_setting("sync_children", [])
+    children = [c for c in children if c["token"] != token]
+    db.set_setting("sync_children", children)
 
     return jsonify({"success": True})
 
@@ -184,7 +183,7 @@ def remove_sync_child():
 @app.route("/sync/delete_photo", methods=["POST"])
 def sync_delete_photo():
     """Delete a photo on master. Requires valid token + ownership."""
-    if device_state.get("sync_role") != "master":
+    if db.get_setting("sync_role") != "master":
         return jsonify({"error": "Not a master"}), 404
 
     data = request.get_json()
@@ -194,12 +193,12 @@ def sync_delete_photo():
     if not token or not filename:
         return jsonify({"success": False, "error": "Token and filename required"})
 
-    # Validate token → get uploader label
+    # Validate token -> get uploader label
     uploader = None
-    if token == device_state.get("upload_token"):
+    if token == db.get_setting("upload_token"):
         uploader = "admin"
     else:
-        for child in device_state.get("sync_children", []):
+        for child in db.get_setting("sync_children", []):
             if child["token"] == token:
                 uploader = child["label"]
 
@@ -207,8 +206,7 @@ def sync_delete_photo():
         return jsonify({"success": False, "error": "Invalid token"}), 403
 
     # Check upload_meta — did this uploader upload this file?
-    from routes.upload_routes import _load_upload_meta, _save_upload_meta
-    meta = _load_upload_meta()
+    meta = db.get_upload_meta()
     if uploader != "admin" and meta.get(filename) != uploader:
         return jsonify({"success": False, "error": "Not your photo"}), 403
 
@@ -229,19 +227,9 @@ def sync_delete_photo():
     if os.path.exists(thumb_path):
         os.remove(thumb_path)
 
-    # Remove from device_state photo_urls
-    if "photo_urls" in device_state:
-        device_state["photo_urls"] = [
-            u for u in device_state["photo_urls"]
-            if os.path.basename(u) != filename
-        ]
+    # Remove from DB
+    db.remove_photo(filename)
 
-    # Remove from upload_meta
-    if filename in meta:
-        del meta[filename]
-        _save_upload_meta(meta)
-
-    save_device_state()
     mark_manifest_dirty()
 
     # Sync USB if needed
@@ -258,9 +246,9 @@ def sync_delete_photo():
 @require_admin
 def trigger_sync_now():
     """Trigger an immediate sync cycle."""
-    if device_state.get("sync_role") != "child":
+    if db.get_setting("sync_role") != "child":
         return jsonify({"success": False, "error": "Not a child"})
-    if device_state.get("sync_in_progress"):
+    if db.get_setting("sync_in_progress", False):
         return jsonify({"success": False, "error": "Sync already in progress"})
 
     t = threading.Thread(target=run_sync_cycle, daemon=True)
@@ -273,18 +261,18 @@ def trigger_sync_now():
 def sync_status():
     """Return current sync state."""
     return jsonify({
-        "sync_role": device_state.get("sync_role"),
-        "master_url": device_state.get("master_url"),
-        "last_sync": device_state.get("last_sync"),
-        "last_sync_result": device_state.get("last_sync_result"),
+        "sync_role": db.get_setting("sync_role"),
+        "master_url": db.get_setting("master_url"),
+        "last_sync": db.get_setting("last_sync"),
+        "last_sync_result": db.get_setting("last_sync_result"),
         "synced_photo_count": _count_synced_photos(),
-        "sync_in_progress": device_state.get("sync_in_progress", False),
-        "sync_error": device_state.get("sync_error"),
-        "sync_interval": device_state.get("sync_interval", config.DEFAULT_SYNC_INTERVAL),
-        "sync_total": device_state.get("sync_total", 0),
-        "sync_completed": device_state.get("sync_completed", 0),
-        "sync_phase": device_state.get("sync_phase", ""),
-        "sync_history": device_state.get("sync_history", []),
+        "sync_in_progress": db.get_setting("sync_in_progress", False),
+        "sync_error": db.get_setting("sync_error"),
+        "sync_interval": db.get_setting("sync_interval", config.DEFAULT_SYNC_INTERVAL),
+        "sync_total": db.get_setting("sync_total", 0),
+        "sync_completed": db.get_setting("sync_completed", 0),
+        "sync_phase": db.get_setting("sync_phase", ""),
+        "sync_history": db.get_sync_history(5),
     })
 
 
@@ -298,34 +286,33 @@ def save_sync_config():
     if role not in ("master", "child", ""):
         return jsonify({"success": False, "error": "Invalid role"})
 
-    old_role = device_state.get("sync_role")
+    old_role = db.get_setting("sync_role")
 
     if role:
-        device_state["sync_role"] = role
+        db.set_setting("sync_role", role)
     else:
-        device_state.pop("sync_role", None)
+        db.delete_setting("sync_role")
 
     if role == "child":
         master_url = data.get("master_url", "").rstrip("/")
         sync_token = data.get("sync_token", "").strip()
         # Allow partial updates (e.g. just interval) if already configured
         if master_url:
-            device_state["master_url"] = master_url
+            db.set_setting("master_url", master_url)
         if sync_token:
-            device_state["sync_token"] = sync_token
+            db.set_setting("sync_token", sync_token)
         # Require both for initial setup
-        if not device_state.get("master_url") or not device_state.get("sync_token"):
+        if not db.get_setting("master_url") or not db.get_setting("sync_token"):
             return jsonify({"success": False, "error": "Master URL and sync token required"})
         if "sync_interval" in data:
-            device_state["sync_interval"] = max(300, min(7200, int(data["sync_interval"])))
+            db.set_setting("sync_interval", max(300, min(7200, int(data["sync_interval"]))))
     elif role == "master":
         # Initialize children list if not present
-        device_state.setdefault("sync_children", [])
+        if db.get_setting("sync_children") is None:
+            db.set_setting("sync_children", [])
         # Clean up child-only keys
-        device_state.pop("master_url", None)
-        device_state.pop("sync_token", None)
-
-    save_device_state()
+        db.delete_setting("master_url")
+        db.delete_setting("sync_token")
 
     # Start/stop sync loop based on role change
     if role == "child" and old_role != "child":
@@ -337,20 +324,6 @@ def save_sync_config():
 
 
 # ============== SYNC LOGIC ==============
-
-def _add_sync_history(result, photos_added=0, photos_removed=0, duration_s=0, error=None):
-    history = device_state.get("sync_history", [])
-    history.append({
-        "timestamp": datetime.now().isoformat(),
-        "result": result,
-        "photos_added": photos_added,
-        "photos_removed": photos_removed,
-        "duration_s": duration_s,
-        "error": error
-    })
-    # Keep last 5 (status card only shows latest; history retained for API/debugging)
-    device_state["sync_history"] = history[-5:]
-    save_device_state()
 
 _sync_stop_event = threading.Event()
 _sync_thread = None
@@ -390,14 +363,14 @@ def _build_local_manifest():
 
 def run_sync_cycle():
     """Execute one sync cycle: fetch manifest, download new, delete removed."""
-    master_url = device_state.get("master_url")
-    sync_token = device_state.get("sync_token")
+    master_url = db.get_setting("master_url")
+    sync_token = db.get_setting("sync_token")
 
     if not master_url or not sync_token:
         print("[SYNC] No master URL or sync token configured")
         return
 
-    device_state["sync_in_progress"] = True
+    db.set_setting("sync_in_progress", True)
     _sync_start_time = time.time()
     print(f"[SYNC] Starting sync from {master_url}")
 
@@ -410,19 +383,19 @@ def run_sync_cycle():
         )
 
         if resp.status_code == 403:
-            device_state["sync_error"] = "Invalid sync token"
-            device_state["last_sync_result"] = "error"
-            _add_sync_history("error",
-                              duration_s=round(time.time() - _sync_start_time, 1),
-                              error="Invalid sync token")
+            db.set_setting("sync_error", "Invalid sync token")
+            db.set_setting("last_sync_result", "error")
+            db.add_sync_log("error",
+                            duration_s=round(time.time() - _sync_start_time, 1),
+                            error="Invalid sync token")
             print("[SYNC] Invalid sync token (403)")
             return
         elif resp.status_code != 200:
-            device_state["sync_error"] = f"Master returned {resp.status_code}"
-            device_state["last_sync_result"] = "error"
-            _add_sync_history("error",
-                              duration_s=round(time.time() - _sync_start_time, 1),
-                              error=f"Master returned {resp.status_code}")
+            db.set_setting("sync_error", f"Master returned {resp.status_code}")
+            db.set_setting("last_sync_result", "error")
+            db.add_sync_log("error",
+                            duration_s=round(time.time() - _sync_start_time, 1),
+                            error=f"Master returned {resp.status_code}")
             print(f"[SYNC] Master returned {resp.status_code}")
             return
 
@@ -432,13 +405,19 @@ def run_sync_cycle():
         # Save upload metadata from master (who uploaded each photo)
         upload_meta = manifest.get("upload_meta", {})
         if upload_meta:
-            from routes.upload_routes import _save_upload_meta
-            _save_upload_meta(upload_meta)
+            for fname, uploader in upload_meta.items():
+                photo = db.get_photo(fname)
+                if photo:
+                    # Update uploaded_by on existing record
+                    db.add_photo(fname, subdir=photo["subdir"],
+                                 uploaded_by=uploader,
+                                 size_bytes=photo["size_bytes"],
+                                 md5=photo["md5"])
 
         # Save our own label (so we know which photos are "mine")
         your_label = manifest.get("your_label")
         if your_label:
-            device_state["sync_label"] = your_label
+            db.set_setting("sync_label", your_label)
 
         # 2. Build local manifest
         local_photos = _build_local_manifest()
@@ -454,18 +433,18 @@ def run_sync_cycle():
         ]
 
         print(f"[SYNC] {len(to_download)} to download, {len(to_delete)} to delete")
-        device_state["sync_total"] = len(to_download)
-        device_state["sync_completed"] = 0
-        device_state["sync_phase"] = "downloading"
+        db.set_setting("sync_total", len(to_download))
+        db.set_setting("sync_completed", 0)
+        db.set_setting("sync_phase", "downloading")
 
         # 4. Check disk space
         free = shutil.disk_usage("/").free
         if free < 50 * 1024 * 1024 and to_download:
-            device_state["sync_error"] = "Disk full"
-            device_state["last_sync_result"] = "error"
-            _add_sync_history("error",
-                              duration_s=round(time.time() - _sync_start_time, 1),
-                              error="Disk full")
+            db.set_setting("sync_error", "Disk full")
+            db.set_setting("last_sync_result", "error")
+            db.add_sync_log("error",
+                            duration_s=round(time.time() - _sync_start_time, 1),
+                            error="Disk full")
             print("[SYNC] Disk full, skipping downloads")
             return
 
@@ -493,6 +472,20 @@ def run_sync_cycle():
                 with open(dest, 'wb') as f:
                     f.write(photo_resp.content)
 
+                # Compute md5 of downloaded file
+                h = hashlib.md5()
+                with open(dest, 'rb') as fh:
+                    for chunk in iter(lambda: fh.read(8192), b''):
+                        h.update(chunk)
+                file_md5 = h.hexdigest()
+                file_size = os.path.getsize(dest)
+
+                # Track in DB
+                uploader = upload_meta.get(path, "")
+                db.add_photo(os.path.basename(path), subdir="sync",
+                             uploaded_by=uploader,
+                             size_bytes=file_size, md5=file_md5)
+
                 # Generate thumbnail
                 thumb_path = os.path.join(thumb_dir, os.path.basename(path))
                 try:
@@ -502,17 +495,14 @@ def run_sync_cycle():
                 except Exception as e:
                     print(f"[SYNC] Thumbnail failed for {path}: {e}")
 
-                # No watermark here — master already watermarked during upload.
-                # Re-watermarking would change the MD5 and cause re-downloads every sync.
-
                 downloaded += 1
-                device_state["sync_completed"] = downloaded
+                db.set_setting("sync_completed", downloaded)
             except requests.RequestException as e:
                 print(f"[SYNC] Download error for {path}: {e}")
                 continue
 
         # 6. Delete removed photos
-        device_state["sync_phase"] = "cleaning"
+        db.set_setting("sync_phase", "cleaning")
         deleted = 0
         for path in to_delete:
             full_path = os.path.join(sync_dir, path)
@@ -522,6 +512,8 @@ def run_sync_cycle():
                 thumb_path = os.path.join(thumb_dir, os.path.basename(path))
                 if os.path.exists(thumb_path):
                     os.remove(thumb_path)
+                # Remove from DB
+                db.remove_photo(os.path.basename(path))
                 deleted += 1
 
         # Clean up empty subdirectories in sync/
@@ -529,50 +521,50 @@ def run_sync_cycle():
             if root != sync_dir and not files and not dirs:
                 os.rmdir(root)
 
-        # 7. Rebuild photo_urls from disk (reconcile)
+        # 7. Reconcile state in DB
         _reconcile_after_sync()
 
         # 8. USB sync if needed
         if get_display_mode() == "usb" and (downloaded > 0 or deleted > 0):
-            device_state["sync_phase"] = "updating_frame"
+            db.set_setting("sync_phase", "updating_frame")
             sync_photos_to_usb()
 
         # 9. Update state
-        device_state["last_sync"] = datetime.now().isoformat(timespec="seconds")
-        device_state["last_sync_result"] = "success"
-        device_state.pop("sync_error", None)
-        _add_sync_history("success",
-                          photos_added=downloaded,
-                          photos_removed=deleted,
-                          duration_s=round(time.time() - _sync_start_time, 1))
+        db.set_setting("last_sync", datetime.now().isoformat(timespec="seconds"))
+        db.set_setting("last_sync_result", "success")
+        db.delete_setting("sync_error")
+        db.add_sync_log("success",
+                        photos_added=downloaded,
+                        photos_removed=deleted,
+                        duration_s=round(time.time() - _sync_start_time, 1))
 
         print(f"[SYNC] Complete: {downloaded} downloaded, {deleted} deleted")
 
     except requests.RequestException as e:
-        device_state["sync_error"] = str(e)
-        device_state["last_sync_result"] = "error"
-        _add_sync_history("error",
-                          duration_s=round(time.time() - _sync_start_time, 1),
-                          error=str(e))
+        db.set_setting("sync_error", str(e))
+        db.set_setting("last_sync_result", "error")
+        db.add_sync_log("error",
+                        duration_s=round(time.time() - _sync_start_time, 1),
+                        error=str(e))
         print(f"[SYNC] Network error: {e}")
     except Exception as e:
-        device_state["sync_error"] = str(e)
-        device_state["last_sync_result"] = "error"
-        _add_sync_history("error",
-                          duration_s=round(time.time() - _sync_start_time, 1),
-                          error=str(e))
+        db.set_setting("sync_error", str(e))
+        db.set_setting("last_sync_result", "error")
+        db.add_sync_log("error",
+                        duration_s=round(time.time() - _sync_start_time, 1),
+                        error=str(e))
         print(f"[SYNC] Unexpected error: {e}")
         import traceback
         traceback.print_exc()
     finally:
-        device_state["sync_in_progress"] = False
-        device_state.pop("sync_total", None)
-        device_state.pop("sync_completed", None)
-        device_state.pop("sync_phase", None)
+        db.set_setting("sync_in_progress", False)
+        db.delete_setting("sync_total")
+        db.delete_setting("sync_completed")
+        db.delete_setting("sync_phase")
 
 
 def _reconcile_after_sync():
-    """Rebuild photo_urls from disk after sync changes."""
+    """Rebuild photo_urls in DB from disk after sync changes."""
     actual_photos = []
     if os.path.exists(config.PHOTOS_DIR):
         for root, dirs, files in os.walk(config.PHOTOS_DIR):
@@ -582,11 +574,11 @@ def _reconcile_after_sync():
                     rel = os.path.relpath(os.path.join(root, f), os.path.dirname(config.PHOTOS_DIR))
                     actual_photos.append(f"/static/{rel}")
     if actual_photos:
-        device_state["photo_urls"] = actual_photos
-        device_state["done"] = True
-        device_state["photos_chosen"] = True
-    elif not device_state.get("photo_urls"):
-        device_state["done"] = False
+        db.set_setting("photo_urls", actual_photos)
+        db.set_setting("done", True)
+        db.set_setting("photos_chosen", True)
+    elif not db.get_setting("photo_urls"):
+        db.set_setting("done", False)
 
 
 def _sync_loop():
@@ -597,7 +589,7 @@ def _sync_loop():
 
     while not _sync_stop_event.is_set():
         run_sync_cycle()
-        interval = device_state.get("sync_interval", config.DEFAULT_SYNC_INTERVAL)
+        interval = db.get_setting("sync_interval", config.DEFAULT_SYNC_INTERVAL)
         if _sync_stop_event.wait(interval):
             break
 

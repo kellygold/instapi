@@ -2,7 +2,7 @@
 import os
 from app import app  # Import from app.py to avoid circular imports
 import config
-from config import device_state, save_device_state
+import db
 
 # Import route files
 import routes.base_routes
@@ -14,10 +14,10 @@ import routes.wifi_routes
 
 
 def reconcile_photos():
-    """Rebuild photo_urls from what's actually on disk.
+    """Rebuild photo records from what's actually on disk.
 
     This ensures the slideshow and admin panel reflect reality after a reboot,
-    even if device_state.json was lost or out of sync.
+    even if the database was lost or out of sync.
     """
     photos_dir = config.PHOTOS_DIR
     actual_photos = []
@@ -26,54 +26,65 @@ def reconcile_photos():
             dirs[:] = [d for d in dirs if d != 'thumbs']
             for f in sorted(files):
                 if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                    rel = os.path.relpath(os.path.join(root, f), os.path.dirname(photos_dir))
-                    actual_photos.append(f"/static/{rel}")
+                    full_path = os.path.join(root, f)
+                    rel = os.path.relpath(full_path, os.path.dirname(photos_dir))
+                    actual_photos.append((f, full_path, f"/static/{rel}"))
 
     if actual_photos:
-        device_state["photo_urls"] = actual_photos
-        device_state["done"] = True
-        device_state["photos_chosen"] = True
-        save_device_state()
+        for filename, full_path, photo_url in actual_photos:
+            subdir = os.path.relpath(os.path.dirname(full_path), photos_dir)
+            if subdir == '.':
+                subdir = ''
+            try:
+                size = os.path.getsize(full_path)
+            except OSError:
+                size = 0
+            db.add_photo(filename, subdir=subdir, uploaded_by='admin', size_bytes=size)
+
+        db.set_setting("done", True)
+        db.set_setting("photos_chosen", True)
         print(f"Reconciled {len(actual_photos)} photos from disk")
 
         # Backfill thumbnails for photos that predate this feature
         thumb_dir = os.path.join(photos_dir, "thumbs")
         os.makedirs(thumb_dir, exist_ok=True)
-        for photo_url in actual_photos:
-            filename = os.path.basename(photo_url)
-            rel = photo_url.replace("/static/", "")
-            original = os.path.join(os.path.dirname(photos_dir), rel)
+        for filename, full_path, photo_url in actual_photos:
             thumb = os.path.join(thumb_dir, filename)
-            if not os.path.exists(thumb) and os.path.exists(original):
+            if not os.path.exists(thumb) and os.path.exists(full_path):
                 from PIL import Image
-                img = Image.open(original)
+                img = Image.open(full_path)
                 img.thumbnail((200, 200))
                 img.save(thumb, "JPEG", quality=60)
                 print(f"Generated thumbnail for {filename}")
-    elif not device_state.get("photo_urls"):
-        device_state["done"] = False
+    elif db.get_photo_count() == 0:
+        db.set_setting("done", False)
         print("No photos on disk")
 
 
 if __name__ == "__main__":
     # Ensure photos directory exists (but never clear it — photos must survive reboots)
     os.makedirs(config.PHOTOS_DIR, exist_ok=True)
+
+    # Initialize database and migrate from JSON if needed
+    db.init_db()
+    db.migrate_from_json(config.PHOTOS_DIR)
+
     reconcile_photos()
 
     # Generate upload token if not set
-    if not device_state.get("upload_token"):
+    if not db.get_setting("upload_token"):
         import secrets
-        device_state["upload_token"] = secrets.token_urlsafe(16)
-        save_device_state()
-        print(f"Upload token: {device_state['upload_token']}")
+        token = secrets.token_urlsafe(16)
+        db.set_setting("upload_token", token)
+        print(f"Upload token: {token}")
 
     # Initialize sync role
-    if device_state.get("sync_role") == "master":
-        device_state.setdefault("sync_children", [])
-        save_device_state()
+    if db.get_setting("sync_role") == "master":
+        if not db.get_setting("sync_children"):
+            db.set_setting("sync_children", [])
 
     # Start child sync loop if configured
-    if device_state.get("sync_role") == "child" and device_state.get("master_url"):
+    if db.get_setting("sync_role") == "child" and db.get_setting("master_url"):
         from routes.sync_routes import start_sync_loop
         start_sync_loop()
 

@@ -59,6 +59,7 @@ start_master() {
     cd "$APP_DIR"
     INSTAPI_PHOTOS_DIR="$MASTER_DIR/photos" \
     INSTAPI_STATE_FILE="$MASTER_DIR/device_state.json" \
+    INSTAPI_DB_PATH="$MASTER_DIR/instapi.db" \
     INSTAPI_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
     PORT=$MASTER_PORT \
     python3 main.py >"$TMPDIR_BASE/master.log" 2>&1 &
@@ -84,6 +85,7 @@ start_child() {
     cd "$APP_DIR"
     INSTAPI_PHOTOS_DIR="$CHILD_DIR/photos" \
     INSTAPI_STATE_FILE="$CHILD_DIR/device_state.json" \
+    INSTAPI_DB_PATH="$CHILD_DIR/instapi.db" \
     INSTAPI_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
     PORT=$CHILD_PORT \
     python3 main.py >"$TMPDIR_BASE/child.log" 2>&1 &
@@ -322,30 +324,24 @@ HTTP=$(curl -s -o /tmp/e2e_upload_resp.json -w "%{http_code}" \
 # Wait for background processing
 sleep 5
 
-# Check upload_meta has the child's label
-META_UPLOADER=$(python3 -c "
-import json, glob
-files = glob.glob('$MASTER_DIR/photos/upload_meta.json')
-if files:
-    meta = json.load(open(files[0]))
-    vals = list(meta.values())
-    print(vals[0] if vals else 'none')
-else:
-    print('no meta file')
+# Check upload attribution via API
+PHOTOS_JSON=$(curl -s -b "$COOKIES_MASTER" "http://127.0.0.1:$MASTER_PORT/admin/photos")
+META_UPLOADER=$(echo "$PHOTOS_JSON" | python3 -c "
+import sys, json
+photos = json.load(sys.stdin)
+uploaders = [p['uploaded_by'] for p in photos if p['uploaded_by'] != 'admin']
+print(uploaders[0] if uploaders else 'none')
 ")
 [ "$META_UPLOADER" = "test-child" ] && result PASS "upload tagged as '$META_UPLOADER'" \
                                      || result FAIL "expected 'test-child', got '$META_UPLOADER'"
 
 # Get the uploaded filename
-UPLOADED_FILE=$(python3 -c "
-import json, glob
-files = glob.glob('$MASTER_DIR/photos/upload_meta.json')
-if files:
-    meta = json.load(open(files[0]))
-    keys = list(meta.keys())
-    print(keys[0] if keys else 'none')
-else:
-    print('none')
+UPLOADED_FILE=$(echo "$PHOTOS_JSON" | python3 -c "
+import sys, json
+photos = json.load(sys.stdin)
+for p in photos:
+    if p['uploaded_by'] == 'test-child':
+        print(p['name']); break
 ")
 
 echo "=== Test 11: Child deletes own photo via master API ==="
@@ -369,12 +365,13 @@ curl -s -F "t=$SYNC_TOKEN_B" -F "photos=@/tmp/e2e_upload_b.jpg" \
 sleep 5
 
 # Get child B's filename
-UPLOADED_FILE_B=$(python3 -c "
-import json
-meta = json.load(open('$MASTER_DIR/photos/upload_meta.json'))
-for k, v in meta.items():
-    if v == 'other-child':
-        print(k); break
+PHOTOS_JSON_B=$(curl -s -b "$COOKIES_MASTER" "http://127.0.0.1:$MASTER_PORT/admin/photos")
+UPLOADED_FILE_B=$(echo "$PHOTOS_JSON_B" | python3 -c "
+import sys, json
+photos = json.load(sys.stdin)
+for p in photos:
+    if p['uploaded_by'] == 'other-child':
+        print(p['name']); break
 ")
 
 # Try to delete child B's photo with child A's token
@@ -430,12 +427,13 @@ CHILD_HAS=$(find "$CHILD_DIR/photos/sync" -name "*.jpg" 2>/dev/null | wc -l | tr
                         || result FAIL "photo not on child after sync"
 
 # Get filename and delete from master
-CYCLE_FILE=$(python3 -c "
-import json
-meta = json.load(open('$MASTER_DIR/photos/upload_meta.json'))
-for k, v in meta.items():
-    if v == 'test-child':
-        print(k); break
+PHOTOS_JSON_CYCLE=$(curl -s -b "$COOKIES_MASTER" "http://127.0.0.1:$MASTER_PORT/admin/photos")
+CYCLE_FILE=$(echo "$PHOTOS_JSON_CYCLE" | python3 -c "
+import sys, json
+photos = json.load(sys.stdin)
+for p in photos:
+    if p['uploaded_by'] == 'test-child':
+        print(p['name']); break
 ")
 curl -s -X POST -H "Content-Type: application/json" \
     -d "{\"token\": \"$SYNC_TOKEN\", \"filename\": \"$CYCLE_FILE\"}" \

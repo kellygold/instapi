@@ -1,38 +1,20 @@
 # routes/upload_routes.py
 import os
 import gc
-import json
 import time
+import hashlib
 import shutil
 import threading
 from flask import render_template, jsonify, request
 from PIL import Image, ImageOps
 from app import app
-from config import device_state, PHOTOS_DIR, save_device_state
+import config
+import db
 from utils import sync_photos_to_usb, get_display_mode
 from routes.sync_routes import mark_manifest_dirty
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
-UPLOAD_META_FILE = os.path.join(PHOTOS_DIR, "upload_meta.json")
-STAGING_DIR = os.path.join(PHOTOS_DIR, ".staging")
-
-
-def _load_upload_meta():
-    try:
-        if os.path.exists(UPLOAD_META_FILE):
-            with open(UPLOAD_META_FILE) as f:
-                return json.load(f)
-    except Exception:
-        pass
-    return {}
-
-
-def _save_upload_meta(meta):
-    try:
-        with open(UPLOAD_META_FILE, "w") as f:
-            json.dump(meta, f, indent=2)
-    except Exception as e:
-        print(f"[UPLOAD] Failed to save metadata: {e}")
+STAGING_DIR = os.path.join(config.PHOTOS_DIR, ".staging")
 
 
 def _validate_token():
@@ -43,10 +25,10 @@ def _validate_token():
     if not token:
         return False
     # Check master's own upload token
-    if token == device_state.get("upload_token"):
+    if token == db.get_setting("upload_token"):
         return "admin"
     # Check sync child tokens (each child's token doubles as their upload identity)
-    for child in device_state.get("sync_children", []):
+    for child in db.get_setting("sync_children", []):
         if child["token"] == token:
             return child["label"]
     return False
@@ -106,9 +88,9 @@ def upload_photos():
         return jsonify({"success": False, "error": "No valid files"})
 
     # Track processing progress
-    device_state["upload_processing"] = True
-    device_state["upload_total"] = len(staged)
-    device_state["upload_processed"] = 0
+    db.set_setting("upload_processing", True)
+    db.set_setting("upload_total", len(staged))
+    db.set_setting("upload_processed", 0)
 
     # Process in background thread (prevents OOM from processing all at once)
     t = threading.Thread(
@@ -128,9 +110,9 @@ def upload_photos():
 
 def _process_staged_uploads(staged_files, uploader):
     """Process staged uploads one at a time in background thread."""
-    subdir = os.path.join(PHOTOS_DIR, "upload")
+    subdir = os.path.join(config.PHOTOS_DIR, "upload")
     os.makedirs(subdir, exist_ok=True)
-    thumb_dir = os.path.join(PHOTOS_DIR, "thumbs")
+    thumb_dir = os.path.join(config.PHOTOS_DIR, "thumbs")
     os.makedirs(thumb_dir, exist_ok=True)
 
     processed_filenames = []
@@ -152,14 +134,19 @@ def _process_staged_uploads(staged_files, uploader):
             thumb_img.save(os.path.join(thumb_dir, filename), "JPEG", quality=60)
             del thumb_img
 
-            # No watermark here — watermark is applied at USB copy time
-            # so each frame gets its own unique QR (child vs master token)
+            # Compute md5 and size for DB
+            file_size = os.path.getsize(photo_path)
+            h = hashlib.md5()
+            with open(photo_path, 'rb') as fh:
+                for chunk in iter(lambda: fh.read(8192), b''):
+                    h.update(chunk)
+            file_md5 = h.hexdigest()
 
-            # Add to device state
-            url_path = f"/static/photos/upload/{filename}"
-            device_state.setdefault("photo_urls", []).append(url_path)
+            # Track in DB
+            db.add_photo(filename, subdir="upload", uploaded_by=uploader,
+                         size_bytes=file_size, md5=file_md5)
+
             processed_filenames.append(filename)
-
             print(f"[UPLOAD] Processed {idx + 1}/{len(staged_files)}: {filename}")
 
         except Exception as e:
@@ -171,22 +158,15 @@ def _process_staged_uploads(staged_files, uploader):
             except OSError:
                 pass
 
-            device_state["upload_processed"] = idx + 1
+            db.set_setting("upload_processed", idx + 1)
 
             # Free memory every 5 files
             if (idx + 1) % 5 == 0:
                 gc.collect()
 
-    # Tag photos with uploader identity
     if processed_filenames:
-        meta = _load_upload_meta()
-        for fname in processed_filenames:
-            meta[fname] = uploader
-        _save_upload_meta(meta)
-
-        device_state["done"] = True
-        device_state["photos_chosen"] = True
-        save_device_state()
+        db.set_setting("done", True)
+        db.set_setting("photos_chosen", True)
         mark_manifest_dirty()
 
         # Sync to USB if in USB mode
@@ -194,9 +174,9 @@ def _process_staged_uploads(staged_files, uploader):
             sync_photos_to_usb()
 
     # Clear processing state
-    device_state.pop("upload_processing", None)
-    device_state.pop("upload_total", None)
-    device_state.pop("upload_processed", None)
+    db.delete_setting("upload_processing")
+    db.delete_setting("upload_total")
+    db.delete_setting("upload_processed")
 
     # Clean up staging dir
     try:
@@ -211,7 +191,7 @@ def _process_staged_uploads(staged_files, uploader):
 def upload_status():
     """Return upload processing progress."""
     return jsonify({
-        "processing": device_state.get("upload_processing", False),
-        "total": device_state.get("upload_total", 0),
-        "processed": device_state.get("upload_processed", 0),
+        "processing": db.get_setting("upload_processing", False),
+        "total": db.get_setting("upload_total", 0),
+        "processed": db.get_setting("upload_processed", 0),
     })

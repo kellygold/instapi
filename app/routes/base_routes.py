@@ -6,9 +6,9 @@ from flask import render_template, jsonify, redirect, url_for, request, send_fil
 from google_auth_oauthlib.flow import Flow
 from datetime import datetime, timedelta
 from app import app
+import db
 
-
-from config import SCOPES, device_state
+from config import SCOPES
 from urllib.parse import urlencode
 import os
 
@@ -32,7 +32,7 @@ with open("secrets.json") as f:
 @app.route("/auth_status")
 def auth_status():
     """Return JSON indicating if the user is authenticated."""
-    if "credentials" not in device_state:
+    if not db.get_setting("credentials"):
         return jsonify({
             "authenticated": False,
             "message": "Waiting for authentication. Scan QR code and sign in with Google, or check your server secrets configuration."
@@ -44,48 +44,49 @@ def auth_status():
 def index():
     """Show setup page, or redirect to slideshow if photos ready."""
     # If photos are already ready, go to slideshow
-    if device_state.get("done") and device_state.get("photo_urls"):
+    if db.get_setting("done") and db.get_photo_count() > 0:
         return redirect(url_for("slideshow"))
-    
+
     # Generate new auth URL if needed
-    if "auth_url" not in device_state:
+    if not db.get_setting("auth_url"):
         flow = Flow.from_client_secrets_file(
             "secrets.json",
             scopes=SCOPES,
             redirect_uri=REDIRECT_URI
         )
         auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
-        device_state["auth_url"] = auth_url
-    
-    return render_template("index.html", auth_url=device_state["auth_url"])
+        db.set_setting("auth_url", auth_url)
+
+    return render_template("index.html", auth_url=db.get_setting("auth_url"))
 
 
 @app.route("/auth")
 def auth():
     """Direct auth - skip setup page, go straight to Google."""
     # Clear only auth-related state, preserve existing photos
-    device_state.pop("credentials", None)
-    device_state.pop("auth_url", None)
-    device_state.pop("picking_session_id", None)
-    device_state.pop("picker_url", None)
+    db.delete_setting("credentials")
+    db.delete_setting("auth_url")
+    db.delete_setting("picking_session_id")
+    db.delete_setting("picker_url")
     flow = Flow.from_client_secrets_file(
         "secrets.json",
         scopes=SCOPES,
         redirect_uri=REDIRECT_URI
     )
     auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
-    device_state["auth_url"] = auth_url
+    db.set_setting("auth_url", auth_url)
     return redirect(auth_url)
 
 
 @app.route("/auth_qr")
 def auth_qr():
     """Generate a sign-in QR code."""
-    if "auth_url" not in device_state:
+    auth_url = db.get_setting("auth_url")
+    if not auth_url:
         return "No auth URL found", 404
 
     img_io = io.BytesIO()
-    img = qrcode.make(device_state["auth_url"])
+    img = qrcode.make(auth_url)
     img.save(img_io, 'PNG')
     img_io.seek(0)
     return send_file(img_io, mimetype='image/png')
@@ -103,9 +104,9 @@ def oauth2callback():
         flow.fetch_token(authorization_response=request.url)
         credentials = flow.credentials
 
-        device_state["credentials"] = {
+        db.set_setting("credentials", {
             "token": credentials.token,
-        }
+        })
 
         # Immediately create picker session and redirect to picker
         return redirect(url_for("launch_picker"))
@@ -120,11 +121,11 @@ def oauth2callback():
 def choose_mode_qr():
     """QR to link user to upload page for adding photos.
     Child frames point to master's upload page using their sync token."""
-    if device_state.get("sync_role") == "child" and device_state.get("master_url"):
-        token = device_state.get("sync_token", "")
-        url = f"{device_state['master_url']}/upload?t={token}"
+    if db.get_setting("sync_role") == "child" and db.get_setting("master_url"):
+        token = db.get_setting("sync_token", "")
+        url = f"{db.get_setting('master_url')}/upload?t={token}"
     else:
-        token = device_state.get("upload_token", "")
+        token = db.get_setting("upload_token", "")
         url = f"{BASE_URL}/upload?t={token}"
     img_io = io.BytesIO()
     img = qrcode.make(url)

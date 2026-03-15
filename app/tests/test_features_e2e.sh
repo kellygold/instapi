@@ -57,6 +57,7 @@ start_master() {
     cd "$APP_DIR"
     INSTAPI_PHOTOS_DIR="$MASTER_DIR/photos" \
     INSTAPI_STATE_FILE="$MASTER_DIR/device_state.json" \
+    INSTAPI_DB_PATH="$MASTER_DIR/instapi.db" \
     INSTAPI_ADMIN_PASSWORD=test-password \
     PORT=$MASTER_PORT \
     python3 main.py >"$TMPDIR_BASE/master.log" 2>&1 &
@@ -79,6 +80,7 @@ start_child() {
     cd "$APP_DIR"
     INSTAPI_PHOTOS_DIR="$CHILD_DIR/photos" \
     INSTAPI_STATE_FILE="$CHILD_DIR/device_state.json" \
+    INSTAPI_DB_PATH="$CHILD_DIR/instapi.db" \
     INSTAPI_ADMIN_PASSWORD=test-password \
     PORT=$CHILD_PORT \
     python3 main.py >"$TMPDIR_BASE/child.log" 2>&1 &

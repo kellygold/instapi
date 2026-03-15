@@ -1,9 +1,12 @@
 # routes/picker_routes.py
+import os
 import random
+import hashlib
 import threading
 from flask import render_template, jsonify, request, redirect, url_for
 from app import app
-from config import device_state, PICKER_API_BASE_URL, save_device_state
+import config
+import db
 from routes.sync_routes import mark_manifest_dirty
 from utils import (
     parse_time_value,
@@ -16,20 +19,21 @@ import requests
 @app.route("/launch_picker")
 def launch_picker():
     """Create a Photo Picker session and start polling."""
-    if "credentials" not in device_state:
+    if not db.get_setting("credentials"):
         return jsonify({"error": "Not authenticated"}), 401
 
+    credentials = db.get_setting("credentials")
     headers = {
-        "Authorization": f"Bearer {device_state['credentials']['token']}",
+        "Authorization": f"Bearer {credentials['token']}",
         "Content-Type": "application/json",
     }
     payload = {"mediaItemsSet": True}
-    url = f"{PICKER_API_BASE_URL}/sessions"
+    url = f"{config.PICKER_API_BASE_URL}/sessions"
     response = requests.post(url, headers=headers, json=payload)
     if response.status_code == 200:
         picking_session = response.json()
-        device_state["picking_session_id"] = picking_session["id"]
-        device_state["picker_url"] = picking_session["pickerUri"]
+        db.set_setting("picking_session_id", picking_session["id"])
+        db.set_setting("picker_url", picking_session["pickerUri"])
 
         polling_config = picking_session.get("pollingConfig", {})
         poll_interval_str = polling_config.get("pollInterval", "5s")
@@ -46,7 +50,8 @@ def launch_picker():
         thread.start()
 
         # Redirect directly to picker with /autoclose so it closes when done
-        return redirect(device_state["picker_url"] + "/autoclose")
+        picker_url = db.get_setting("picker_url")
+        return redirect(picker_url + "/autoclose")
     else:
         return f"Failed to create picker session: {response.status_code}", 500
 
@@ -57,20 +62,35 @@ def finalize_selection():
     all_photo_urls = []
 
     # Picker photos
-    if device_state.get("picking_session_id"):
+    if db.get_setting("picking_session_id"):
         picker_urls = fetch_picker_photos()
         if picker_urls:
-            device_state["photos_chosen"] = True
+            db.set_setting("photos_chosen", True)
             picker_paths = download_and_return_paths(picker_urls, "picker")
             all_photo_urls.extend(picker_paths)
+
+            # Track downloaded picker photos in DB
+            for url_path in picker_paths:
+                filename = os.path.basename(url_path)
+                photo_path = os.path.join(config.PHOTOS_DIR, "picker", filename)
+                file_size = 0
+                file_md5 = ""
+                if os.path.isfile(photo_path):
+                    file_size = os.path.getsize(photo_path)
+                    h = hashlib.md5()
+                    with open(photo_path, 'rb') as fh:
+                        for chunk in iter(lambda: fh.read(8192), b''):
+                            h.update(chunk)
+                    file_md5 = h.hexdigest()
+                db.add_photo(filename, subdir="picker", uploaded_by="picker",
+                             size_bytes=file_size, md5=file_md5)
 
     # Shuffle photos
     random.shuffle(all_photo_urls)
 
-    device_state["photo_urls"] = all_photo_urls
-    device_state["current_index"] = 0
-    device_state["done"] = True
-    save_device_state()
+    db.set_setting("photo_urls", all_photo_urls)
+    db.set_setting("current_index", 0)
+    db.set_setting("done", True)
     mark_manifest_dirty()
     return redirect(url_for("done", _external=True))
 
@@ -84,7 +104,7 @@ def done():
 @app.route("/slideshow")
 def slideshow():
     """Display the slideshow page on the frame."""
-    photo_urls = device_state.get("photo_urls", [])
+    photo_urls = db.get_setting("photo_urls", [])
     indices = list(range(len(photo_urls)))
     return render_template("slideshow.html", media_items=indices)
 
@@ -93,32 +113,32 @@ def slideshow():
 def get_next_photos():
     """Return the next set of photos for the slideshow."""
     import random
-    
-    if "photo_urls" not in device_state or not device_state["photo_urls"]:
+
+    photo_urls = db.get_setting("photo_urls", [])
+    if not photo_urls:
         return jsonify([])
 
     count_str = request.args.get("count", "1")
     shuffle = request.args.get("shuffle", "0") == "1"
-    
+
     try:
         count = int(count_str)
     except ValueError:
         count = 1
 
-    photo_urls = device_state["photo_urls"]
     total_photos = len(photo_urls)
-    
+
     if shuffle:
         # Return random photos
         next_photos = [random.choice(photo_urls) for _ in range(count)]
     else:
         # Sequential order
-        current_index = device_state.get("current_index", 0)
+        current_index = db.get_setting("current_index", 0)
         next_photos = []
         for _ in range(count):
             next_photos.append(photo_urls[current_index])
             current_index = (current_index + 1) % total_photos
-        device_state["current_index"] = current_index
+        db.set_setting("current_index", current_index)
 
     return jsonify(next_photos)
 
@@ -126,10 +146,9 @@ def get_next_photos():
 @app.route("/check_session_status")
 def check_session_status():
     """Check if the frame can start the slideshow."""
-    photo_count = len(device_state.get("photo_urls", []))
-    if device_state.get("done", False):
+    photo_urls = db.get_setting("photo_urls", [])
+    photo_count = len(photo_urls)
+    if db.get_setting("done", False):
         return jsonify({"ready": True, "photo_count": photo_count})
     else:
         return jsonify({"ready": False, "photo_count": photo_count})
-
-

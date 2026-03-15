@@ -14,6 +14,7 @@ configs/
 frame-registry.txt
 family.md
 app/device_state.json
+app/instapi.db
 
 # Downloaded photos
 app/static/photos/*
