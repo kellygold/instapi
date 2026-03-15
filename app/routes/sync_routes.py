@@ -154,6 +154,77 @@ def remove_sync_child():
     return jsonify({"success": True})
 
 
+@app.route("/sync/delete_photo", methods=["POST"])
+def sync_delete_photo():
+    """Delete a photo on master. Requires valid token + ownership."""
+    if device_state.get("sync_role") != "master":
+        return jsonify({"error": "Not a master"}), 404
+
+    data = request.get_json()
+    token = data.get("token", "")
+    filename = data.get("filename", "")
+
+    if not token or not filename:
+        return jsonify({"success": False, "error": "Token and filename required"})
+
+    # Validate token → get uploader label
+    uploader = None
+    if token == device_state.get("upload_token"):
+        uploader = "admin"
+    else:
+        for child in device_state.get("sync_children", []):
+            if child["token"] == token:
+                uploader = child["label"]
+
+    if not uploader:
+        return jsonify({"success": False, "error": "Invalid token"}), 403
+
+    # Check upload_meta — did this uploader upload this file?
+    from routes.upload_routes import _load_upload_meta, _save_upload_meta
+    meta = _load_upload_meta()
+    if uploader != "admin" and meta.get(filename) != uploader:
+        return jsonify({"success": False, "error": "Not your photo"}), 403
+
+    # Find and delete the file
+    deleted = False
+    for subdir in ["upload", "picker", ""]:
+        file_path = os.path.join(config.PHOTOS_DIR, subdir, filename) if subdir else os.path.join(config.PHOTOS_DIR, filename)
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+            deleted = True
+            break
+
+    if not deleted:
+        return jsonify({"success": False, "error": "File not found"}), 404
+
+    # Remove thumbnail
+    thumb_path = os.path.join(config.PHOTOS_DIR, "thumbs", filename)
+    if os.path.exists(thumb_path):
+        os.remove(thumb_path)
+
+    # Remove from device_state photo_urls
+    if "photo_urls" in device_state:
+        device_state["photo_urls"] = [
+            u for u in device_state["photo_urls"]
+            if os.path.basename(u) != filename
+        ]
+
+    # Remove from upload_meta
+    if filename in meta:
+        del meta[filename]
+        _save_upload_meta(meta)
+
+    save_device_state()
+    mark_manifest_dirty()
+
+    # Sync USB if needed
+    if get_display_mode() == "usb":
+        sync_photos_to_usb()
+
+    print(f"[SYNC] Photo {filename} deleted by {uploader}")
+    return jsonify({"success": True})
+
+
 # ============== CHILD ENDPOINTS ==============
 
 @app.route("/admin/sync_now", methods=["POST"])

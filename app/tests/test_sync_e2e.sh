@@ -128,11 +128,18 @@ fi
 echo "Setting up isolated directories..."
 mkdir -p "$MASTER_DIR/photos" "$CHILD_DIR/photos"
 
-# Master state: role=master, one child token
+SYNC_TOKEN_B="e2e-test-token-other-child"
+MASTER_UPLOAD_TOKEN="e2e-master-upload-token"
+
+# Master state: role=master, two child tokens + upload token
 cat > "$MASTER_DIR/device_state.json" <<JSON
 {
   "sync_role": "master",
-  "sync_children": [{"label": "test-child", "token": "$SYNC_TOKEN"}]
+  "upload_token": "$MASTER_UPLOAD_TOKEN",
+  "sync_children": [
+    {"label": "test-child", "token": "$SYNC_TOKEN"},
+    {"label": "other-child", "token": "$SYNC_TOKEN_B"}
+  ]
 }
 JSON
 
@@ -266,6 +273,150 @@ SYNCED_COUNT=$(curl -s "http://127.0.0.1:$CHILD_PORT/admin/sync_status" \
     | python3 -c "import sys,json; print(json.load(sys.stdin).get('synced_photo_count',0))")
 [ "$SYNCED_COUNT" = "3" ] && result PASS "synced_photo_count = $SYNCED_COUNT" \
                            || result FAIL "expected synced_photo_count=3, got $SYNCED_COUNT"
+
+# ============================================================
+echo ""
+echo "=== Test 9: Upload via child token, verify attribution ==="
+# Upload a test photo using the child's sync token (same as upload token)
+create_test_photo "/tmp/e2e_upload_test.jpg" "150"
+HTTP=$(curl -s -o /tmp/e2e_upload_resp.json -w "%{http_code}" \
+    -F "t=$SYNC_TOKEN" -F "photos=@/tmp/e2e_upload_test.jpg" \
+    "http://127.0.0.1:$MASTER_PORT/upload")
+[ "$HTTP" = "200" ] && result PASS "upload via child token -> $HTTP" \
+                     || result FAIL "expected 200, got $HTTP"
+
+# Wait for background processing
+sleep 5
+
+# Check upload_meta has the child's label
+META_UPLOADER=$(python3 -c "
+import json, glob
+files = glob.glob('$MASTER_DIR/photos/upload_meta.json')
+if files:
+    meta = json.load(open(files[0]))
+    vals = list(meta.values())
+    print(vals[0] if vals else 'none')
+else:
+    print('no meta file')
+")
+[ "$META_UPLOADER" = "test-child" ] && result PASS "upload tagged as '$META_UPLOADER'" \
+                                     || result FAIL "expected 'test-child', got '$META_UPLOADER'"
+
+# Get the uploaded filename
+UPLOADED_FILE=$(python3 -c "
+import json, glob
+files = glob.glob('$MASTER_DIR/photos/upload_meta.json')
+if files:
+    meta = json.load(open(files[0]))
+    keys = list(meta.keys())
+    print(keys[0] if keys else 'none')
+else:
+    print('none')
+")
+
+echo "=== Test 10: Child deletes own photo via master API ==="
+HTTP=$(curl -s -o /tmp/e2e_delete_resp.json -w "%{http_code}" \
+    -X POST -H "Content-Type: application/json" \
+    -d "{\"token\": \"$SYNC_TOKEN\", \"filename\": \"$UPLOADED_FILE\"}" \
+    "http://127.0.0.1:$MASTER_PORT/sync/delete_photo")
+[ "$HTTP" = "200" ] && result PASS "delete own photo -> $HTTP" \
+                     || result FAIL "expected 200, got $HTTP"
+
+# Verify file is gone from master
+[ ! -f "$MASTER_DIR/photos/upload/$UPLOADED_FILE" ] \
+    && result PASS "photo removed from master disk" \
+    || result FAIL "photo still on master disk"
+
+echo "=== Test 11: Child cannot delete another child's photo ==="
+# Upload a photo as child B
+create_test_photo "/tmp/e2e_upload_b.jpg" "200"
+curl -s -F "t=$SYNC_TOKEN_B" -F "photos=@/tmp/e2e_upload_b.jpg" \
+    "http://127.0.0.1:$MASTER_PORT/upload" >/dev/null
+sleep 5
+
+# Get child B's filename
+UPLOADED_FILE_B=$(python3 -c "
+import json
+meta = json.load(open('$MASTER_DIR/photos/upload_meta.json'))
+for k, v in meta.items():
+    if v == 'other-child':
+        print(k); break
+")
+
+# Try to delete child B's photo with child A's token
+HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X POST -H "Content-Type: application/json" \
+    -d "{\"token\": \"$SYNC_TOKEN\", \"filename\": \"$UPLOADED_FILE_B\"}" \
+    "http://127.0.0.1:$MASTER_PORT/sync/delete_photo")
+[ "$HTTP" = "403" ] && result PASS "cross-child delete blocked -> $HTTP" \
+                     || result FAIL "expected 403, got $HTTP"
+
+# Verify file still exists
+[ -f "$MASTER_DIR/photos/upload/$UPLOADED_FILE_B" ] \
+    && result PASS "other child's photo still on disk" \
+    || result FAIL "other child's photo was deleted!"
+
+echo "=== Test 12: Admin can delete any photo ==="
+HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X POST -H "Content-Type: application/json" \
+    -d "{\"token\": \"$MASTER_UPLOAD_TOKEN\", \"filename\": \"$UPLOADED_FILE_B\"}" \
+    "http://127.0.0.1:$MASTER_PORT/sync/delete_photo")
+[ "$HTTP" = "200" ] && result PASS "admin delete any photo -> $HTTP" \
+                     || result FAIL "expected 200, got $HTTP"
+
+[ ! -f "$MASTER_DIR/photos/upload/$UPLOADED_FILE_B" ] \
+    && result PASS "admin-deleted photo removed from disk" \
+    || result FAIL "photo still on disk after admin delete"
+
+echo "=== Test 13: Delete non-existent photo ==="
+HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X POST -H "Content-Type: application/json" \
+    -d "{\"token\": \"$SYNC_TOKEN\", \"filename\": \"bogus_file.jpg\"}" \
+    "http://127.0.0.1:$MASTER_PORT/sync/delete_photo")
+# Returns 403 (not your photo — not in upload_meta) or 404 (not found). Both are correct.
+if [ "$HTTP" = "403" ] || [ "$HTTP" = "404" ]; then
+    result PASS "delete non-existent -> $HTTP"
+else
+    result FAIL "expected 403 or 404, got $HTTP"
+fi
+
+echo "=== Test 14: Full cycle - upload, sync, delete, re-sync ==="
+# Upload a photo
+create_test_photo "/tmp/e2e_cycle.jpg" "100"
+curl -s -F "t=$SYNC_TOKEN" -F "photos=@/tmp/e2e_cycle.jpg" \
+    "http://127.0.0.1:$MASTER_PORT/upload" >/dev/null
+sleep 5
+restart_master
+
+# Sync to child
+curl -s -X POST "http://127.0.0.1:$CHILD_PORT/admin/sync_now" >/dev/null
+wait_sync_done
+CHILD_HAS=$(find "$CHILD_DIR/photos/sync" -name "*.jpg" 2>/dev/null | wc -l | tr -d ' ')
+[ "$CHILD_HAS" -ge 1 ] && result PASS "photo synced to child ($CHILD_HAS files)" \
+                        || result FAIL "photo not on child after sync"
+
+# Get filename and delete from master
+CYCLE_FILE=$(python3 -c "
+import json
+meta = json.load(open('$MASTER_DIR/photos/upload_meta.json'))
+for k, v in meta.items():
+    if v == 'test-child':
+        print(k); break
+")
+curl -s -X POST -H "Content-Type: application/json" \
+    -d "{\"token\": \"$SYNC_TOKEN\", \"filename\": \"$CYCLE_FILE\"}" \
+    "http://127.0.0.1:$MASTER_PORT/sync/delete_photo" >/dev/null
+
+# Re-sync child — deleted photo should be removed
+restart_master
+curl -s -X POST "http://127.0.0.1:$CHILD_PORT/admin/sync_now" >/dev/null
+wait_sync_done
+CHILD_AFTER=$(find "$CHILD_DIR/photos/sync" -name "*.jpg" 2>/dev/null | wc -l | tr -d ' ')
+[ "$CHILD_AFTER" -lt "$CHILD_HAS" ] && result PASS "deleted photo removed from child after re-sync ($CHILD_AFTER files)" \
+                                     || result FAIL "child still has $CHILD_AFTER files (expected fewer than $CHILD_HAS)"
+
+# Clean up temp files
+rm -f /tmp/e2e_upload_test.jpg /tmp/e2e_upload_b.jpg /tmp/e2e_cycle.jpg /tmp/e2e_upload_resp.json /tmp/e2e_delete_resp.json
 
 # ============================================================
 echo ""

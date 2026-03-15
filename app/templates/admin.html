@@ -1372,14 +1372,35 @@
         async function deletePhoto(path) {
             if (!await showConfirm('Delete this photo?')) return;
             try {
-                const resp = await fetch('/admin/delete_photo', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path })
-                });
+                const syncRole = '{{ sync_role }}';
+                const filename = path.split('/').pop();
+                let resp;
+
+                if (syncRole === 'child') {
+                    // Child: delete on master via sync API
+                    const masterUrl = '{{ master_url }}';
+                    const syncToken = '{{ sync_token }}';
+                    resp = await fetch(`${masterUrl}/sync/delete_photo`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token: syncToken, filename: filename })
+                    });
+                } else {
+                    // Master: delete locally
+                    resp = await fetch('/admin/delete_photo', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path })
+                    });
+                }
+
                 const data = await resp.json();
                 if (data.success) {
                     showToast('Photo deleted');
+                    if (syncRole === 'child') {
+                        // Trigger local sync to remove the file
+                        fetch('/admin/sync_now', { method: 'POST' });
+                    }
                     loadPhotos();
                     loadSystemInfo();
                     if (currentDisplayMode === 'usb') {
