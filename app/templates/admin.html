@@ -1544,8 +1544,9 @@
             }
         }
 
-        // Auto-poll sync status every 10 seconds for child frames
+        // Auto-poll sync status for child frames (immediate + every 10s)
         {% if sync_role == 'child' %}
+        loadSyncStatus();
         setInterval(loadSyncStatus, 10000);
         {% endif %}
 
