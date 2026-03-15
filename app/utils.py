@@ -38,13 +38,8 @@ def add_qr_watermark(image_path):
         qr.make(fit=True)
         qr_img = qr.make_image(fill_color='black', back_color='white').convert('RGBA')
         
-        # Scale QR to be scannable on typical USB photo frames (7-10", 1024-1280px wide).
-        # Target ~10% of a 1280px display = 128px. Scale proportionally if image is
-        # larger/smaller, but clamp to a reasonable range.
-        TARGET_DISPLAY_WIDTH = 1280
-        target_qr = 128  # ~10% of typical frame width, scannable at arm's length
-        scale = min(img.width, img.height) / TARGET_DISPLAY_WIDTH
-        qr_size = max(80, min(200, int(target_qr * scale)))
+        # Use longer dimension so portrait and landscape get similar QR size
+        qr_size = max(img.width, img.height) // 14
         qr_img = qr_img.resize((qr_size, qr_size))
         
         # Make semi-transparent
