@@ -24,6 +24,8 @@
 %sudo ALL=(ALL) NOPASSWD: /home/*/instapi/pi-setup/wifi-setup.sh connect *
 %sudo ALL=(ALL) NOPASSWD: /home/*/instapi/pi-setup/wifi-setup.sh scan
 
-# Allow captive portal (DNS hijack, iptables, dnsmasq)
-%sudo ALL=(ALL) NOPASSWD: /usr/sbin/iptables *
-%sudo ALL=(ALL) NOPASSWD: /usr/sbin/dnsmasq --conf-file=/tmp/instapi-captive-dns.conf *
+# Allow captive portal (DNS config, nftables)
+%sudo ALL=(ALL) NOPASSWD: /bin/mkdir -p /etc/NetworkManager/dnsmasq-shared.d
+%sudo ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/NetworkManager/dnsmasq-shared.d/captive-portal.conf
+%sudo ALL=(ALL) NOPASSWD: /bin/rm -f /etc/NetworkManager/dnsmasq-shared.d/captive-portal.conf
+%sudo ALL=(ALL) NOPASSWD: /usr/sbin/nft *
