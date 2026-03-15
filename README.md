@@ -171,6 +171,7 @@ instapi/
 │   ├── app.py                    # Flask instance
 │   ├── config.py                 # Constants + slideshow config
 │   ├── db.py                     # SQLite database layer
+│   ├── rate_limit.py             # Rate limiting decorator
 │   ├── utils.py                  # Download, watermark, USB sync
 │   ├── album_sync.py             # Google Photos album sync
 │   ├── routes/
@@ -182,12 +183,22 @@ instapi/
 │   │   └── wifi_routes.py        # WiFi setup + captive portal
 │   ├── templates/
 │   │   ├── index.html            # Setup page with QR code
-│   │   ├── admin.html            # Admin panel
+│   │   ├── admin.html            # Admin panel (includes partials)
+│   │   ├── admin/                # Admin panel partials
+│   │   │   ├── _header.html      # Header, system bar, disk bar
+│   │   │   ├── _photos.html      # Photo management
+│   │   │   ├── _sync.html        # Family sync
+│   │   │   ├── _settings.html    # Slideshow settings
+│   │   │   ├── _controls.html    # Frame controls + system
+│   │   │   └── _modals.html      # Modals, lightbox, help guide
+│   │   ├── admin_login.html      # Admin login page
 │   │   ├── upload.html           # Family upload page
 │   │   ├── upload_error.html     # Invalid token error page
 │   │   ├── slideshow.html        # HDMI slideshow
 │   │   └── wifi_setup.html       # WiFi network selection
 │   ├── static/
+│   │   ├── css/admin.css         # Admin panel styles
+│   │   ├── js/admin.js           # Admin panel logic
 │   │   ├── photos/               # Downloaded photos
 │   │   │   ├── picker/           # From Google Photos picker
 │   │   │   ├── upload/           # From family uploads
@@ -263,7 +274,15 @@ Photos stay as files on disk — only metadata is in the database. The `settings
 
 ## Privacy
 
-InstaPi runs entirely on your Raspberry Pi. There are no external servers, no analytics, no tracking. OAuth tokens exist only in your Pi's memory. Photos are stored locally and never transmitted anywhere. See our [Privacy Policy](https://instapi.dev/privacy).
+InstaPi runs entirely on your Raspberry Pi. There are no external servers, no analytics, no tracking. All settings, photo metadata, and sync history are stored in a local SQLite database. OAuth tokens exist only in your Pi's memory. Photos are stored locally and never transmitted anywhere. See our [Privacy Policy](https://instapi.dev/privacy).
+
+## Security
+
+- **Admin authentication** — Password-protected admin panel (system password or `INSTAPI_ADMIN_PASSWORD` env var)
+- **Rate limiting** — Login endpoint limited to 5 attempts per 5 minutes
+- **Upload validation** — File magic bytes checked (JPEG/PNG/GIF only) before processing
+- **Token-based access** — Upload and sync endpoints require valid tokens
+- **Path traversal protection** — All file operations validate paths stay within allowed directories
 
 ## License
 
