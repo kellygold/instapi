@@ -314,8 +314,9 @@ def save_sync_config():
         db.delete_setting("master_url")
         db.delete_setting("sync_token")
 
-    # Start/stop sync loop based on role change
-    if role == "child" and old_role != "child":
+    # Start/stop/restart sync loop
+    if role == "child":
+        # Restart loop to pick up any changes (interval, master URL, token)
         start_sync_loop()
     elif old_role == "child" and role != "child":
         stop_sync_loop()
