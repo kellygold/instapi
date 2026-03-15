@@ -7,7 +7,7 @@ Wants=NetworkManager.service sys-subsystem-net-devices-wlan0.device
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/home/instapi/instapi/pi-setup/wifi-setup.sh check
+ExecStart=/home/pi/instapi/pi-setup/wifi-setup.sh check
 
 [Install]
 WantedBy=multi-user.target

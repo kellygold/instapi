@@ -276,7 +276,7 @@ if [ "$DISPLAY_MODE" = "usb" ]; then
     # Update service paths
     sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/instapi.service
     sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/usb-gadget.service
-    sudo sed -i "s|/home/instapi|$HOME|g" /etc/systemd/system/instapi-wifi.service
+    sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/instapi-wifi.service
     sudo sed -i "s|User=pi|User=$USER|g" /etc/systemd/system/instapi.service
 
 
@@ -297,13 +297,17 @@ elif [ "$DISPLAY_MODE" = "hdmi" ]; then
     echo "🖥️  Configuring HDMI Kiosk mode..."
 
     # Reduce GPU memory (more RAM for browser)
-    if ! grep -q "gpu_mem=" /boot/config.txt; then
-        echo "gpu_mem=128" | sudo tee -a /boot/config.txt
+    BOOT_CONFIG="/boot/firmware/config.txt"
+    [ ! -f "$BOOT_CONFIG" ] && BOOT_CONFIG="/boot/config.txt"
+    if ! grep -q "gpu_mem=" "$BOOT_CONFIG"; then
+        echo "gpu_mem=128" | sudo tee -a "$BOOT_CONFIG"
     fi
 
     # Disable screen blanking
-    if ! grep -q "consoleblank=0" /boot/cmdline.txt; then
-        sudo sed -i 's/$/ consoleblank=0/' /boot/cmdline.txt
+    CMDLINE_FILE="/boot/firmware/cmdline.txt"
+    [ ! -f "$CMDLINE_FILE" ] && CMDLINE_FILE="/boot/cmdline.txt"
+    if ! grep -q "consoleblank=0" "$CMDLINE_FILE"; then
+        sudo sed -i 's/$/ consoleblank=0/' "$CMDLINE_FILE"
     fi
 
     # Install systemd services for HDMI mode
@@ -315,7 +319,7 @@ elif [ "$DISPLAY_MODE" = "hdmi" ]; then
     # Update service paths
     sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/instapi.service
     sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/instapi-kiosk.service
-    sudo sed -i "s|/home/instapi|$HOME|g" /etc/systemd/system/instapi-wifi.service
+    sudo sed -i "s|/home/pi|$HOME|g" /etc/systemd/system/instapi-wifi.service
     sudo sed -i "s|User=pi|User=$USER|g" /etc/systemd/system/instapi.service
     sudo sed -i "s|User=pi|User=$USER|g" /etc/systemd/system/instapi-kiosk.service
 
@@ -345,6 +349,15 @@ if [ "$SYNC_ROLE" = "child" ] && [ -n "$SYNC_TOKEN" ] && [ -n "$MASTER_URL" ]; t
 }
 EOFSTATE
     echo "device_state.json pre-seeded with child sync config"
+elif [ "$SYNC_ROLE" = "master" ]; then
+    echo "👑 Configuring as master frame..."
+    cat > "$INSTALL_DIR/app/device_state.json" << EOFSTATE
+{
+  "sync_role": "master",
+  "sync_children": []
+}
+EOFSTATE
+    echo "device_state.json pre-seeded with master sync config"
 fi
 
 echo ""
