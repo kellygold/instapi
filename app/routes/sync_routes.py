@@ -36,7 +36,11 @@ def _build_manifest():
                     full_path = os.path.join(root, f)
                     rel_path = os.path.relpath(full_path, config.PHOTOS_DIR)
                     try:
-                        md5 = hashlib.md5(open(full_path, 'rb').read()).hexdigest()
+                        h = hashlib.md5()
+                        with open(full_path, 'rb') as fh:
+                            for chunk in iter(lambda: fh.read(8192), b''):
+                                h.update(chunk)
+                        md5 = h.hexdigest()
                         size = os.path.getsize(full_path)
                     except OSError:
                         continue
@@ -257,7 +261,11 @@ def _build_local_manifest():
                     full_path = os.path.join(root, f)
                     rel_path = os.path.relpath(full_path, sync_dir)
                     try:
-                        md5 = hashlib.md5(open(full_path, 'rb').read()).hexdigest()
+                        h = hashlib.md5()
+                        with open(full_path, 'rb') as fh:
+                            for chunk in iter(lambda: fh.read(8192), b''):
+                                h.update(chunk)
+                        md5 = h.hexdigest()
                     except OSError:
                         continue
                     local[rel_path] = md5
@@ -357,13 +365,8 @@ def run_sync_cycle():
                 except Exception as e:
                     print(f"[SYNC] Thumbnail failed for {path}: {e}")
 
-                # Add QR watermark in USB mode (points to master upload page)
-                if get_display_mode() == "usb":
-                    try:
-                        from utils import add_qr_watermark
-                        add_qr_watermark(dest)
-                    except Exception as e:
-                        print(f"[SYNC] Watermark failed for {path}: {e}")
+                # No watermark here — master already watermarked during upload.
+                # Re-watermarking would change the MD5 and cause re-downloads every sync.
 
                 downloaded += 1
                 device_state["sync_completed"] = downloaded

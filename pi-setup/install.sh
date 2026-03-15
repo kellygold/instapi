@@ -259,8 +259,8 @@ if [ "$DISPLAY_MODE" = "usb" ]; then
     # Create USB disk image (256MB FAT32)
     IMG_FILE="$HOME/usb_drive.img"
     if [ ! -f "$IMG_FILE" ]; then
-        echo "💾 Creating 256MB USB disk image..."
-        dd if=/dev/zero of="$IMG_FILE" bs=1M count=256
+        echo "💾 Creating 1GB USB disk image..."
+        dd if=/dev/zero of="$IMG_FILE" bs=1M count=1024
         /usr/sbin/mkfs.fat -F 32 "$IMG_FILE"
     fi
 

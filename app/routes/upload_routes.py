@@ -1,10 +1,12 @@
 # routes/upload_routes.py
 import os
+import gc
 import json
 import time
 import shutil
+import threading
 from flask import render_template, jsonify, request
-from PIL import Image
+from PIL import Image, ImageOps
 from app import app
 from config import device_state, PHOTOS_DIR, save_device_state
 from utils import sync_photos_to_usb, get_display_mode
@@ -12,6 +14,7 @@ from routes.sync_routes import mark_manifest_dirty
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 UPLOAD_META_FILE = os.path.join(PHOTOS_DIR, "upload_meta.json")
+STAGING_DIR = os.path.join(PHOTOS_DIR, ".staging")
 
 
 def _load_upload_meta():
@@ -60,7 +63,7 @@ def upload_page():
 
 @app.route("/upload", methods=["POST"])
 def upload_photos():
-    """Handle photo uploads."""
+    """Save uploaded files to staging, process in background."""
     uploader = _validate_token()
     if not uploader:
         return jsonify({"success": False, "error": "Invalid token"}), 403
@@ -74,15 +77,11 @@ def upload_photos():
     if free < 50 * 1024 * 1024:
         return jsonify({"success": False, "error": "Storage full. Delete some photos first."})
 
-    subdir = os.path.join(PHOTOS_DIR, "upload")
-    os.makedirs(subdir, exist_ok=True)
-    thumb_dir = os.path.join(PHOTOS_DIR, "thumbs")
-    os.makedirs(thumb_dir, exist_ok=True)
-
+    # Save raw files to staging dir (fast, no processing)
+    os.makedirs(STAGING_DIR, exist_ok=True)
     batch_id = int(time.time())
-    uploaded = 0
+    staged = []
     skipped = 0
-    uploaded_filenames = []
 
     for i, file in enumerate(files):
         if not file or not file.filename:
@@ -97,45 +96,93 @@ def upload_photos():
             print(f"[UPLOAD] Skipped {file.filename}: too large ({size} bytes)")
             continue
 
-        # Validate it's an image
+        # Save raw file to staging (no PIL processing yet)
+        staging_name = f"stage_{batch_id}_{i}_{file.filename}"
+        staging_path = os.path.join(STAGING_DIR, staging_name)
+        file.save(staging_path)
+        staged.append((staging_path, f"upload_{batch_id}_{i}.jpg"))
+
+    if not staged:
+        return jsonify({"success": False, "error": "No valid files"})
+
+    # Track processing progress
+    device_state["upload_processing"] = True
+    device_state["upload_total"] = len(staged)
+    device_state["upload_processed"] = 0
+
+    # Process in background thread (prevents OOM from processing all at once)
+    t = threading.Thread(
+        target=_process_staged_uploads,
+        args=(staged, uploader),
+        daemon=True
+    )
+    t.start()
+
+    return jsonify({
+        "success": True,
+        "count": len(staged),
+        "skipped": skipped,
+        "processing": True
+    })
+
+
+def _process_staged_uploads(staged_files, uploader):
+    """Process staged uploads one at a time in background thread."""
+    subdir = os.path.join(PHOTOS_DIR, "upload")
+    os.makedirs(subdir, exist_ok=True)
+    thumb_dir = os.path.join(PHOTOS_DIR, "thumbs")
+    os.makedirs(thumb_dir, exist_ok=True)
+
+    processed_filenames = []
+
+    for idx, (staging_path, filename) in enumerate(staged_files):
         try:
-            img = Image.open(file)
-            img.verify()
-            file.seek(0)
-            img = Image.open(file)
-        except Exception:
-            skipped += 1
-            print(f"[UPLOAD] Skipped {file.filename}: not a valid image")
-            continue
+            photo_path = os.path.join(subdir, filename)
 
-        filename = f"upload_{batch_id}_{i}.jpg"
-        photo_path = os.path.join(subdir, filename)
+            # Open, validate, fix rotation, save as JPEG
+            img = Image.open(staging_path)
+            img = ImageOps.exif_transpose(img)
+            img = img.convert("RGB")
+            img.save(photo_path, "JPEG", quality=85)
+            del img
 
-        # Save as JPEG
-        img = img.convert("RGB")
-        img.save(photo_path, "JPEG", quality=85)
+            # Generate thumbnail
+            thumb_img = Image.open(photo_path)
+            thumb_img.thumbnail((200, 200))
+            thumb_img.save(os.path.join(thumb_dir, filename), "JPEG", quality=60)
+            del thumb_img
 
-        # Generate thumbnail
-        thumb_path = os.path.join(thumb_dir, filename)
-        thumb_img = Image.open(photo_path)
-        thumb_img.thumbnail((200, 200))
-        thumb_img.save(thumb_path, "JPEG", quality=60)
+            # Add QR watermark in USB mode
+            if get_display_mode() == "usb":
+                from utils import add_qr_watermark
+                add_qr_watermark(photo_path)
 
-        # Add QR watermark in USB mode
-        if get_display_mode() == "usb":
-            from utils import add_qr_watermark
-            add_qr_watermark(photo_path)
+            # Add to device state
+            url_path = f"/static/photos/upload/{filename}"
+            device_state.setdefault("photo_urls", []).append(url_path)
+            processed_filenames.append(filename)
 
-        # Add to device state
-        url_path = f"/static/photos/upload/{filename}"
-        device_state.setdefault("photo_urls", []).append(url_path)
-        uploaded_filenames.append(filename)
-        uploaded += 1
+            print(f"[UPLOAD] Processed {idx + 1}/{len(staged_files)}: {filename}")
 
-    if uploaded > 0:
-        # Tag photos with uploader identity
+        except Exception as e:
+            print(f"[UPLOAD] Failed to process {staging_path}: {e}")
+        finally:
+            # Clean up staging file
+            try:
+                os.remove(staging_path)
+            except OSError:
+                pass
+
+            device_state["upload_processed"] = idx + 1
+
+            # Free memory every 5 files
+            if (idx + 1) % 5 == 0:
+                gc.collect()
+
+    # Tag photos with uploader identity
+    if processed_filenames:
         meta = _load_upload_meta()
-        for fname in uploaded_filenames:
+        for fname in processed_filenames:
             meta[fname] = uploader
         _save_upload_meta(meta)
 
@@ -148,4 +195,25 @@ def upload_photos():
         if get_display_mode() == "usb":
             sync_photos_to_usb()
 
-    return jsonify({"success": True, "count": uploaded, "skipped": skipped})
+    # Clear processing state
+    device_state.pop("upload_processing", None)
+    device_state.pop("upload_total", None)
+    device_state.pop("upload_processed", None)
+
+    # Clean up staging dir
+    try:
+        os.rmdir(STAGING_DIR)
+    except OSError:
+        pass
+
+    print(f"[UPLOAD] Done: {len(processed_filenames)} processed")
+
+
+@app.route("/upload/status")
+def upload_status():
+    """Return upload processing progress."""
+    return jsonify({
+        "processing": device_state.get("upload_processing", False),
+        "total": device_state.get("upload_total", 0),
+        "processed": device_state.get("upload_processed", 0),
+    })

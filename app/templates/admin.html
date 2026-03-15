@@ -1276,7 +1276,8 @@
                 grid.classList.remove('empty');
                 grid.innerHTML = photos.map(photo => `
                     <div class="photo-thumb">
-                        <img src="${photo.thumb}" alt="${photo.name}" loading="lazy">
+                        <img src="${photo.thumb}" alt="${photo.name}" loading="lazy"
+                             onerror="this.style.opacity='0.3'; setTimeout(() => { this.src=this.src+'?r='+Date.now(); this.style.opacity='1'; }, 2000);">
                         <button class="delete-btn" onclick="deletePhoto('${photo.path}')" title="Delete">×</button>
                     </div>
                 `).join('');
@@ -1534,8 +1535,19 @@
                 }
             } catch (e) {
                 console.error('Failed to load sync status:', e);
+                const status = document.getElementById('syncStatusText');
+                const detail = document.getElementById('syncDetailText');
+                if (status) {
+                    status.textContent = 'Could not reach frame';
+                    detail.textContent = 'Will retry...';
+                }
             }
         }
+
+        // Auto-poll sync status every 10 seconds for child frames
+        {% if sync_role == 'child' %}
+        setInterval(loadSyncStatus, 10000);
+        {% endif %}
 
         function timeAgo(isoStr) {
             const diff = (Date.now() - new Date(isoStr).getTime()) / 1000;
