@@ -49,6 +49,25 @@ if [ "$PHOTO_COUNT" -eq 0 ]; then
     fi
 fi
 
+# Watermark new USB copies with this Pi's unique QR code
+if [ "$ADDED" -gt 0 ]; then
+    echo "Watermarking new photos..."
+    APP_DIR="$INSTAPI_DIR/app"
+    VENV="$APP_DIR/venv/bin/python3"
+    if [ -f "$VENV" ]; then
+        cd "$APP_DIR"
+        "$VENV" -c "
+from utils import add_qr_watermark
+import glob, os
+mount = '$MOUNT_POINT'
+for f in glob.glob(os.path.join(mount, '*.jpg')) + glob.glob(os.path.join(mount, '*.jpeg')) + glob.glob(os.path.join(mount, '*.png')):
+    if 'qr-placeholder' not in f:
+        add_qr_watermark(f)
+print(f'Watermarked photos on USB')
+" 2>/dev/null || echo "Watermark failed (non-fatal)"
+    fi
+fi
+
 # Sync and unmount (frame needs exclusive access)
 sync
 sudo umount "$MOUNT_POINT"

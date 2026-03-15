@@ -152,10 +152,8 @@ def _process_staged_uploads(staged_files, uploader):
             thumb_img.save(os.path.join(thumb_dir, filename), "JPEG", quality=60)
             del thumb_img
 
-            # Add QR watermark in USB mode
-            if get_display_mode() == "usb":
-                from utils import add_qr_watermark
-                add_qr_watermark(photo_path)
+            # No watermark here — watermark is applied at USB copy time
+            # so each frame gets its own unique QR (child vs master token)
 
             # Add to device state
             url_path = f"/static/photos/upload/{filename}"

@@ -276,7 +276,29 @@ SYNCED_COUNT=$(curl -s "http://127.0.0.1:$CHILD_PORT/admin/sync_status" \
 
 # ============================================================
 echo ""
-echo "=== Test 9: Upload via child token, verify attribution ==="
+echo "=== Test 9: Re-sync downloads 0 photos (no re-download bug) ==="
+# Sync again — nothing changed, should download 0
+curl -s -X POST "http://127.0.0.1:$CHILD_PORT/admin/sync_now" >/dev/null
+wait_sync_done
+# Check logs for "0 to download"
+LAST_SYNC=$(curl -s "http://127.0.0.1:$CHILD_PORT/admin/sync_status" \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('synced_photo_count',0))")
+[ "$LAST_SYNC" = "3" ] && result PASS "re-sync: still 3 photos (no re-download)" \
+                        || result FAIL "expected 3 photos after re-sync, got $LAST_SYNC"
+
+# Verify MD5s still match (watermark wasn't applied to source)
+ALL_MATCH=true
+for i in 1 3 4; do
+    if [ -f "$CHILD_DIR/photos/sync/photo_$i.jpg" ] && [ -f "$MASTER_DIR/photos/photo_$i.jpg" ]; then
+        M_MD5=$(md5 -q "$MASTER_DIR/photos/photo_$i.jpg")
+        C_MD5=$(md5 -q "$CHILD_DIR/photos/sync/photo_$i.jpg")
+        [ "$M_MD5" != "$C_MD5" ] && ALL_MATCH=false
+    fi
+done
+[ "$ALL_MATCH" = "true" ] && result PASS "re-sync: MD5s still match (no watermark corruption)" \
+                           || result FAIL "MD5 mismatch after re-sync"
+
+echo "=== Test 10: Upload via child token, verify attribution ==="
 # Upload a test photo using the child's sync token (same as upload token)
 create_test_photo "/tmp/e2e_upload_test.jpg" "150"
 HTTP=$(curl -s -o /tmp/e2e_upload_resp.json -w "%{http_code}" \
@@ -314,7 +336,7 @@ else:
     print('none')
 ")
 
-echo "=== Test 10: Child deletes own photo via master API ==="
+echo "=== Test 11: Child deletes own photo via master API ==="
 HTTP=$(curl -s -o /tmp/e2e_delete_resp.json -w "%{http_code}" \
     -X POST -H "Content-Type: application/json" \
     -d "{\"token\": \"$SYNC_TOKEN\", \"filename\": \"$UPLOADED_FILE\"}" \
@@ -327,7 +349,7 @@ HTTP=$(curl -s -o /tmp/e2e_delete_resp.json -w "%{http_code}" \
     && result PASS "photo removed from master disk" \
     || result FAIL "photo still on master disk"
 
-echo "=== Test 11: Child cannot delete another child's photo ==="
+echo "=== Test 12: Child cannot delete another child's photo ==="
 # Upload a photo as child B
 create_test_photo "/tmp/e2e_upload_b.jpg" "200"
 curl -s -F "t=$SYNC_TOKEN_B" -F "photos=@/tmp/e2e_upload_b.jpg" \
@@ -356,7 +378,7 @@ HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
     && result PASS "other child's photo still on disk" \
     || result FAIL "other child's photo was deleted!"
 
-echo "=== Test 12: Admin can delete any photo ==="
+echo "=== Test 13: Admin can delete any photo ==="
 HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
     -X POST -H "Content-Type: application/json" \
     -d "{\"token\": \"$MASTER_UPLOAD_TOKEN\", \"filename\": \"$UPLOADED_FILE_B\"}" \
@@ -368,7 +390,7 @@ HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
     && result PASS "admin-deleted photo removed from disk" \
     || result FAIL "photo still on disk after admin delete"
 
-echo "=== Test 13: Delete non-existent photo ==="
+echo "=== Test 14: Delete non-existent photo ==="
 HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
     -X POST -H "Content-Type: application/json" \
     -d "{\"token\": \"$SYNC_TOKEN\", \"filename\": \"bogus_file.jpg\"}" \
@@ -380,7 +402,7 @@ else
     result FAIL "expected 403 or 404, got $HTTP"
 fi
 
-echo "=== Test 14: Full cycle - upload, sync, delete, re-sync ==="
+echo "=== Test 15: Full cycle - upload, sync, delete, re-sync ==="
 # Upload a photo
 create_test_photo "/tmp/e2e_cycle.jpg" "100"
 curl -s -F "t=$SYNC_TOKEN" -F "photos=@/tmp/e2e_cycle.jpg" \
