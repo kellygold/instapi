@@ -88,6 +88,11 @@ def sync_manifest():
     # Include upload metadata so children know who uploaded each photo
     from routes.upload_routes import _load_upload_meta
     manifest["upload_meta"] = _load_upload_meta()
+    # Tell the child its own label (based on which token authenticated)
+    for child in device_state.get("sync_children", []):
+        if child["token"] == token:
+            manifest["your_label"] = child["label"]
+            break
     return jsonify(manifest)
 
 
@@ -386,6 +391,11 @@ def run_sync_cycle():
         if upload_meta:
             from routes.upload_routes import _save_upload_meta
             _save_upload_meta(upload_meta)
+
+        # Save our own label (so we know which photos are "mine")
+        your_label = manifest.get("your_label")
+        if your_label:
+            device_state["sync_label"] = your_label
 
         # 2. Build local manifest
         local_photos = _build_local_manifest()

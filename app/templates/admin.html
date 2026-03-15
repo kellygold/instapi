@@ -1308,14 +1308,20 @@
                 return;
             }
 
+            const syncRole = '{{ sync_role }}';
+            const myLabel = '{{ sync_label }}';
+
             grid.classList.remove('empty');
-            grid.innerHTML = filtered.map(photo => `
+            grid.innerHTML = filtered.map(photo => {
+                // Children can only delete their own photos; master/admin can delete any
+                const canDelete = syncRole !== 'child' || photo.uploaded_by === myLabel;
+                return `
                     <div class="photo-thumb">
                         <img src="${photo.thumb}" alt="${photo.name}" loading="lazy"
                              onerror="this.style.opacity='0.3'; setTimeout(() => { this.src=this.src+'?r='+Date.now(); this.style.opacity='1'; }, 2000);">
-                        <button class="delete-btn" onclick="deletePhoto('${photo.path}')" title="Delete">×</button>
-                    </div>
-                `).join('');
+                        ${canDelete ? `<button class="delete-btn" onclick="deletePhoto('${photo.path}')" title="Delete">×</button>` : ''}
+                    </div>`;
+            }).join('');
         }
 
         // Load slideshow settings
