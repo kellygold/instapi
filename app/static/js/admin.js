@@ -87,7 +87,7 @@
                 } else if (data.storage.free_gb < 2) {
                     freeEl.style.color = '#fb923c';
                 } else {
-                    freeEl.style.color = '#4ade80';
+                    freeEl.style.color = '#2dd4bf';
                 }
                 // Update disk bar
                 updateDiskBar(data.storage);
@@ -159,12 +159,27 @@
                 // Children can only delete their own photos; master/admin can delete any
                 const canDelete = syncRole !== 'child' || photo.uploaded_by === myLabel;
                 return `
-                    <div class="photo-thumb">
-                        <img src="${photo.thumb}" alt="${photo.name}" loading="lazy"
-                             onerror="this.style.opacity='0.3'; setTimeout(() => { this.src=this.src+'?r='+Date.now(); this.style.opacity='1'; }, 2000);">
-                        ${canDelete ? `<button class="delete-btn" onclick="deletePhoto('${photo.path}')" title="Delete">×</button>` : ''}
+                    <div class="photo-thumb" onclick="showLightbox('${photo.path}')">
+                        <img data-src="${photo.thumb}" alt="${photo.name}"
+                             src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                             onerror="this.style.opacity='0.3'; setTimeout(() => { this.src=this.dataset.src+'?r='+Date.now(); this.classList.add('loaded'); }, 2000);">
+                        ${canDelete ? `<button class="delete-btn" onclick="event.stopPropagation(); deletePhoto('${photo.path}')" title="Delete">×</button>` : ''}
                     </div>`;
             }).join('');
+
+            // Lazy load thumbnails with IntersectionObserver
+            const lazyImages = grid.querySelectorAll('img[data-src]');
+            const imgObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.onload = () => img.classList.add('loaded');
+                        imgObserver.unobserve(img);
+                    }
+                });
+            }, { rootMargin: '100px' });
+            lazyImages.forEach(img => imgObserver.observe(img));
         }
 
         // Load slideshow settings
@@ -368,36 +383,48 @@
             }
         }
 
-        function renderSyncHistory(history) {
-            const section = document.getElementById('syncHistorySection');
-            const list = document.getElementById('syncHistoryList');
-            if (!section || !list || !history || history.length === 0) {
-                if (section) section.style.display = 'none';
-                return;
+        function renderSyncStatus(data) {
+            const card = document.getElementById('syncStatusCard');
+            const dot = document.getElementById('syncDot');
+            const connText = document.getElementById('syncConnectionText');
+            const details = document.getElementById('syncStatusDetails');
+            if (!card || !dot) return;
+            card.style.display = '';
+
+            const isError = data.last_sync_result === 'error';
+            const isSyncing = data.sync_in_progress;
+
+            // Connection dot
+            dot.className = 'sync-dot ' + (isSyncing ? 'syncing' : isError ? 'error' : 'connected');
+            connText.textContent = isSyncing ? 'Syncing...' : isError ? 'Master unreachable' : 'Connected to master';
+
+            // Details
+            let lines = [];
+            if (data.synced_photo_count !== undefined) {
+                lines.push(`${data.synced_photo_count} photos synced`);
             }
-            section.style.display = '';
-            // Show most recent first
-            const sorted = [...history].reverse();
-            list.innerHTML = sorted.map(h => {
-                const icon = h.result === 'success' ? '&#x2705;' : '&#x274C;';
-                const t = new Date(h.timestamp);
-                const timeStr = t.toLocaleString(undefined, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
-                let detail = '';
-                if (h.result === 'success') {
-                    const parts = [];
-                    if (h.photos_added > 0) parts.push(`+${h.photos_added}`);
-                    if (h.photos_removed > 0) parts.push(`-${h.photos_removed}`);
-                    detail = parts.length > 0 ? parts.join(' ') : 'No changes';
-                    if (h.duration_s) detail += ` (${h.duration_s}s)`;
-                } else {
-                    detail = `<span class="sh-error">${h.error || 'Unknown error'}</span>`;
+            if (data.last_sync) {
+                const ago = timeAgo(data.last_sync);
+                lines.push(`Last sync: ${ago}`);
+                // Stale warning if > 2 hours
+                const diffMs = Date.now() - new Date(data.last_sync).getTime();
+                if (diffMs > 2 * 3600 * 1000 && !isSyncing) {
+                    lines.push('<span class="stale-warning">May be stale</span>');
                 }
-                return `<div class="sync-history-item">
-                    <span class="sh-icon">${icon}</span>
-                    <span class="sh-time">${timeStr}</span>
-                    <span class="sh-detail">${detail}</span>
-                </div>`;
-            }).join('');
+            }
+            // Next sync estimate
+            if (data.sync_interval && data.last_sync && !isSyncing) {
+                const elapsed = (Date.now() - new Date(data.last_sync).getTime()) / 1000;
+                const remaining = Math.max(0, data.sync_interval - elapsed);
+                if (remaining > 0) {
+                    const mins = Math.ceil(remaining / 60);
+                    lines.push(`Next sync in ~${mins} min`);
+                }
+            }
+            if (isError && data.sync_error) {
+                lines.push(`<span class="stale-warning">${data.sync_error}</span>`);
+            }
+            details.innerHTML = lines.join('<br>');
         }
 
         async function loadSyncStatus() {
@@ -447,8 +474,8 @@
                     const sel = document.getElementById('syncIntervalSelect');
                     if (sel) sel.value = String(data.sync_interval || 1800);
 
-                    // Render sync history
-                    renderSyncHistory(data.sync_history);
+                    // Render sync status card
+                    renderSyncStatus(data);
                 }
             } catch (e) {
                 console.error('Failed to load sync status:', e);
@@ -707,6 +734,24 @@
                 setGridSize('compact');
             }
 
+        });
+
+        // Lightbox
+        function showLightbox(src) {
+            const overlay = document.getElementById('lightbox');
+            const img = document.getElementById('lightboxImg');
+            img.src = src;
+            overlay.classList.add('show');
+        }
+
+        function closeLightbox() {
+            const overlay = document.getElementById('lightbox');
+            overlay.classList.remove('show');
+            document.getElementById('lightboxImg').src = '';
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeLightbox();
         });
 
         // Refresh when tab regains focus (e.g., after picking photos in another tab)

@@ -1,0 +1,60 @@
+<!-- Slideshow Settings -->
+<div class="section">
+    <div class="section-header">
+        <span class="icon">🎬</span>
+        <h2>Slideshow Settings</h2>
+    </div>
+
+    {% if display_mode == 'usb' %}
+    <p class="settings-note">These settings only affect the slideshow preview in your browser. Your USB photo frame uses its own built-in slideshow settings.</p>
+    {% else %}
+    <p class="section-desc">Controls the HDMI slideshow on your frame. Changes take effect within 10 seconds.</p>
+    {% endif %}
+
+    <div>
+        <div class="settings-grid">
+            <div class="setting-item">
+                <label>Slide Duration</label>
+                <select id="slideDuration" onchange="saveSetting('slide_duration', this.value)">
+                    <option value="3">3 seconds</option>
+                    <option value="5">5 seconds</option>
+                    <option value="10">10 seconds</option>
+                    <option value="15">15 seconds</option>
+                    <option value="30">30 seconds</option>
+                    <option value="60">1 minute</option>
+                </select>
+            </div>
+            <div class="setting-item">
+                <label>Transition Style</label>
+                <select id="transition" onchange="saveSetting('transition', this.value)">
+                    <option value="fade">Fade</option>
+                    <option value="slide">Slide</option>
+                    <option value="zoom">Zoom</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <div class="toggle-row">
+                <div class="toggle-label">
+                    Shuffle Photos
+                    <span>Display photos in random order</span>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="shuffle" onchange="saveSetting('shuffle', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="toggle-row">
+                <div class="toggle-label">
+                    Ken Burns Effect
+                    <span>Subtle pan and zoom animation on photos</span>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="kenBurns" onchange="saveSetting('ken_burns', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+</div>

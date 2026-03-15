@@ -10,25 +10,25 @@
     <link rel="icon" href="/favicon.ico">
     <title>Add Photos — InstaPi</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --bg-deep: #060d08;
+            --bg-deep: #0f0b1e;
             --bg-card: rgba(255,255,255,0.04);
-            --green-glow: #4ade80;
-            --green-mid: #22c55e;
-            --green-dark: #15803d;
-            --text-primary: #f0fdf4;
-            --text-secondary: #86efac;
+            --accent: #ff6b6b;
+            --accent-mid: #e85d5d;
+            --accent-dark: #c0392b;
+            --text-primary: #f0f0ff;
+            --text-secondary: #fca5a5;
             --text-muted: rgba(255,255,255,0.45);
-            --border-subtle: rgba(74, 222, 128, 0.12);
+            --border-subtle: rgba(255, 107, 107, 0.12);
             --radius: 20px;
         }
 
         body {
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Outfit', sans-serif;
             background: var(--bg-deep);
             color: var(--text-primary);
             min-height: 100dvh;
@@ -50,8 +50,8 @@
             width: 140%;
             height: 140%;
             background:
-                radial-gradient(ellipse at 30% 20%, rgba(74, 222, 128, 0.06) 0%, transparent 50%),
-                radial-gradient(ellipse at 70% 80%, rgba(34, 197, 94, 0.04) 0%, transparent 50%);
+                radial-gradient(ellipse at 30% 20%, rgba(255, 107, 107, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(167, 139, 250, 0.04) 0%, transparent 50%);
             animation: ambientShift 20s ease-in-out infinite alternate;
             pointer-events: none;
             z-index: 0;
@@ -84,7 +84,7 @@
             height: 72px;
             border-radius: 18px;
             margin-bottom: 20px;
-            box-shadow: 0 0 40px rgba(74, 222, 128, 0.2);
+            box-shadow: 0 0 40px rgba(255, 107, 107, 0.2);
         }
 
         .header h1 {
@@ -119,14 +119,14 @@
         }
 
         .upload-zone:hover, .upload-zone:active {
-            border-color: rgba(74, 222, 128, 0.4);
-            background: rgba(74, 222, 128, 0.06);
+            border-color: rgba(255, 107, 107, 0.4);
+            background: rgba(255, 107, 107, 0.06);
             transform: scale(1.01);
         }
 
         .upload-zone.dragging {
             border-color: var(--green-glow);
-            background: rgba(74, 222, 128, 0.1);
+            background: rgba(255, 107, 107, 0.1);
             transform: scale(1.02);
         }
 
@@ -191,13 +191,13 @@
 
         .progress-ring-fill {
             fill: none;
-            stroke: var(--green-glow);
+            stroke: var(--accent);
             stroke-width: 6;
             stroke-linecap: round;
             stroke-dasharray: 264;
             stroke-dashoffset: 264;
             transition: stroke-dashoffset 0.3s ease;
-            filter: drop-shadow(0 0 8px rgba(74, 222, 128, 0.4));
+            filter: drop-shadow(0 0 8px var(--accent));
         }
 
         .progress-pct {
@@ -230,13 +230,13 @@
             width: 80px;
             height: 80px;
             border-radius: 50%;
-            background: linear-gradient(135deg, var(--green-mid), var(--green-dark));
+            background: linear-gradient(135deg, var(--accent-mid), var(--accent-dark));
             margin: 0 auto 20px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 2.2rem;
-            box-shadow: 0 0 40px rgba(74, 222, 128, 0.3);
+            box-shadow: 0 0 40px var(--accent);
             animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
         }
 
@@ -273,8 +273,8 @@
         }
 
         .btn-add-more:hover, .btn-add-more:active {
-            background: rgba(74, 222, 128, 0.1);
-            border-color: rgba(74, 222, 128, 0.3);
+            background: rgba(255, 107, 107, 0.1);
+            border-color: rgba(255, 107, 107, 0.3);
         }
 
         /* Error toast */
@@ -350,8 +350,8 @@
 
         .admin-link:hover, .admin-link:active {
             color: var(--text-secondary);
-            background: rgba(74, 222, 128, 0.06);
-            border-color: rgba(74, 222, 128, 0.25);
+            background: rgba(255, 107, 107, 0.06);
+            border-color: rgba(255, 107, 107, 0.25);
         }
 
         .admin-link span {

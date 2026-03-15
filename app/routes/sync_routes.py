@@ -348,8 +348,8 @@ def _add_sync_history(result, photos_added=0, photos_removed=0, duration_s=0, er
         "duration_s": duration_s,
         "error": error
     })
-    # Keep last 20
-    device_state["sync_history"] = history[-20:]
+    # Keep last 5 (status card only shows latest; history retained for API/debugging)
+    device_state["sync_history"] = history[-5:]
     save_device_state()
 
 _sync_stop_event = threading.Event()

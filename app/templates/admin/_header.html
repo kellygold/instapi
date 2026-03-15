@@ -1,0 +1,46 @@
+<!-- Header -->
+<div class="header">
+    <img src="/static/instapi_logo_full.jpg" alt="InstaPi">
+    <div>
+        <h1>InstaPi Admin</h1>
+    </div>
+    <div class="mode-badge {{ display_mode }}">{{ display_mode }} Mode</div>
+    <a href="/admin/logout" class="help-btn" title="Logout" style="text-decoration:none; margin-right:4px; font-size:0.85em;">&#x23FB;</a>
+    <button class="help-btn" onclick="document.getElementById('helpOverlay').classList.add('show')" title="Help">?</button>
+</div>
+
+<!-- System Info Bar -->
+<div class="system-bar" id="systemBar">
+    <div class="stat-card">
+        <div class="value" id="photoCount">{{ photo_count }}</div>
+        <div class="label">Photos</div>
+    </div>
+    <div class="stat-card">
+        <div class="value" id="storageUsed">--</div>
+        <div class="label">Photos Size</div>
+    </div>
+    <div class="stat-card">
+        <div class="value" id="storageFree">--</div>
+        <div class="label">Disk Free</div>
+    </div>
+    <div class="stat-card">
+        <div class="value" id="uptime">--</div>
+        <div class="label">Uptime</div>
+    </div>
+    <div class="stat-card">
+        <div class="value" id="ipAddress">--</div>
+        <div class="label">IP Address</div>
+    </div>
+</div>
+
+<!-- Disk Space Bar -->
+<div class="disk-bar-container" id="diskBarContainer">
+    <div class="disk-bar-header">
+        <span>Disk Usage</span>
+        <span id="diskBarLabel">--</span>
+    </div>
+    <div class="disk-bar">
+        <div class="disk-bar-fill" id="diskBarFill"></div>
+    </div>
+    <div class="disk-bar-warning" id="diskBarWarning" style="display:none;"></div>
+</div>
