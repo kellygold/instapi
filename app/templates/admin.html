@@ -1280,6 +1280,8 @@
 
         function renderPhotos() {
             const grid = document.getElementById('photoGrid');
+            const syncRole = '{{ sync_role }}';
+            const myLabel = '{{ sync_label }}';
             const filtered = activeFilter === 'all'
                 ? allPhotos
                 : allPhotos.filter(p => p.uploaded_by === activeFilter);
@@ -1312,9 +1314,6 @@
                 grid.innerHTML = '<div class="no-photos">No photos from this uploader.</div>';
                 return;
             }
-
-            const syncRole = '{{ sync_role }}';
-            const myLabel = '{{ sync_label }}';
 
             grid.classList.remove('empty');
             grid.innerHTML = filtered.map(photo => {
