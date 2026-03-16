@@ -245,14 +245,17 @@ def sync_delete_photo():
 @app.route("/admin/sync_now", methods=["POST"])
 @require_admin
 def trigger_sync_now():
-    """Trigger an immediate sync cycle."""
+    """Trigger an immediate sync cycle by restarting the sync loop.
+
+    Instead of spawning a separate thread (which races with the loop),
+    restart the loop — it runs a cycle immediately on start.
+    """
     if db.get_setting("sync_role") != "child":
         return jsonify({"success": False, "error": "Not a child"})
     if db.get_setting("sync_in_progress", False):
         return jsonify({"success": False, "error": "Sync already in progress"})
 
-    t = threading.Thread(target=run_sync_cycle, daemon=True)
-    t.start()
+    start_sync_loop()  # stops existing loop, starts fresh (runs cycle after 10s)
     return jsonify({"success": True, "message": "Sync started"})
 
 

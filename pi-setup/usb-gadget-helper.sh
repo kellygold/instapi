@@ -45,8 +45,11 @@ usb_prepare_and_swap() {
     local staging_dir="$3"
     local reformat="${4:-false}"
 
-    # Acquire lock to prevent concurrent USB operations
-    exec 9>/tmp/usb_update.lock
+    # Acquire lock to prevent concurrent USB operations.
+    # Use world-writable lock so both root (systemd) and instapi (Flask) can acquire it.
+    local lockfile="/tmp/usb_update.lock"
+    touch "$lockfile" 2>/dev/null; chmod 666 "$lockfile" 2>/dev/null
+    exec 9>"$lockfile"
     flock -n 9 || { echo "USB update already in progress, skipping"; return 1; }
 
     usb_gadget_stop
