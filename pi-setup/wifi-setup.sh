@@ -139,6 +139,26 @@ cmd_start_ap() {
 
     echo "ap" > "$MODE_FILE"
 
+    # In USB mode, swap frame to wifi-fix image so user sees setup instructions
+    MODE_FILE_DISPLAY="$INSTAPI_DIR/.display_mode"
+    if [ -f "$MODE_FILE_DISPLAY" ] && grep -q usb "$MODE_FILE_DISPLAY" || \
+       [ -f /etc/systemd/system/usb-gadget.service ]; then
+        USER_HOME="$(dirname "$INSTAPI_DIR")"
+        IMG_FILE="$USER_HOME/usb_drive.img"
+        MOUNT_POINT="$USER_HOME/usb_mount"
+        WIFI_FIX="$SCRIPT_DIR/wifi-fix.jpg"
+        STAGING="$USER_HOME/usb_staging"
+
+        if [ -f "$WIFI_FIX" ]; then
+            rm -rf "$STAGING" && mkdir -p "$STAGING"
+            cp "$WIFI_FIX" "$STAGING/"
+            . "$SCRIPT_DIR/usb-gadget-helper.sh"
+            usb_prepare_and_swap "$IMG_FILE" "$MOUNT_POINT" "$STAGING"
+            rm -rf "$STAGING"
+            $LOG "USB swapped to WiFi fix image"
+        fi
+    fi
+
     # Redirect port 80/443 to Flask (port 3000) for captive portal detection
     # Trixie uses nftables (no iptables binary)
     /usr/sbin/nft add table ip instapi_captive 2>/dev/null || true
