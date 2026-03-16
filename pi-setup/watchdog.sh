@@ -11,6 +11,13 @@ WIFI_FIX_IMAGE="$SCRIPT_DIR/wifi-fix.jpg"
 MODE_FILE="$INSTAPI_DIR/.display_mode"
 . "$SCRIPT_DIR/usb-gadget-helper.sh"
 
+# Check if this Pi is in USB display mode (file or service fallback)
+_is_usb_mode() {
+    if _is_usb_mode; then return 0; fi
+    [ -f /etc/systemd/system/usb-gadget.service ] && return 0
+    return 1
+}
+
 # 1. Check internet connectivity (skip if in AP mode)
 if [ -f "$WIFI_MODE_FILE" ] && grep -q "ap" "$WIFI_MODE_FILE"; then
     $LOG "In AP mode (WiFi setup), skipping connectivity check"
@@ -44,7 +51,7 @@ else
                 fi
 
                 # In USB mode, swap USB contents to show the fix image
-                if [ -f "$MODE_FILE" ] && grep -q usb "$MODE_FILE"; then
+                if _is_usb_mode; then
                     USER_HOME="$(dirname "$INSTAPI_DIR")"
                     IMG_FILE="$USER_HOME/usb_drive.img"
                     MOUNT_POINT="$USER_HOME/usb_mount"
@@ -70,7 +77,7 @@ else
         # If recovering from AP mode, restore photos to USB
         if [ -f /tmp/instapi_ap_recovery ]; then
             rm -f /tmp/instapi_ap_recovery
-            if [ -f "$MODE_FILE" ] && grep -q usb "$MODE_FILE"; then
+            if _is_usb_mode; then
                 $LOG "WiFi restored after AP recovery, restoring photos to USB"
                 sudo "$SCRIPT_DIR/update-photos.sh"
             fi
@@ -92,7 +99,7 @@ fi
 
 # 4. Check usb-gadget (USB mode only)
 MODE_FILE="$INSTAPI_DIR/.display_mode"
-if [ -f "$MODE_FILE" ] && grep -q usb "$MODE_FILE"; then
+if _is_usb_mode; then
     if ! systemctl is-active --quiet usb-gadget; then
         $LOG "usb-gadget down, restarting"
         sudo systemctl restart usb-gadget
@@ -104,7 +111,7 @@ if ! curl -s -o /dev/null --max-time 5 http://localhost:3000/ 2>/dev/null; then
     $LOG "Flask not responding, restarting instapi"
     sudo systemctl restart instapi
     # In USB mode, refresh the frame after Flask restart
-    if [ -f "$MODE_FILE" ] && grep -q usb "$MODE_FILE"; then
+    if _is_usb_mode; then
         sleep 5
         $LOG "Refreshing USB frame after Flask restart"
         sudo systemctl restart usb-gadget

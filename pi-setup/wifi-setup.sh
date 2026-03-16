@@ -11,6 +11,16 @@ LOG="logger -t instapi-wifi"
 AP_CON_NAME="InstaPi-Setup"
 AP_IP="192.168.4.1"
 
+# Check if this Pi is in USB display mode (file or service fallback)
+_is_usb_mode() {
+    local mode_file="$INSTAPI_DIR/.display_mode"
+    if [ -f "$mode_file" ] && grep -q usb "$mode_file"; then
+        return 0
+    fi
+    [ -f /etc/systemd/system/usb-gadget.service ] && return 0
+    return 1
+}
+
 # ============================================================
 # check — is WiFi connected? exit 0=yes, 1=no
 # ============================================================
@@ -140,9 +150,7 @@ cmd_start_ap() {
     echo "ap" > "$MODE_FILE"
 
     # In USB mode, swap frame to wifi-fix image so user sees setup instructions
-    MODE_FILE_DISPLAY="$INSTAPI_DIR/.display_mode"
-    if [ -f "$MODE_FILE_DISPLAY" ] && grep -q usb "$MODE_FILE_DISPLAY" || \
-       [ -f /etc/systemd/system/usb-gadget.service ]; then
+    if _is_usb_mode; then
         USER_HOME="$(dirname "$INSTAPI_DIR")"
         IMG_FILE="$USER_HOME/usb_drive.img"
         MOUNT_POINT="$USER_HOME/usb_mount"
@@ -229,8 +237,7 @@ cmd_connect() {
             rm -f /tmp/wifi_fail_count /tmp/instapi_ap_recovery
 
             # Restore USB photos if in USB mode (background so connect returns fast)
-            DISPLAY_MODE_FILE="$INSTAPI_DIR/.display_mode"
-            if [ -f "$DISPLAY_MODE_FILE" ] && grep -q usb "$DISPLAY_MODE_FILE"; then
+            if _is_usb_mode; then
                 $LOG "Restoring photos to USB after WiFi reconnect"
                 sudo "$SCRIPT_DIR/update-photos.sh" &
             fi
