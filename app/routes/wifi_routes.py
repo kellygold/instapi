@@ -96,7 +96,12 @@ def wifi_rescan():
 
 @app.route("/wifi-setup/connect", methods=["POST"])
 def wifi_connect():
-    """Connect to a WiFi network."""
+    """Connect to a WiFi network.
+
+    Starts the connect process in the background and returns immediately.
+    This is critical because cmd_connect tears down the AP, which kills
+    the phone's connection. We must send the response BEFORE that happens.
+    """
     data = request.get_json()
     ssid = data.get("ssid", "").strip()
     password = data.get("password", "")
@@ -104,30 +109,16 @@ def wifi_connect():
     if not ssid:
         return jsonify({"success": False, "error": "SSID required"})
 
-    try:
-        # Pass SSID and password as separate arguments (no shell injection)
-        args = [SUDO, WIFI_SETUP_SCRIPT, "connect", ssid]
-        if password:
-            args.append(password)
+    # Pass SSID and password as separate arguments (no shell injection)
+    args = [SUDO, WIFI_SETUP_SCRIPT, "connect", ssid]
+    if password:
+        args.append(password)
 
-        result = subprocess.run(
-            args, timeout=30, capture_output=True, text=True
-        )
+    # Start in background — script has a built-in delay before AP teardown
+    # so this response reaches the phone while it's still on the AP
+    subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        if result.returncode == 0:
-            return jsonify({"success": True})
-        else:
-            return jsonify({
-                "success": False,
-                "error": "Could not connect. Check your password and try again."
-            })
-    except subprocess.TimeoutExpired:
-        return jsonify({
-            "success": False,
-            "error": "Connection timed out. Please try again."
-        })
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    return jsonify({"success": True, "connecting": True})
 
 
 @app.route("/wifi-setup/status")

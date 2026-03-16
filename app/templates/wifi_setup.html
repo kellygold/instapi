@@ -230,14 +230,17 @@
         <div class="step" id="step-connecting">
             <h1>Connecting...</h1>
             <div class="spinner"></div>
-            <p class="subtitle">This may take up to 20 seconds.<br>Your phone may disconnect briefly.</p>
+            <p class="subtitle">Your phone will disconnect shortly.<br>This is normal — the frame is switching WiFi.</p>
         </div>
 
         <!-- Step 4a: Success -->
         <div class="step" id="step-success">
             <div class="success-icon">&#10004;</div>
-            <h1>Connected!</h1>
-            <p class="subtitle">Your photo frame is now online.<br>This page will close automatically.</p>
+            <h1>Connecting to WiFi</h1>
+            <p class="subtitle">The frame is connecting now.<br>You can close this page.</p>
+            <p class="subtitle" style="margin-top: 16px; font-size: 0.85em; color: #888;">
+                If it doesn't connect, the <strong>InstaPi-Setup</strong><br>hotspot will reappear so you can try again.
+            </p>
         </div>
 
         <!-- Step 4b: Failure -->
@@ -361,10 +364,8 @@
                     showStep('step-failure');
                 }
             } catch (e) {
+                // Network error likely means AP is tearing down (connect in progress)
                 showStep('step-success');
-                setTimeout(() => {
-                    try { window.location.href = '/'; } catch(e) {}
-                }, 5000);
             }
         }
 

@@ -180,6 +180,11 @@ cmd_connect() {
 
     $LOG "Connecting to '$ssid'..."
 
+    # Wait for HTTP response to reach the phone before tearing down AP.
+    # Flask returns immediately via Popen, but the phone needs time to
+    # receive the response and display the "connecting" message.
+    sleep 3
+
     # Stop AP first
     cmd_stop_ap
     sleep 2
@@ -196,8 +201,8 @@ cmd_connect() {
         $LOG "nmcli connect failed: $result"
     fi
 
-    # Wait for connectivity (up to 15 seconds)
-    for i in $(seq 1 15); do
+    # Wait for connectivity (up to 30 seconds — some networks need DHCP time)
+    for i in $(seq 1 30); do
         if ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1; then
             $LOG "Connected to '$ssid'"
             echo "client" > "$MODE_FILE"
