@@ -433,7 +433,7 @@ def run_sync_cycle():
             if path not in master_photos
         ]
 
-        print(f"[SYNC] {len(to_download)} to download, {len(to_delete)} to delete")
+        print(f"[SYNC] {len(to_download)} to download, {len(to_delete)} to delete", flush=True)
         db.set_setting("sync_total", len(to_download))
         db.set_setting("sync_completed", 0)
         db.set_setting("sync_phase", "downloading")
@@ -526,8 +526,11 @@ def run_sync_cycle():
         _reconcile_after_sync()
 
         # 8. USB sync if needed
-        if get_display_mode() == "usb" and (downloaded > 0 or deleted > 0):
+        _mode = get_display_mode()
+        print(f"[SYNC] USB check: mode={_mode}, downloaded={downloaded}, deleted={deleted}", flush=True)
+        if _mode == "usb" and (downloaded > 0 or deleted > 0):
             db.set_setting("sync_phase", "updating_frame")
+            print("[SYNC] Starting USB update...", flush=True)
             # Mark USB as stale before update — cleared on success
             try:
                 with open("/tmp/instapi_usb_stale", "w") as f:
@@ -535,6 +538,7 @@ def run_sync_cycle():
             except OSError:
                 pass
             sync_photos_to_usb()
+            print("[SYNC] USB update complete", flush=True)
             # If we get here, update succeeded — clear stale flag
             try:
                 os.remove("/tmp/instapi_usb_stale")
@@ -550,7 +554,7 @@ def run_sync_cycle():
                         photos_removed=deleted,
                         duration_s=round(time.time() - _sync_start_time, 1))
 
-        print(f"[SYNC] Complete: {downloaded} downloaded, {deleted} deleted")
+        print(f"[SYNC] Complete: {downloaded} downloaded, {deleted} deleted", flush=True)
 
     except requests.RequestException as e:
         db.set_setting("sync_error", str(e))

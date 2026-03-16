@@ -141,7 +141,7 @@ def sync_photos_to_usb():
     if mode == "usb":
         script_path = os.path.join(os.path.dirname(__file__), "..", "pi-setup", "update-photos.sh")
         if os.path.exists(script_path):
-            print(f"Syncing photos to USB drive via {script_path}...")
+            print(f"Syncing photos to USB drive via {script_path}...", flush=True)
             try:
                 result = subprocess.run(
                     ["/usr/bin/sudo", "/bin/bash", script_path],
@@ -152,7 +152,7 @@ def sync_photos_to_usb():
                     print(f"USB sync stderr: {result.stderr[-500:]}")
                 print(f"USB sync exit code: {result.returncode}")
             except subprocess.TimeoutExpired:
-                print("USB sync timed out after 600s!")
+                print("USB sync timed out after 600s!", flush=True)
         else:
             print(f"USB sync script not found: {script_path}")
     else:
