@@ -528,7 +528,18 @@ def run_sync_cycle():
         # 8. USB sync if needed
         if get_display_mode() == "usb" and (downloaded > 0 or deleted > 0):
             db.set_setting("sync_phase", "updating_frame")
+            # Mark USB as stale before update — cleared on success
+            try:
+                with open("/tmp/instapi_usb_stale", "w") as f:
+                    f.write(str(int(time.time())))
+            except OSError:
+                pass
             sync_photos_to_usb()
+            # If we get here, update succeeded — clear stale flag
+            try:
+                os.remove("/tmp/instapi_usb_stale")
+            except OSError:
+                pass
 
         # 9. Update state
         db.set_setting("last_sync", datetime.now().isoformat(timespec="seconds"))

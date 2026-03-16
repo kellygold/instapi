@@ -88,6 +88,23 @@ if __name__ == "__main__":
         from routes.sync_routes import start_sync_loop
         start_sync_loop()
 
+    # If a previous USB update failed (flag file exists), retry on startup.
+    # This catches cases where sync downloaded photos but USB update timed out.
+    from utils import get_display_mode, sync_photos_to_usb
+    USB_STALE_FLAG = "/tmp/instapi_usb_stale"
+    if get_display_mode() == "usb" and os.path.exists(USB_STALE_FLAG):
+        import threading
+        def _startup_usb_retry():
+            import time
+            time.sleep(30)  # let Flask and USB gadget finish starting
+            print("[STARTUP] Retrying stale USB update...")
+            sync_photos_to_usb()
+            try:
+                os.remove(USB_STALE_FLAG)
+            except OSError:
+                pass
+        threading.Thread(target=_startup_usb_retry, daemon=True).start()
+
     port = int(os.environ.get("PORT", 3000))
     print(f"Starting app on port {port}")
 

@@ -130,7 +130,11 @@ def download_and_return_paths(photo_urls, source):
     return returned_paths
 
 def sync_photos_to_usb():
-    """Run update-photos.sh to sync photos to USB drive (USB mode only)."""
+    """Run update-photos.sh to sync photos to USB drive (USB mode only).
+
+    Timeout is generous (10 min) because watermarking many photos on
+    Pi Zero 2 W is slow (~5s per photo).  A 64-photo batch can take 5+ min.
+    """
     import subprocess
 
     mode = get_display_mode()
@@ -138,14 +142,17 @@ def sync_photos_to_usb():
         script_path = os.path.join(os.path.dirname(__file__), "..", "pi-setup", "update-photos.sh")
         if os.path.exists(script_path):
             print(f"Syncing photos to USB drive via {script_path}...")
-            result = subprocess.run(
-                ["/usr/bin/sudo", "/bin/bash", script_path],
-                capture_output=True, text=True, timeout=120
-            )
-            print(f"USB sync stdout: {result.stdout}")
-            if result.stderr:
-                print(f"USB sync stderr: {result.stderr}")
-            print(f"USB sync exit code: {result.returncode}")
+            try:
+                result = subprocess.run(
+                    ["/usr/bin/sudo", "/bin/bash", script_path],
+                    capture_output=True, text=True, timeout=600
+                )
+                print(f"USB sync stdout: {result.stdout[-500:]}")
+                if result.stderr:
+                    print(f"USB sync stderr: {result.stderr[-500:]}")
+                print(f"USB sync exit code: {result.returncode}")
+            except subprocess.TimeoutExpired:
+                print("USB sync timed out after 600s!")
         else:
             print(f"USB sync script not found: {script_path}")
     else:
