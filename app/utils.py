@@ -70,12 +70,15 @@ def parse_time_value(value, default):
         return default
 
 def get_display_mode():
-    """Get current display mode from file."""
+    """Get current display mode from file, with fallback detection."""
     mode_file = os.path.join(os.path.dirname(__file__), "..", ".display_mode")
     if os.path.exists(mode_file):
         with open(mode_file) as f:
             return f.read().strip()
-    return "hdmi"  # default
+    # Fallback: if usb-gadget service is installed, this is a USB mode Pi
+    if os.path.exists("/etc/systemd/system/usb-gadget.service"):
+        return "usb"
+    return "hdmi"
 
 def download_and_return_paths(photo_urls, source):
     """Download photos and return their local paths for slideshow usage."""
