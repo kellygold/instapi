@@ -30,8 +30,10 @@ def reconcile_photos():
                     rel = os.path.relpath(full_path, os.path.dirname(photos_dir))
                     actual_photos.append((f, full_path, f"/static/{rel}"))
 
+    actual_filenames = set()
     if actual_photos:
         for filename, full_path, photo_url in actual_photos:
+            actual_filenames.add(filename)
             subdir = os.path.relpath(os.path.dirname(full_path), photos_dir)
             if subdir == '.':
                 subdir = ''
@@ -43,7 +45,6 @@ def reconcile_photos():
 
         db.set_setting("done", True)
         db.set_setting("photos_chosen", True)
-        print(f"Reconciled {len(actual_photos)} photos from disk")
 
         # Backfill thumbnails for photos that predate this feature
         thumb_dir = os.path.join(photos_dir, "thumbs")
@@ -55,7 +56,18 @@ def reconcile_photos():
                 img = Image.open(full_path)
                 img.thumbnail((200, 200))
                 img.save(thumb, "JPEG", quality=60)
-                print(f"Generated thumbnail for {filename}")
+
+    # Remove DB records for files that no longer exist on disk
+    removed = 0
+    for row in db.get_all_photos():
+        if row["filename"] not in actual_filenames:
+            db.remove_photo(row["filename"])
+            removed += 1
+    if removed:
+        print(f"Reconciled: removed {removed} stale DB records")
+
+    if actual_photos:
+        print(f"Reconciled {len(actual_photos)} photos from disk")
     elif db.get_photo_count() == 0:
         db.set_setting("done", False)
         print("No photos on disk")
