@@ -1,13 +1,13 @@
 # routes/picker_routes.py
 import os
 import random
-import hashlib
 import threading
 from flask import render_template, jsonify, request, redirect, url_for
 from app import app
 import config
 import db
 from routes.sync_routes import mark_manifest_dirty
+from photo_ops import compute_md5, notify_photos_changed
 from utils import (
     parse_time_value,
     poll_for_media_items,
@@ -77,21 +77,17 @@ def finalize_selection():
                 file_md5 = ""
                 if os.path.isfile(photo_path):
                     file_size = os.path.getsize(photo_path)
-                    h = hashlib.md5()
-                    with open(photo_path, 'rb') as fh:
-                        for chunk in iter(lambda: fh.read(8192), b''):
-                            h.update(chunk)
-                    file_md5 = h.hexdigest()
+                    file_md5 = compute_md5(photo_path)
                 db.add_photo(filename, subdir="picker", uploaded_by="picker",
                              size_bytes=file_size, md5=file_md5)
 
     # Shuffle photos
     random.shuffle(all_photo_urls)
 
-    db.set_setting("photo_urls", all_photo_urls)
     db.set_setting("current_index", 0)
     db.set_setting("done", True)
     mark_manifest_dirty()
+    notify_photos_changed()
     return redirect(url_for("done", _external=True))
 
 
@@ -104,7 +100,7 @@ def done():
 @app.route("/slideshow")
 def slideshow():
     """Display the slideshow page on the frame."""
-    photo_urls = db.get_setting("photo_urls", [])
+    photo_urls = db.get_photo_urls()
     indices = list(range(len(photo_urls)))
     return render_template("slideshow.html", media_items=indices)
 
@@ -114,7 +110,7 @@ def get_next_photos():
     """Return the next set of photos for the slideshow."""
     import random
 
-    photo_urls = db.get_setting("photo_urls", [])
+    photo_urls = db.get_photo_urls()
     if not photo_urls:
         return jsonify([])
 
@@ -129,11 +125,9 @@ def get_next_photos():
     total_photos = len(photo_urls)
 
     if shuffle:
-        # Return random photos
         next_photos = [random.choice(photo_urls) for _ in range(count)]
     else:
-        # Sequential order
-        current_index = db.get_setting("current_index", 0)
+        current_index = db.get_setting("current_index", 0) % total_photos
         next_photos = []
         for _ in range(count):
             next_photos.append(photo_urls[current_index])
@@ -146,8 +140,7 @@ def get_next_photos():
 @app.route("/check_session_status")
 def check_session_status():
     """Check if the frame can start the slideshow."""
-    photo_urls = db.get_setting("photo_urls", [])
-    photo_count = len(photo_urls)
+    photo_count = db.get_photo_count()
     if db.get_setting("done", False):
         return jsonify({"ready": True, "photo_count": photo_count})
     else:

@@ -1,6 +1,6 @@
 import os
 import time
-import json
+import threading
 import requests
 import qrcode
 from PIL import Image
@@ -8,22 +8,20 @@ import db
 from config import (
     PHOTOS_DIR,
     PICKER_API_BASE_URL,
+    MODE_FILE,
+    get_base_url,
 )
+from photo_ops import generate_thumbnail, compute_md5
 
-# Load base URL for watermark QR
-with open("secrets.json") as f:
-    _secrets = json.load(f)
-    _redirect = _secrets["web"]["redirect_uris"][0]
-    _WATERMARK_BASE = _redirect.rsplit("/", 1)[0]
-
-def _get_watermark_url():
-    """Build watermark URL pointing to upload page with token.
-    Child frames point to master's upload page using their sync token."""
+def get_upload_url():
+    """Build upload page URL with token.
+    Child frames point to master's upload page using their sync token.
+    Used by both QR watermarks and the choose_mode_qr endpoint."""
     if db.get_setting("sync_role") == "child" and db.get_setting("master_url"):
         token = db.get_setting("sync_token", "")
         return f"{db.get_setting('master_url')}/upload?t={token}"
     token = db.get_setting("upload_token", "")
-    return f"{_WATERMARK_BASE}/upload?t={token}"
+    return f"{get_base_url()}/upload?t={token}"
 
 
 def add_qr_watermark(image_path):
@@ -33,7 +31,7 @@ def add_qr_watermark(image_path):
 
         # Generate small QR linking to auth page
         qr = qrcode.QRCode(box_size=2, border=1)
-        qr.add_data(_get_watermark_url())
+        qr.add_data(get_upload_url())
         qr.make(fit=True)
         qr_img = qr.make_image(fill_color='black', back_color='white').convert('RGBA')
 
@@ -71,9 +69,8 @@ def parse_time_value(value, default):
 
 def get_display_mode():
     """Get current display mode from file, with fallback detection."""
-    mode_file = os.path.join(os.path.dirname(__file__), "..", ".display_mode")
-    if os.path.exists(mode_file):
-        with open(mode_file) as f:
+    if os.path.exists(MODE_FILE):
+        with open(MODE_FILE) as f:
             return f.read().strip()
     # Fallback: if usb-gadget service is installed, this is a USB mode Pi
     if os.path.exists("/etc/systemd/system/usb-gadget.service"):
@@ -114,13 +111,12 @@ def download_and_return_paths(photo_urls, source):
                 # Generate thumbnail for admin gallery
                 thumb_dir = os.path.join(PHOTOS_DIR, "thumbs")
                 os.makedirs(thumb_dir, exist_ok=True)
-                thumb_path = os.path.join(thumb_dir, filename)
-                thumb_img = Image.open(photo_path)
-                thumb_img.thumbnail((200, 200))
-                thumb_img.save(thumb_path, "JPEG", quality=60)
+                generate_thumbnail(photo_path, os.path.join(thumb_dir, filename))
                 # Track in DB
                 size = os.path.getsize(photo_path)
-                db.add_photo(filename, subdir=source, uploaded_by='admin', size_bytes=size)
+                file_md5 = compute_md5(photo_path)
+                db.add_photo(filename, subdir=source, uploaded_by='admin',
+                             size_bytes=size, md5=file_md5)
                 # Add QR watermark only in USB mode (HDMI has persistent overlay)
                 if should_watermark:
                     add_qr_watermark(photo_path)
@@ -132,16 +128,30 @@ def download_and_return_paths(photo_urls, source):
         returned_paths.append(f"/static/photos/{source}/{filename}")
     return returned_paths
 
+_usb_sync_lock = threading.Lock()
+
 def sync_photos_to_usb():
     """Run update-photos.sh to sync photos to USB drive (USB mode only).
 
     Timeout is generous (10 min) because watermarking many photos on
     Pi Zero 2 W is slow (~5s per photo).  A 64-photo batch can take 5+ min.
+
+    Thread-safe: uses a lock to prevent concurrent syncs that would corrupt
+    the FAT32 filesystem. If a sync is already running, the call is skipped
+    (the running sync will pick up all current photos from disk).
     """
     import subprocess
 
     mode = get_display_mode()
-    if mode == "usb":
+    if mode != "usb":
+        print(f"Not USB mode (mode={mode}), skipping USB sync")
+        return
+
+    if not _usb_sync_lock.acquire(blocking=False):
+        print("[USB] Sync already in progress, skipping (will be picked up by running sync)")
+        return
+
+    try:
         script_path = os.path.join(os.path.dirname(__file__), "..", "pi-setup", "update-photos.sh")
         if os.path.exists(script_path):
             print(f"Syncing photos to USB drive via {script_path}...", flush=True)
@@ -158,8 +168,8 @@ def sync_photos_to_usb():
                 print("USB sync timed out after 600s!", flush=True)
         else:
             print(f"USB sync script not found: {script_path}")
-    else:
-        print(f"Not USB mode (mode={mode}), skipping USB sync")
+    finally:
+        _usb_sync_lock.release()
 
 
 def fetch_and_download_picker_photos(session_id):
@@ -196,13 +206,9 @@ def fetch_and_download_picker_photos(session_id):
 
         db.set_setting("downloading", False)
 
-        # Sync to USB if in USB mode
-        sync_photos_to_usb()
-        try:
-            from routes.sync_routes import mark_manifest_dirty
-            mark_manifest_dirty()
-        except ImportError:
-            pass
+        # Notify: sets done/photos_chosen, triggers USB sync if needed
+        from photo_ops import notify_photos_changed
+        notify_photos_changed()
     else:
         print("Failed to list media items from picker:", resp_items.status_code, resp_items.text)
 

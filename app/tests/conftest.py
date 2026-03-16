@@ -30,6 +30,10 @@ def mock_secrets():
         with open(secrets_path, "w") as f:
             json.dump(secrets, f)
 
+    # Reset secrets cache so each test gets fresh config
+    import config
+    config._secrets_cache = None
+
     yield secrets
 
     if not had_secrets and os.path.exists(secrets_path):
@@ -67,10 +71,17 @@ def app_client(monkeypatch, tmp_path, mock_secrets):
     import config
     monkeypatch.setattr(config, "PHOTOS_DIR", str(photos))
     monkeypatch.setattr(config, "STATE_FILE", str(state_file))
-    monkeypatch.setattr(config, "SLIDESHOW_CONFIG_PATH", str(tmp_path / "slideshow_config.json"))
+    monkeypatch.setattr(config, "MODE_FILE", str(display_mode_file))
 
-    # Clear device state for each test
-    config.device_state.clear()
+    # Use isolated DB for each test
+    db_path = str(tmp_path / "test.db")
+    monkeypatch.setattr("db.DB_PATH", db_path)
+    import db
+    # Reset thread-local connection so it picks up new path
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None
+    db.init_db()
 
     from app import app
 
@@ -86,4 +97,7 @@ def app_client(monkeypatch, tmp_path, mock_secrets):
             sess["admin_authenticated"] = True
         yield client
 
-    config.device_state.clear()
+    # Clean up DB connection
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None

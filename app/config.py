@@ -1,5 +1,6 @@
 # config.py
 import os
+import json
 
 SCOPES = [
     "https://www.googleapis.com/auth/photospicker.mediaitems.readonly",
@@ -15,6 +16,43 @@ PHOTOS_DIR = os.environ.get('INSTAPI_PHOTOS_DIR',
              os.path.join(os.path.dirname(__file__), 'static', 'photos'))
 STATE_FILE = os.environ.get('INSTAPI_STATE_FILE',
              os.path.join(os.path.dirname(__file__), 'device_state.json'))
+
+# Shared constants -- single source of truth
+IMAGE_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.gif')
+THUMBNAIL_SIZE = (200, 200)
+THUMBNAIL_QUALITY = 60
+MODE_FILE = os.path.join(os.path.dirname(__file__), '..', '.display_mode')
+
+# Secrets loading -- lazy singleton, loaded once on first access
+SECRETS_PATH = os.environ.get('INSTAPI_SECRETS_PATH',
+               os.path.join(os.path.dirname(__file__), 'secrets.json'))
+
+_secrets_cache = None
+
+def get_secrets():
+    """Load secrets.json once, cache result."""
+    global _secrets_cache
+    if _secrets_cache is None:
+        try:
+            with open(SECRETS_PATH) as f:
+                _secrets_cache = json.load(f)
+        except FileNotFoundError:
+            _secrets_cache = {}
+    return _secrets_cache
+
+def get_redirect_uri():
+    """Get the first redirect URI from secrets.json."""
+    uris = get_secrets().get("web", {}).get("redirect_uris", [])
+    return uris[0] if uris else ""
+
+def get_base_url():
+    """Derive base URL from redirect URI (e.g. https://xxx.ngrok-free.dev)."""
+    uri = get_redirect_uri()
+    return uri.rsplit("/", 1)[0] if uri else ""
+
+def get_flask_secret():
+    """Get Flask secret key from secrets.json, with fallback."""
+    return get_secrets().get("flask_secret", None)
 
 # Slideshow config (backed by db.py settings table)
 DEFAULT_SLIDESHOW_CONFIG = {

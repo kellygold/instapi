@@ -12,76 +12,100 @@ def test_photos_dir_uses_file_not_getcwd():
     assert os.path.abspath(config.PHOTOS_DIR) == expected
 
 
-def test_save_and_load_device_state(tmp_path, monkeypatch):
-    """State should round-trip through save/load."""
-    import config
-
-    state_file = str(tmp_path / "device_state.json")
-    monkeypatch.setattr(config, "STATE_FILE", state_file)
-
-    config.device_state.clear()
-    config.device_state["photo_urls"] = ["/static/photos/picker/test.jpg"]
-    config.device_state["done"] = True
-    config.device_state["current_index"] = 2
-
-    config.save_device_state()
-
-    # Verify file was written
-    assert os.path.exists(state_file)
-    with open(state_file) as f:
-        saved = json.load(f)
-    assert saved["photo_urls"] == ["/static/photos/picker/test.jpg"]
-    assert saved["done"] is True
-    assert saved["current_index"] == 2
-
-    # Clear and reload
-    config.device_state.clear()
-    config.load_device_state()
-    assert config.device_state["photo_urls"] == ["/static/photos/picker/test.jpg"]
-    assert config.device_state["done"] is True
-
-
-def test_save_device_state_excludes_credentials(tmp_path, monkeypatch):
-    """Credentials must never be persisted to disk."""
-    import config
-
-    state_file = str(tmp_path / "device_state.json")
-    monkeypatch.setattr(config, "STATE_FILE", state_file)
-
-    config.device_state.clear()
-    config.device_state["credentials"] = {"token": "secret-token"}
-    config.device_state["photo_urls"] = ["/static/photos/test.jpg"]
-    config.device_state["done"] = True
-
-    config.save_device_state()
-
-    with open(state_file) as f:
-        saved = json.load(f)
-    assert "credentials" not in saved
-    assert "photo_urls" in saved
-
-
 def test_load_slideshow_config_defaults(tmp_path, monkeypatch):
-    """Should return defaults when no config file exists."""
+    """Should return defaults when no settings exist in DB."""
     import config
-    monkeypatch.setattr(config, "SLIDESHOW_CONFIG_PATH", str(tmp_path / "nonexistent.json"))
+    import db
+
+    # Use isolated DB
+    db_path = str(tmp_path / "test.db")
+    monkeypatch.setattr(db, "DB_PATH", db_path)
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None
+    db.init_db()
+
     defaults = config.load_slideshow_config()
     assert defaults["slide_duration"] == 5
     assert defaults["transition"] == "fade"
     assert defaults["shuffle"] is False
     assert defaults["ken_burns"] is False
 
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None
 
-def test_load_device_state_ignores_unknown_keys(tmp_path, monkeypatch):
-    """Loading state with extra keys should not inject them."""
+
+def test_save_and_load_slideshow_config(tmp_path, monkeypatch):
+    """Slideshow config should round-trip through save/load."""
+    import config
+    import db
+
+    db_path = str(tmp_path / "test.db")
+    monkeypatch.setattr(db, "DB_PATH", db_path)
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None
+    db.init_db()
+
+    config.save_slideshow_config({
+        "slide_duration": 10,
+        "transition": "slide",
+        "shuffle": True,
+        "ken_burns": True,
+    })
+
+    loaded = config.load_slideshow_config()
+    assert loaded["slide_duration"] == 10
+    assert loaded["transition"] == "slide"
+    assert loaded["shuffle"] is True
+    assert loaded["ken_burns"] is True
+
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None
+
+
+def test_image_extensions_constant():
+    """IMAGE_EXTENSIONS should include the standard image formats."""
+    import config
+    assert '.jpg' in config.IMAGE_EXTENSIONS
+    assert '.jpeg' in config.IMAGE_EXTENSIONS
+    assert '.png' in config.IMAGE_EXTENSIONS
+    assert '.gif' in config.IMAGE_EXTENSIONS
+
+
+def test_secrets_lazy_loading(tmp_path, monkeypatch):
+    """Secrets should be loaded lazily and cached."""
     import config
 
-    state_file = str(tmp_path / "device_state.json")
-    monkeypatch.setattr(config, "STATE_FILE", state_file)
+    # Point to a test secrets file
+    test_secrets = {"web": {"redirect_uris": ["http://test.local/callback"]}, "flask_secret": "test123"}
+    secrets_file = tmp_path / "test_secrets.json"
+    secrets_file.write_text(json.dumps(test_secrets))
 
-    with open(state_file, "w") as f:
-        json.dump({"photo_urls": [], "evil_key": "injected"}, f)
+    monkeypatch.setattr(config, "SECRETS_PATH", str(secrets_file))
+    config._secrets_cache = None  # Force reload
 
-    config.device_state.clear()
-    config.load_device_state()
-    assert "evil_key" not in config.device_state
+    secrets = config.get_secrets()
+    assert secrets["flask_secret"] == "test123"
+    assert config.get_redirect_uri() == "http://test.local/callback"
+    assert config.get_base_url() == "http://test.local"
+    assert config.get_flask_secret() == "test123"
+
+    config._secrets_cache = None  # Reset
+
+
+def test_secrets_missing_file(tmp_path, monkeypatch):
+    """Missing secrets.json should return empty dict, not crash."""
+    import config
+    monkeypatch.setattr(config, "SECRETS_PATH", str(tmp_path / "nonexistent.json"))
+    config._secrets_cache = None
+
+    secrets = config.get_secrets()
+    assert secrets == {}
+    assert config.get_redirect_uri() == ""
+    assert config.get_base_url() == ""
+    assert config.get_flask_secret() is None
+
+    config._secrets_cache = None

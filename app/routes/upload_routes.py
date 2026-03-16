@@ -2,7 +2,6 @@
 import os
 import gc
 import time
-import hashlib
 import shutil
 import threading
 from flask import render_template, jsonify, request
@@ -10,8 +9,7 @@ from PIL import Image, ImageOps
 from app import app
 import config
 import db
-from utils import sync_photos_to_usb, get_display_mode
-from routes.sync_routes import mark_manifest_dirty
+from photo_ops import compute_md5, generate_thumbnail, notify_photos_changed
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 STAGING_DIR = os.path.join(config.PHOTOS_DIR, ".staging")
@@ -150,18 +148,11 @@ def _process_staged_uploads(staged_files, uploader):
             del img
 
             # Generate thumbnail
-            thumb_img = Image.open(photo_path)
-            thumb_img.thumbnail((200, 200))
-            thumb_img.save(os.path.join(thumb_dir, filename), "JPEG", quality=60)
-            del thumb_img
+            generate_thumbnail(photo_path, os.path.join(thumb_dir, filename))
 
             # Compute md5 and size for DB
             file_size = os.path.getsize(photo_path)
-            h = hashlib.md5()
-            with open(photo_path, 'rb') as fh:
-                for chunk in iter(lambda: fh.read(8192), b''):
-                    h.update(chunk)
-            file_md5 = h.hexdigest()
+            file_md5 = compute_md5(photo_path)
 
             # Track in DB
             db.add_photo(filename, subdir="upload", uploaded_by=uploader,
@@ -186,13 +177,7 @@ def _process_staged_uploads(staged_files, uploader):
                 gc.collect()
 
     if processed_filenames:
-        db.set_setting("done", True)
-        db.set_setting("photos_chosen", True)
-        mark_manifest_dirty()
-
-        # Sync to USB if in USB mode
-        if get_display_mode() == "usb":
-            sync_photos_to_usb()
+        notify_photos_changed()
 
     # Clear processing state
     db.delete_setting("upload_processing")

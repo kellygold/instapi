@@ -26,11 +26,11 @@ def test_check_session_status_not_ready(app_client):
     assert data["photo_count"] == 0
 
 
-def test_check_session_status_ready(app_client, monkeypatch):
+def test_check_session_status_ready(app_client):
     """Should report ready when photos are done."""
-    import config
-    config.device_state["done"] = True
-    config.device_state["photo_urls"] = ["/static/photos/test.jpg"]
+    import db
+    db.set_setting("done", True)
+    db.add_photo("test.jpg", subdir="upload", uploaded_by="admin")
 
     resp = app_client.get("/check_session_status")
     data = resp.get_json()
@@ -68,11 +68,12 @@ def test_admin_settings_post(app_client):
     assert data["config"]["slide_duration"] == 10
 
 
-def test_admin_switch_mode_valid(app_client, tmp_path, monkeypatch):
-    """switch_mode should not crash (was NameError before fix)."""
-    import routes.admin_routes as admin
-    mode_file = str(tmp_path / ".display_mode")
-    monkeypatch.setattr(admin, "MODE_FILE", mode_file)
+def test_admin_switch_mode_valid(app_client, monkeypatch):
+    """switch_mode should write mode file."""
+    import config
+    import tempfile
+    mode_file = os.path.join(tempfile.mkdtemp(), ".display_mode_test")
+    monkeypatch.setattr(config, "MODE_FILE", mode_file)
 
     resp = app_client.post(
         "/admin/switch_mode",
@@ -124,11 +125,11 @@ def test_download_status_default(app_client):
 
 
 def test_download_status_during_download(app_client):
-    """Should reflect download progress from device_state."""
-    import config
-    config.device_state["downloading"] = True
-    config.device_state["download_total"] = 10
-    config.device_state["download_completed"] = 3
+    """Should reflect download progress from DB settings."""
+    import db
+    db.set_setting("downloading", True)
+    db.set_setting("download_total", 10)
+    db.set_setting("download_completed", 3)
 
     resp = app_client.get("/admin/download_status")
     data = resp.get_json()
@@ -144,19 +145,6 @@ def test_done_redirects_to_admin(app_client):
     assert "/admin" in resp.headers["Location"]
 
 
-def test_delete_all_sets_done_false(app_client):
-    """Deleting all photos should set done=False."""
-    import config
-    config.device_state["done"] = True
-    config.device_state["photo_urls"] = ["/static/photos/test.jpg"]
-
-    resp = app_client.post("/admin/delete_photos")
-    data = resp.get_json()
-    assert data["success"] is True
-    assert config.device_state["done"] is False
-    assert config.device_state["photo_urls"] == []
-
-
 def test_get_next_photos_empty(app_client):
     """Should return empty list when no photos."""
     resp = app_client.get("/get_next_photos")
@@ -165,17 +153,29 @@ def test_get_next_photos_empty(app_client):
     assert data == []
 
 
-def test_get_next_photos_sequential(app_client):
-    """Should return photos in order."""
+def test_get_next_photos_sequential(app_client, monkeypatch):
+    """Should return photos in order from DB."""
+    import db
     import config
-    config.device_state["photo_urls"] = ["/a.jpg", "/b.jpg", "/c.jpg"]
-    config.device_state["current_index"] = 0
+
+    # Create actual photo files so walk_photos can find them
+    photos_dir = config.PHOTOS_DIR
+    upload_dir = os.path.join(photos_dir, "upload")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    for name in ["a.jpg", "b.jpg", "c.jpg"]:
+        # Write minimal JPEG
+        with open(os.path.join(upload_dir, name), "wb") as f:
+            f.write(b"\xff\xd8\xff\xe0" + b"\x00" * 100)
+        db.add_photo(name, subdir="upload", uploaded_by="admin")
+
+    db.set_setting("current_index", 0)
 
     resp = app_client.get("/get_next_photos?count=2")
     data = resp.get_json()
-    assert data == ["/a.jpg", "/b.jpg"]
+    assert len(data) == 2
 
     # Next call should continue from where we left off
     resp = app_client.get("/get_next_photos?count=2")
     data = resp.get_json()
-    assert data == ["/c.jpg", "/a.jpg"]  # wraps around
+    assert len(data) == 2

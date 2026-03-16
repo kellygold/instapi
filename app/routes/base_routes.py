@@ -1,6 +1,5 @@
 # routes/base_routes.py
 import io
-import json
 import qrcode
 from flask import render_template, jsonify, redirect, url_for, request, send_file, send_from_directory
 from google_auth_oauthlib.flow import Flow
@@ -8,8 +7,8 @@ from datetime import datetime, timedelta
 from app import app
 import db
 
-from config import SCOPES
-from urllib.parse import urlencode
+from config import SCOPES, SECRETS_PATH, get_redirect_uri, get_base_url
+from utils import get_upload_url
 import os
 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -21,12 +20,8 @@ def favicon():
                                "favicon.ico", mimetype="image/x-icon")
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 
-# Load redirect URI from secrets.json and derive base URL
-with open("secrets.json") as f:
-    _secrets = json.load(f)
-    REDIRECT_URI = _secrets["web"]["redirect_uris"][0]
-    # Extract base URL from redirect URI (e.g., https://xxx.ngrok-free.dev)
-    BASE_URL = REDIRECT_URI.rsplit("/", 1)[0]
+REDIRECT_URI = get_redirect_uri()
+BASE_URL = get_base_url()
 
 
 @app.route("/auth_status")
@@ -50,7 +45,7 @@ def index():
     # Generate new auth URL if needed
     if not db.get_setting("auth_url"):
         flow = Flow.from_client_secrets_file(
-            "secrets.json",
+            SECRETS_PATH,
             scopes=SCOPES,
             redirect_uri=REDIRECT_URI
         )
@@ -121,12 +116,7 @@ def oauth2callback():
 def choose_mode_qr():
     """QR to link user to upload page for adding photos.
     Child frames point to master's upload page using their sync token."""
-    if db.get_setting("sync_role") == "child" and db.get_setting("master_url"):
-        token = db.get_setting("sync_token", "")
-        url = f"{db.get_setting('master_url')}/upload?t={token}"
-    else:
-        token = db.get_setting("upload_token", "")
-        url = f"{BASE_URL}/upload?t={token}"
+    url = get_upload_url()
     img_io = io.BytesIO()
     img = qrcode.make(url)
     img.save(img_io, 'PNG')

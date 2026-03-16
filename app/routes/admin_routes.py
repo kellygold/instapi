@@ -1,53 +1,20 @@
 import os
-import getpass
 import shutil
 import subprocess
 import socket
-from functools import wraps
 from flask import render_template, jsonify, request, session, redirect, url_for
 from app import app
 import db
-from config import SCOPES, PHOTOS_DIR, load_slideshow_config, save_slideshow_config
+import config as _config
+from config import SCOPES, PHOTOS_DIR, SECRETS_PATH, load_slideshow_config, save_slideshow_config, get_redirect_uri
 from google_auth_oauthlib.flow import Flow
 from utils import get_display_mode
+from auth import require_admin, verify_password
+from photo_ops import delete_photo_files, notify_photos_changed, walk_photos
 from routes.sync_routes import mark_manifest_dirty
 from rate_limit import rate_limit, clear_rate_limit
 
-MODE_FILE = os.path.join(os.path.dirname(__file__), "..", "..", ".display_mode")
-
-# Load fallback redirect URI from secrets.json (used when dynamic detection yields HTTP non-localhost)
-import json
-with open("secrets.json") as _f:
-    _FALLBACK_REDIRECT_URI = json.load(_f)["web"]["redirect_uris"][0]
-
-
-def verify_password(password):
-    """Verify against system password or test override."""
-    test_pw = os.environ.get("INSTAPI_ADMIN_PASSWORD")
-    if test_pw:
-        return password == test_pw
-    # Production: verify via su command
-    username = getpass.getuser()
-    try:
-        result = subprocess.run(
-            ["/bin/su", "-c", "true", username],
-            input=password + "\n",
-            capture_output=True, text=True, timeout=5
-        )
-        return result.returncode == 0
-    except Exception:
-        return False
-
-
-def require_admin(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not session.get("admin_authenticated"):
-            if request.is_json:
-                return jsonify({"error": "Authentication required"}), 401
-            return redirect(url_for("admin_login"))
-        return f(*args, **kwargs)
-    return decorated
+_FALLBACK_REDIRECT_URI = get_redirect_uri()
 
 
 @app.route("/admin/login", methods=["GET", "POST"])
@@ -99,7 +66,7 @@ def admin():
     if redirect_uri.startswith("http://") and "localhost" not in redirect_uri:
         redirect_uri = _FALLBACK_REDIRECT_URI
     flow = Flow.from_client_secrets_file(
-        "secrets.json",
+        SECRETS_PATH,
         scopes=SCOPES,
         redirect_uri=redirect_uri
     )
@@ -168,11 +135,7 @@ def git_pull():
 def restart_service():
     """Restart the instapi service (and kiosk if HDMI mode)."""
     try:
-        # Check which mode we're in
-        mode = "hdmi"  # default
-        if os.path.exists(MODE_FILE):
-            with open(MODE_FILE) as f:
-                mode = f.read().strip()
+        mode = get_display_mode()
 
         # Restart the flask app service
         subprocess.Popen(
@@ -342,20 +305,17 @@ def list_photos():
     meta = db.get_upload_meta()
 
     photos = []
-    if os.path.exists(PHOTOS_DIR):
-        for root, dirs, files in os.walk(PHOTOS_DIR):
-            dirs[:] = [d for d in dirs if d != 'thumbs']
-            for f in files:
-                if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')) and f != '.gitkeep':
-                    full_path = os.path.join(root, f)
-                    rel_path = os.path.relpath(full_path, os.path.dirname(PHOTOS_DIR))
-                    photos.append({
-                        "path": f"/static/{rel_path}",
-                        "thumb": f"/static/photos/thumbs/{f}",
-                        "name": f,
-                        "size": os.path.getsize(full_path),
-                        "uploaded_by": meta.get(f, "unknown")
-                    })
+    for filename, full_path, subdir in walk_photos(PHOTOS_DIR):
+        if filename == '.gitkeep':
+            continue
+        rel_path = os.path.relpath(full_path, os.path.dirname(PHOTOS_DIR))
+        photos.append({
+            "path": f"/static/{rel_path}",
+            "thumb": f"/static/photos/thumbs/{filename}",
+            "name": filename,
+            "size": os.path.getsize(full_path),
+            "uploaded_by": meta.get(filename, "unknown")
+        })
     return jsonify(photos)
 
 
@@ -389,15 +349,9 @@ def delete_single_photo():
                 )
                 result = resp.json()
                 if result.get("success"):
-                    # Also delete local synced copy + thumbnail
-                    file_path = os.path.join(os.path.dirname(PHOTOS_DIR), photo_path.lstrip("/static/"))
-                    file_path = os.path.normpath(file_path)
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                    thumb_path = os.path.join(PHOTOS_DIR, "thumbs", filename)
-                    if os.path.exists(thumb_path):
-                        os.remove(thumb_path)
-                    db.remove_photo(filename)
+                    # Also delete local synced copy + thumbnail + DB record
+                    delete_photo_files(filename)
+                    notify_photos_changed()
                     return jsonify({"success": True})
                 else:
                     return jsonify(result), resp.status_code
@@ -405,20 +359,10 @@ def delete_single_photo():
                 return jsonify({"success": False, "error": f"Could not reach master: {e}"})
 
         # Master or standalone: delete locally
-        file_path = os.path.join(os.path.dirname(PHOTOS_DIR), photo_path.lstrip("/static/"))
-        file_path = os.path.normpath(file_path)
-
-        # Verify it's within PHOTOS_DIR
-        if not file_path.startswith(os.path.normpath(PHOTOS_DIR)):
-            return jsonify({"success": False, "error": "Invalid path"})
-
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            thumb_path = os.path.join(PHOTOS_DIR, "thumbs", filename)
-            if os.path.exists(thumb_path):
-                os.remove(thumb_path)
-            db.remove_photo(filename)
+        deleted = delete_photo_files(filename)
+        if deleted:
             mark_manifest_dirty()
+            notify_photos_changed()
             return jsonify({"success": True})
         else:
             return jsonify({"success": False, "error": "File not found"})
@@ -471,7 +415,7 @@ def switch_mode():
             return jsonify({"success": False, "error": "Invalid mode. Use 'usb' or 'hdmi'"})
 
         # Write new mode
-        with open(MODE_FILE, 'w') as f:
+        with open(_config.MODE_FILE, 'w') as f:
             f.write(new_mode)
 
         return jsonify({

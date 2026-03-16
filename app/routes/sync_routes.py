@@ -1,6 +1,5 @@
 # routes/sync_routes.py
 import os
-import hashlib
 import time
 import threading
 import shutil
@@ -8,25 +7,12 @@ import secrets as secrets_mod
 import requests
 from datetime import datetime
 from flask import jsonify, request, send_from_directory
-from PIL import Image
 from app import app
 import config
 import db
 from utils import sync_photos_to_usb, get_display_mode
-
-
-def require_admin(f):
-    """Require admin authentication - local copy to avoid circular import."""
-    from functools import wraps
-    from flask import session, redirect, url_for, jsonify, request
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not session.get("admin_authenticated"):
-            if request.is_json:
-                return jsonify({"error": "Authentication required"}), 401
-            return redirect(url_for("admin_login"))
-        return f(*args, **kwargs)
-    return decorated
+from auth import require_admin
+from photo_ops import compute_md5, generate_thumbnail, walk_photos, delete_photo_files, notify_photos_changed
 
 # --- Manifest cache ---
 _manifest_cache = None
@@ -40,30 +26,24 @@ def mark_manifest_dirty():
 
 
 def _build_manifest():
-    """Walk config.PHOTOS_DIR (excluding thumbs/ and sync/) and return photo list with md5."""
+    """Build photo manifest from DB (excludes sync/ photos).
+
+    Uses the photos table as source of truth. MD5 and size are already
+    stored by every flow that adds photos (upload, picker, reconcile).
+    """
     global _manifest_cache, _manifest_dirty
     photos = []
-    if os.path.exists(config.PHOTOS_DIR):
-        for root, dirs, files in os.walk(config.PHOTOS_DIR):
-            dirs[:] = [d for d in dirs if d not in ('thumbs', config.SYNC_DIR_NAME)]
-            for f in sorted(files):
-                if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                    full_path = os.path.join(root, f)
-                    rel_path = os.path.relpath(full_path, config.PHOTOS_DIR)
-                    try:
-                        h = hashlib.md5()
-                        with open(full_path, 'rb') as fh:
-                            for chunk in iter(lambda: fh.read(8192), b''):
-                                h.update(chunk)
-                        md5 = h.hexdigest()
-                        size = os.path.getsize(full_path)
-                    except OSError:
-                        continue
-                    photos.append({
-                        "path": rel_path,
-                        "size": size,
-                        "md5": md5,
-                    })
+    for row in db.get_all_photos():
+        subdir = row["subdir"]
+        # Exclude synced photos from master manifest
+        if subdir == config.SYNC_DIR_NAME or (subdir and subdir.startswith(config.SYNC_DIR_NAME + "/")):
+            continue
+        path = f"{subdir}/{row['filename']}" if subdir else row["filename"]
+        photos.append({
+            "path": path,
+            "size": row["size_bytes"] or 0,
+            "md5": row["md5"] or "",
+        })
     _manifest_cache = {
         "photos": photos,
         "photo_count": len(photos),
@@ -210,31 +190,14 @@ def sync_delete_photo():
     if uploader != "admin" and meta.get(filename) != uploader:
         return jsonify({"success": False, "error": "Access denied"}), 403
 
-    # Find and delete the file
-    deleted = False
-    for subdir in ["upload", "picker", ""]:
-        file_path = os.path.join(config.PHOTOS_DIR, subdir, filename) if subdir else os.path.join(config.PHOTOS_DIR, filename)
-        if os.path.isfile(file_path):
-            os.remove(file_path)
-            deleted = True
-            break
+    # Delete file, thumbnail, and DB record
+    deleted = delete_photo_files(filename)
 
     if not deleted:
         return jsonify({"success": False, "error": "File not found"}), 404
 
-    # Remove thumbnail
-    thumb_path = os.path.join(config.PHOTOS_DIR, "thumbs", filename)
-    if os.path.exists(thumb_path):
-        os.remove(thumb_path)
-
-    # Remove from DB
-    db.remove_photo(filename)
-
     mark_manifest_dirty()
-
-    # Sync USB if needed
-    if get_display_mode() == "usb":
-        sync_photos_to_usb()
+    notify_photos_changed()
 
     print(f"[SYNC] Photo {filename} deleted by {uploader}")
     return jsonify({"success": True})
@@ -336,32 +299,37 @@ _sync_thread = None
 def _count_synced_photos():
     """Count photos in the sync directory."""
     sync_dir = os.path.join(config.PHOTOS_DIR, config.SYNC_DIR_NAME)
-    count = 0
-    if os.path.exists(sync_dir):
-        for root, dirs, files in os.walk(sync_dir):
-            count += len([f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))])
-    return count
+    return sum(1 for _ in walk_photos(sync_dir))
 
 
 def _build_local_manifest():
-    """Build manifest of photos/sync/ directory for comparison."""
-    sync_dir = os.path.join(config.PHOTOS_DIR, config.SYNC_DIR_NAME)
+    """Build manifest of photos/sync/ directory for comparison.
+
+    Uses DB as source of truth (all synced photos have MD5 stored on download).
+    Falls back to disk walk + compute_md5 if DB has gaps.
+    """
     local = {}
-    if os.path.exists(sync_dir):
-        for root, dirs, files in os.walk(sync_dir):
-            for f in files:
-                if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                    full_path = os.path.join(root, f)
-                    rel_path = os.path.relpath(full_path, sync_dir)
-                    try:
-                        h = hashlib.md5()
-                        with open(full_path, 'rb') as fh:
-                            for chunk in iter(lambda: fh.read(8192), b''):
-                                h.update(chunk)
-                        md5 = h.hexdigest()
-                    except OSError:
-                        continue
-                    local[rel_path] = md5
+    for row in db.get_all_photos():
+        subdir = row["subdir"]
+        if subdir != config.SYNC_DIR_NAME and not (subdir and subdir.startswith(config.SYNC_DIR_NAME + "/")):
+            continue
+        # Reconstruct the path relative to sync_dir
+        if subdir == config.SYNC_DIR_NAME:
+            rel_path = row["filename"]
+        else:
+            sub = subdir[len(config.SYNC_DIR_NAME) + 1:]
+            rel_path = f"{sub}/{row['filename']}"
+        local[rel_path] = row["md5"] or ""
+
+    # If any entries have empty MD5, backfill from disk
+    if any(not md5 for md5 in local.values()):
+        sync_dir = os.path.join(config.PHOTOS_DIR, config.SYNC_DIR_NAME)
+        for rel_path, md5 in list(local.items()):
+            if not md5:
+                full_path = os.path.join(sync_dir, rel_path)
+                if os.path.isfile(full_path):
+                    local[rel_path] = compute_md5(full_path)
+
     return local
 
 
@@ -477,11 +445,7 @@ def run_sync_cycle():
                     f.write(photo_resp.content)
 
                 # Compute md5 of downloaded file
-                h = hashlib.md5()
-                with open(dest, 'rb') as fh:
-                    for chunk in iter(lambda: fh.read(8192), b''):
-                        h.update(chunk)
-                file_md5 = h.hexdigest()
+                file_md5 = compute_md5(dest)
                 file_size = os.path.getsize(dest)
 
                 # Track in DB
@@ -491,13 +455,7 @@ def run_sync_cycle():
                              size_bytes=file_size, md5=file_md5)
 
                 # Generate thumbnail
-                thumb_path = os.path.join(thumb_dir, os.path.basename(path))
-                try:
-                    img = Image.open(dest)
-                    img.thumbnail((200, 200))
-                    img.save(thumb_path, "JPEG", quality=60)
-                except Exception as e:
-                    print(f"[SYNC] Thumbnail failed for {path}: {e}")
+                generate_thumbnail(dest, os.path.join(thumb_dir, os.path.basename(path)))
 
                 downloaded += 1
                 db.set_setting("sync_completed", downloaded)
@@ -512,36 +470,30 @@ def run_sync_cycle():
             full_path = os.path.join(sync_dir, path)
             if os.path.exists(full_path):
                 os.remove(full_path)
-                # Remove thumbnail
-                thumb_path = os.path.join(thumb_dir, os.path.basename(path))
-                if os.path.exists(thumb_path):
-                    os.remove(thumb_path)
-                # Remove from DB
-                db.remove_photo(os.path.basename(path))
-                deleted += 1
+            # Remove thumbnail and DB record via shared function
+            thumb_path = os.path.join(config.PHOTOS_DIR, "thumbs", os.path.basename(path))
+            if os.path.exists(thumb_path):
+                os.remove(thumb_path)
+            db.remove_photo(os.path.basename(path))
+            deleted += 1
 
         # Clean up empty subdirectories in sync/
         for root, dirs, files in os.walk(sync_dir, topdown=False):
             if root != sync_dir and not files and not dirs:
                 os.rmdir(root)
 
-        # 7. Reconcile state in DB
-        _reconcile_after_sync()
-
-        # 8. USB sync if needed
-        _mode = get_display_mode()
-        print(f"[SYNC] USB check: mode={_mode}, downloaded={downloaded}, deleted={deleted}", flush=True)
-        if _mode == "usb" and (downloaded > 0 or deleted > 0):
+        # 7. Notify: sets done/photos_chosen, triggers USB sync if needed
+        if downloaded > 0 or deleted > 0:
             db.set_setting("sync_phase", "updating_frame")
-            print("[SYNC] Starting USB update...", flush=True)
+            print(f"[SYNC] USB check: mode={get_display_mode()}, downloaded={downloaded}, deleted={deleted}", flush=True)
             # Mark USB as stale before update — cleared on success
             try:
                 with open("/tmp/instapi_usb_stale", "w") as f:
                     f.write(str(int(time.time())))
             except OSError:
                 pass
-            sync_photos_to_usb()
-            print("[SYNC] USB update complete", flush=True)
+            notify_photos_changed()
+            print("[SYNC] Post-change notifications complete", flush=True)
             # If we get here, update succeeded — clear stale flag
             try:
                 os.remove("/tmp/instapi_usb_stale")
@@ -583,20 +535,15 @@ def run_sync_cycle():
 
 
 def _reconcile_after_sync():
-    """Rebuild photo_urls in DB from disk after sync changes."""
-    actual_photos = []
-    if os.path.exists(config.PHOTOS_DIR):
-        for root, dirs, files in os.walk(config.PHOTOS_DIR):
-            dirs[:] = [d for d in dirs if d != 'thumbs']
-            for f in sorted(files):
-                if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                    rel = os.path.relpath(os.path.join(root, f), os.path.dirname(config.PHOTOS_DIR))
-                    actual_photos.append(f"/static/{rel}")
-    if actual_photos:
-        db.set_setting("photo_urls", actual_photos)
+    """Update photo state flags after sync changes.
+
+    Photo URLs are now derived from the DB on demand (db.get_photo_urls),
+    so we only need to update the done/photos_chosen flags here.
+    """
+    if db.get_photo_count() > 0:
         db.set_setting("done", True)
         db.set_setting("photos_chosen", True)
-    elif not db.get_setting("photo_urls"):
+    else:
         db.set_setting("done", False)
 
 

@@ -19,43 +19,45 @@ def reconcile_photos():
     This ensures the slideshow and admin panel reflect reality after a reboot,
     even if the database was lost or out of sync.
     """
+    from photo_ops import walk_photos, generate_thumbnail, compute_md5
+
     photos_dir = config.PHOTOS_DIR
-    actual_photos = []
-    if os.path.exists(photos_dir):
-        for root, dirs, files in os.walk(photos_dir):
-            dirs[:] = [d for d in dirs if d != 'thumbs']
-            for f in sorted(files):
-                if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                    full_path = os.path.join(root, f)
-                    rel = os.path.relpath(full_path, os.path.dirname(photos_dir))
-                    actual_photos.append((f, full_path, f"/static/{rel}"))
-
     actual_filenames = set()
-    if actual_photos:
-        for filename, full_path, photo_url in actual_photos:
-            actual_filenames.add(filename)
-            subdir = os.path.relpath(os.path.dirname(full_path), photos_dir)
-            if subdir == '.':
-                subdir = ''
-            try:
-                size = os.path.getsize(full_path)
-            except OSError:
-                size = 0
-            db.add_photo(filename, subdir=subdir, uploaded_by='admin', size_bytes=size)
+    photo_count = 0
+    thumb_dir = os.path.join(photos_dir, "thumbs")
+    os.makedirs(thumb_dir, exist_ok=True)
+    md5_backfilled = 0
 
-        db.set_setting("done", True)
-        db.set_setting("photos_chosen", True)
+    for filename, full_path, subdir in walk_photos(photos_dir):
+        actual_filenames.add(filename)
+        try:
+            size = os.path.getsize(full_path)
+        except OSError:
+            size = 0
+
+        # Check if MD5 needs backfilling (only compute if not already in DB)
+        existing = db.get_photo(filename)
+        if existing and existing["md5"]:
+            md5 = existing["md5"]
+        else:
+            md5 = compute_md5(full_path)
+            md5_backfilled += 1
+            if md5_backfilled % 50 == 0:
+                print(f"[RECONCILE] MD5 backfill progress: {md5_backfilled} photos...")
+
+        db.add_photo(filename, subdir=subdir, uploaded_by='admin',
+                     size_bytes=size, md5=md5)
 
         # Backfill thumbnails for photos that predate this feature
-        thumb_dir = os.path.join(photos_dir, "thumbs")
-        os.makedirs(thumb_dir, exist_ok=True)
-        for filename, full_path, photo_url in actual_photos:
-            thumb = os.path.join(thumb_dir, filename)
-            if not os.path.exists(thumb) and os.path.exists(full_path):
-                from PIL import Image
-                img = Image.open(full_path)
-                img.thumbnail((200, 200))
-                img.save(thumb, "JPEG", quality=60)
+        thumb = os.path.join(thumb_dir, filename)
+        if not os.path.exists(thumb) and os.path.exists(full_path):
+            generate_thumbnail(full_path, thumb)
+
+        photo_count += 1
+
+    if photo_count > 0:
+        db.set_setting("done", True)
+        db.set_setting("photos_chosen", True)
 
     # Remove DB records for files that no longer exist on disk
     removed = 0
@@ -66,8 +68,11 @@ def reconcile_photos():
     if removed:
         print(f"Reconciled: removed {removed} stale DB records")
 
-    if actual_photos:
-        print(f"Reconciled {len(actual_photos)} photos from disk")
+    if photo_count > 0:
+        msg = f"Reconciled {photo_count} photos from disk"
+        if md5_backfilled:
+            msg += f" ({md5_backfilled} MD5s backfilled)"
+        print(msg)
     elif db.get_photo_count() == 0:
         db.set_setting("done", False)
         print("No photos on disk")

@@ -2,6 +2,7 @@ import sqlite3
 import json
 import os
 import threading
+from config import IMAGE_EXTENSIONS
 
 DB_PATH = os.environ.get('INSTAPI_DB_PATH',
           os.path.join(os.path.dirname(__file__), 'instapi.db'))
@@ -144,6 +145,24 @@ def get_upload_meta():
     return {row["filename"]: row["uploaded_by"] for row in rows}
 
 
+def get_photo_urls():
+    """Build slideshow URL list from photos table.
+
+    This is the single source of truth for which photos the slideshow shows.
+    Replaces the old photo_urls setting which could drift out of sync.
+    """
+    rows = get_db().execute(
+        "SELECT filename, subdir FROM photos ORDER BY created_at"
+    ).fetchall()
+    urls = []
+    for row in rows:
+        if row["subdir"]:
+            urls.append(f"/static/photos/{row['subdir']}/{row['filename']}")
+        else:
+            urls.append(f"/static/photos/{row['filename']}")
+    return urls
+
+
 def clear_all_photos():
     """Clear all photo records (for factory reset)."""
     get_db().execute("DELETE FROM photos")
@@ -247,7 +266,7 @@ def migrate_from_json(photos_dir):
         for root, dirs, files in os.walk(photos_dir):
             dirs[:] = [d for d in dirs if d not in ('thumbs', '.staging')]
             for f in files:
-                if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                if f.lower().endswith(IMAGE_EXTENSIONS):
                     subdir = os.path.relpath(root, photos_dir)
                     if subdir == '.':
                         subdir = ''

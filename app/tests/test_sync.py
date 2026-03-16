@@ -1,46 +1,61 @@
 import os
-import json
 import hashlib
 import pytest
 
 
+def _init_test_db(monkeypatch, tmp_path):
+    """Initialize an isolated test DB. Returns the db module."""
+    import db
+    db_path = str(tmp_path / "test.db")
+    monkeypatch.setattr(db, "DB_PATH", db_path)
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None
+    db.init_db()
+    return db
+
+
 @pytest.fixture
-def sync_master_client(app_client, monkeypatch):
+def sync_master_client(app_client):
     """App client configured as master with one child token."""
-    import config
-    config.device_state["sync_role"] = "master"
-    config.device_state["sync_children"] = [
+    import db
+    db.set_setting("sync_role", "master")
+    db.set_setting("sync_children", [
         {"label": "Gramma", "token": "test-child-token-123"}
-    ]
+    ])
     return app_client
 
 
 @pytest.fixture
-def sync_child_client(app_client, monkeypatch):
+def sync_child_client(app_client):
     """App client configured as child."""
-    import config
-    config.device_state["sync_role"] = "child"
-    config.device_state["master_url"] = "https://master.example.com"
-    config.device_state["sync_token"] = "test-child-token-123"
+    import db
+    db.set_setting("sync_role", "child")
+    db.set_setting("master_url", "https://master.example.com")
+    db.set_setting("sync_token", "test-child-token-123")
     return app_client
 
 
 @pytest.fixture
 def master_with_photos(sync_master_client, monkeypatch, tmp_path):
-    """Master client with actual photos on disk."""
+    """Master client with actual photos on disk and in DB."""
     import config
-    photos_dir = str(tmp_path / "static" / "photos")
-    monkeypatch.setattr(config, "PHOTOS_DIR", photos_dir)
+    import db
+    photos_dir = config.PHOTOS_DIR
 
     # Create some test photos
     picker_dir = os.path.join(photos_dir, "picker")
     os.makedirs(picker_dir, exist_ok=True)
     for i in range(3):
+        content = b"\xff\xd8\xff\xe0" + f"photo{i}".encode() + b"\x00" * 100
         path = os.path.join(picker_dir, f"test_{i}.jpg")
         with open(path, "wb") as f:
-            f.write(b"\xff\xd8\xff\xe0" + f"photo{i}".encode() + b"\x00" * 100)
+            f.write(content)
+        md5 = hashlib.md5(content).hexdigest()
+        db.add_photo(f"test_{i}.jpg", subdir="picker", uploaded_by="admin",
+                     size_bytes=len(content), md5=md5)
 
-    # Create thumbs dir (should be excluded)
+    # Create thumbs dir (should be excluded from manifest)
     thumbs_dir = os.path.join(photos_dir, "thumbs")
     os.makedirs(thumbs_dir, exist_ok=True)
     with open(os.path.join(thumbs_dir, "thumb.jpg"), "wb") as f:
@@ -86,13 +101,17 @@ def test_manifest_excludes_thumbs(master_with_photos):
         assert not photo["path"].startswith("thumbs")
 
 
-def test_manifest_excludes_sync_dir(master_with_photos, monkeypatch, tmp_path):
+def test_manifest_excludes_sync_dir(master_with_photos):
     """Sync directory should not appear in manifest."""
     import config
+    import db
+
     sync_dir = os.path.join(config.PHOTOS_DIR, "sync", "picker")
     os.makedirs(sync_dir, exist_ok=True)
     with open(os.path.join(sync_dir, "synced.jpg"), "wb") as f:
         f.write(b"\xff\xd8\xff\xe0" + b"\x00" * 50)
+    # Add to DB with sync subdir
+    db.add_photo("synced.jpg", subdir="sync/picker", uploaded_by="sync")
 
     from routes.sync_routes import mark_manifest_dirty
     mark_manifest_dirty()
@@ -103,13 +122,8 @@ def test_manifest_excludes_sync_dir(master_with_photos, monkeypatch, tmp_path):
         assert not photo["path"].startswith("sync")
 
 
-def test_manifest_empty_when_no_photos(sync_master_client, monkeypatch, tmp_path):
+def test_manifest_empty_when_no_photos(sync_master_client):
     """Should return empty list when no photos."""
-    import config
-    empty_dir = str(tmp_path / "empty_photos")
-    os.makedirs(empty_dir, exist_ok=True)
-    monkeypatch.setattr(config, "PHOTOS_DIR", empty_dir)
-
     from routes.sync_routes import mark_manifest_dirty
     mark_manifest_dirty()
 
@@ -175,8 +189,8 @@ def test_add_child_requires_label(sync_master_client):
 
 def test_remove_child_frame(sync_master_client):
     """Should remove child by token."""
-    import config
-    assert len(config.device_state["sync_children"]) == 1
+    import db
+    assert len(db.get_setting("sync_children")) == 1
 
     resp = sync_master_client.post(
         "/admin/sync_remove_child",
@@ -185,7 +199,7 @@ def test_remove_child_frame(sync_master_client):
     )
     data = resp.get_json()
     assert data["success"] is True
-    assert len(config.device_state["sync_children"]) == 0
+    assert len(db.get_setting("sync_children")) == 0
 
 
 def test_list_children(sync_master_client):
@@ -199,8 +213,8 @@ def test_list_children(sync_master_client):
 # ============== CHILD TESTS ==============
 
 def test_sync_config_saves_role(app_client):
-    """POST sync_config should persist role to device_state."""
-    import config
+    """POST sync_config should persist role to DB."""
+    import db
     resp = app_client.post(
         "/admin/sync_config",
         json={"sync_role": "master"},
@@ -208,7 +222,7 @@ def test_sync_config_saves_role(app_client):
     )
     data = resp.get_json()
     assert data["success"] is True
-    assert config.device_state["sync_role"] == "master"
+    assert db.get_setting("sync_role") == "master"
 
 
 def test_sync_config_validates_role(app_client):
@@ -236,7 +250,6 @@ def test_sync_config_child_requires_url(app_client):
 
 def test_sync_now_returns_immediately(sync_child_client, monkeypatch):
     """Sync now should return 200 without blocking."""
-    # Mock run_sync_cycle to avoid actual HTTP calls
     import routes.sync_routes as sr
     monkeypatch.setattr(sr, "run_sync_cycle", lambda: None)
 
@@ -268,14 +281,15 @@ def test_sync_downloads_new_photos(monkeypatch, tmp_path):
     """Sync cycle should download photos from master manifest."""
     import config
     import routes.sync_routes as sr
+    db = _init_test_db(monkeypatch, tmp_path)
 
     photos_dir = str(tmp_path / "photos")
     os.makedirs(photos_dir, exist_ok=True)
     monkeypatch.setattr(config, "PHOTOS_DIR", photos_dir)
 
-    config.device_state["sync_role"] = "child"
-    config.device_state["master_url"] = "https://master.test"
-    config.device_state["sync_token"] = "tok123"
+    db.set_setting("sync_role", "child")
+    db.set_setting("master_url", "https://master.test")
+    db.set_setting("sync_token", "tok123")
 
     photo_content = b"\xff\xd8\xff\xe0" + b"\x00" * 200
 
@@ -287,10 +301,7 @@ def test_sync_downloads_new_photos(monkeypatch, tmp_path):
         def json(self):
             return self._data
 
-    call_log = []
-
     def mock_get(url, **kwargs):
-        call_log.append(url)
         if "/sync/manifest" in url:
             return MockResp(200, data={
                 "photos": [
@@ -310,31 +321,38 @@ def test_sync_downloads_new_photos(monkeypatch, tmp_path):
 
     sr.run_sync_cycle()
 
-    # Verify photos downloaded
     sync_dir = os.path.join(photos_dir, "sync", "upload")
     assert os.path.exists(os.path.join(sync_dir, "photo_1.jpg"))
     assert os.path.exists(os.path.join(sync_dir, "photo_2.jpg"))
-    assert config.device_state["last_sync_result"] == "success"
+    assert db.get_setting("last_sync_result") == "success"
+
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None
 
 
 def test_sync_deletes_removed_photos(monkeypatch, tmp_path):
     """Photos removed from master should be deleted locally."""
     import config
     import routes.sync_routes as sr
+    db = _init_test_db(monkeypatch, tmp_path)
 
     photos_dir = str(tmp_path / "photos")
     sync_dir = os.path.join(photos_dir, "sync", "upload")
     os.makedirs(sync_dir, exist_ok=True)
     monkeypatch.setattr(config, "PHOTOS_DIR", photos_dir)
 
-    # Create a local photo that's not in master
+    # Create a local photo that's not in master (stored under sync/upload subdir)
+    old_content = b"\xff\xd8\xff\xe0" + b"\x00" * 100
     old_photo = os.path.join(sync_dir, "old_photo.jpg")
     with open(old_photo, "wb") as f:
-        f.write(b"\xff\xd8\xff\xe0" + b"\x00" * 100)
+        f.write(old_content)
+    md5 = hashlib.md5(old_content).hexdigest()
+    db.add_photo("old_photo.jpg", subdir="sync/upload", uploaded_by="sync", md5=md5)
 
-    config.device_state["sync_role"] = "child"
-    config.device_state["master_url"] = "https://master.test"
-    config.device_state["sync_token"] = "tok123"
+    db.set_setting("sync_role", "child")
+    db.set_setting("master_url", "https://master.test")
+    db.set_setting("sync_token", "tok123")
 
     class MockResp:
         def __init__(self, status_code, data=None):
@@ -356,27 +374,32 @@ def test_sync_deletes_removed_photos(monkeypatch, tmp_path):
 
     assert not os.path.exists(old_photo)
 
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None
+
 
 def test_sync_skips_existing_photos(monkeypatch, tmp_path):
     """Photos with matching md5 should not be re-downloaded."""
     import config
     import routes.sync_routes as sr
+    db = _init_test_db(monkeypatch, tmp_path)
 
     photos_dir = str(tmp_path / "photos")
     sync_dir = os.path.join(photos_dir, "sync", "upload")
     os.makedirs(sync_dir, exist_ok=True)
     monkeypatch.setattr(config, "PHOTOS_DIR", photos_dir)
 
-    # Create existing photo
     content = b"\xff\xd8\xff\xe0" + b"existing" + b"\x00" * 100
     existing = os.path.join(sync_dir, "existing.jpg")
     with open(existing, "wb") as f:
         f.write(content)
     md5 = hashlib.md5(content).hexdigest()
+    db.add_photo("existing.jpg", subdir="sync/upload", uploaded_by="sync", md5=md5)
 
-    config.device_state["sync_role"] = "child"
-    config.device_state["master_url"] = "https://master.test"
-    config.device_state["sync_token"] = "tok123"
+    db.set_setting("sync_role", "child")
+    db.set_setting("master_url", "https://master.test")
+    db.set_setting("sync_token", "tok123")
 
     download_calls = []
 
@@ -405,8 +428,11 @@ def test_sync_skips_existing_photos(monkeypatch, tmp_path):
 
     sr.run_sync_cycle()
 
-    # Should NOT have downloaded since md5 matches
     assert len(download_calls) == 0
+
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None
 
 
 def test_sync_handles_master_unreachable(monkeypatch, tmp_path):
@@ -414,14 +440,15 @@ def test_sync_handles_master_unreachable(monkeypatch, tmp_path):
     import config
     import routes.sync_routes as sr
     import requests as req
+    db = _init_test_db(monkeypatch, tmp_path)
 
     photos_dir = str(tmp_path / "photos")
     os.makedirs(photos_dir, exist_ok=True)
     monkeypatch.setattr(config, "PHOTOS_DIR", photos_dir)
 
-    config.device_state["sync_role"] = "child"
-    config.device_state["master_url"] = "https://master.test"
-    config.device_state["sync_token"] = "tok123"
+    db.set_setting("sync_role", "child")
+    db.set_setting("master_url", "https://master.test")
+    db.set_setting("sync_token", "tok123")
 
     def mock_get(url, **kwargs):
         raise req.ConnectionError("Connection refused")
@@ -430,22 +457,27 @@ def test_sync_handles_master_unreachable(monkeypatch, tmp_path):
 
     sr.run_sync_cycle()
 
-    assert config.device_state["last_sync_result"] == "error"
-    assert config.device_state.get("sync_error")
+    assert db.get_setting("last_sync_result") == "error"
+    assert db.get_setting("sync_error")
+
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None
 
 
 def test_sync_handles_disk_full(monkeypatch, tmp_path):
     """Should stop downloading when disk is full."""
     import config
     import routes.sync_routes as sr
+    db = _init_test_db(monkeypatch, tmp_path)
 
     photos_dir = str(tmp_path / "photos")
     os.makedirs(photos_dir, exist_ok=True)
     monkeypatch.setattr(config, "PHOTOS_DIR", photos_dir)
 
-    config.device_state["sync_role"] = "child"
-    config.device_state["master_url"] = "https://master.test"
-    config.device_state["sync_token"] = "tok123"
+    db.set_setting("sync_role", "child")
+    db.set_setting("master_url", "https://master.test")
+    db.set_setting("sync_token", "tok123")
 
     class MockResp:
         def __init__(self, status_code, data=None):
@@ -464,29 +496,33 @@ def test_sync_handles_disk_full(monkeypatch, tmp_path):
 
     monkeypatch.setattr("routes.sync_routes.requests.get", mock_get)
 
-    # Mock disk_usage to return very low free space
     import collections
     DiskUsage = collections.namedtuple('DiskUsage', ['total', 'used', 'free'])
     monkeypatch.setattr("routes.sync_routes.shutil.disk_usage", lambda p: DiskUsage(100, 90, 10))
 
     sr.run_sync_cycle()
 
-    assert config.device_state["last_sync_result"] == "error"
-    assert "Disk full" in config.device_state.get("sync_error", "")
+    assert db.get_setting("last_sync_result") == "error"
+    assert "Disk full" in db.get_setting("sync_error", "")
+
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None
 
 
 def test_sync_preserves_subdirs(monkeypatch, tmp_path):
     """Synced photos should preserve subdirectory structure."""
     import config
     import routes.sync_routes as sr
+    db = _init_test_db(monkeypatch, tmp_path)
 
     photos_dir = str(tmp_path / "photos")
     os.makedirs(photos_dir, exist_ok=True)
     monkeypatch.setattr(config, "PHOTOS_DIR", photos_dir)
 
-    config.device_state["sync_role"] = "child"
-    config.device_state["master_url"] = "https://master.test"
-    config.device_state["sync_token"] = "tok123"
+    db.set_setting("sync_role", "child")
+    db.set_setting("master_url", "https://master.test")
+    db.set_setting("sync_token", "tok123")
 
     photo_content = b"\xff\xd8\xff\xe0" + b"\x00" * 100
 
@@ -517,33 +553,26 @@ def test_sync_preserves_subdirs(monkeypatch, tmp_path):
 
     sr.run_sync_cycle()
 
-    # Verify subdirectory structure preserved under sync/
     assert os.path.exists(os.path.join(photos_dir, "sync", "picker", "from_picker.jpg"))
     assert os.path.exists(os.path.join(photos_dir, "sync", "upload", "from_upload.jpg"))
 
-
-# ============== CONFIG TESTS ==============
-
-def test_sync_keys_persistable(tmp_path, monkeypatch):
-    """Sync keys should be in _PERSISTABLE_KEYS."""
-    import config
-    sync_keys = {"sync_role", "sync_token", "sync_children", "master_url",
-                 "sync_interval", "last_sync", "last_sync_result", "sync_error"}
-    assert sync_keys.issubset(config._PERSISTABLE_KEYS)
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None
 
 
-def test_sync_state_round_trips(tmp_path, monkeypatch):
-    """Sync state should survive save/load."""
-    import config
-    state_file = str(tmp_path / "state.json")
-    monkeypatch.setattr(config, "STATE_FILE", state_file)
+# ============== DB SETTINGS TESTS ==============
 
-    config.device_state.clear()
-    config.device_state["sync_role"] = "master"
-    config.device_state["sync_children"] = [{"label": "Test", "token": "abc"}]
-    config.save_device_state()
+def test_sync_settings_round_trip(tmp_path, monkeypatch):
+    """Sync settings should survive DB save/load."""
+    db = _init_test_db(monkeypatch, tmp_path)
 
-    config.device_state.clear()
-    config.load_device_state()
-    assert config.device_state["sync_role"] == "master"
-    assert config.device_state["sync_children"] == [{"label": "Test", "token": "abc"}]
+    db.set_setting("sync_role", "master")
+    db.set_setting("sync_children", [{"label": "Test", "token": "abc"}])
+
+    assert db.get_setting("sync_role") == "master"
+    assert db.get_setting("sync_children") == [{"label": "Test", "token": "abc"}]
+
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None
