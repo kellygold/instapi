@@ -13,7 +13,7 @@ try:
 except FileNotFoundError:
     app.secret_key = os.urandom(24).hex()  # Fallback for dev
 
-# Basic Flask config
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'
-app.config['SESSION_COOKIE_SECURE'] = True
-app.config['PREFERRED_URL_SCHEME'] = 'https'
+# Session cookies: allow both HTTP (local) and HTTPS (ngrok)
+# SameSite=Lax is the safe default; Secure=False so cookies work over HTTP too
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = False
