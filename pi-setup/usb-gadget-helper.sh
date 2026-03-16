@@ -63,8 +63,8 @@ usb_prepare_and_swap() {
 
     usb_mount "$img_file" "$mount_point"
 
-    # Delete files from USB that aren't in staging
-    for f in "$mount_point"/*.jpg "$mount_point"/*.jpeg "$mount_point"/*.png; do
+    # Delete ALL files from USB that aren't in staging (photos + FSCK junk + anything else)
+    for f in "$mount_point"/*; do
         [ -f "$f" ] || continue
         fname=$(basename "$f")
         if [ ! -f "$staging_dir/$fname" ]; then
