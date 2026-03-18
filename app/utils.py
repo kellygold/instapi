@@ -139,8 +139,8 @@ _usb_sync_lock = threading.Lock()
 def sync_photos_to_usb():
     """Run update-photos.sh to sync photos to USB drive (USB mode only).
 
-    Timeout is generous (10 min) because watermarking many photos on
-    Pi Zero 2 W is slow (~5s per photo).  A 64-photo batch can take 5+ min.
+    Timeout is generous (30 min) because watermarking many photos on
+    Pi Zero 2 W is slow (~5s per photo).  291 photos takes ~24 min.
 
     Thread-safe: uses a lock to prevent concurrent syncs that would corrupt
     the FAT32 filesystem. If a sync is already running, the call is skipped
@@ -164,14 +164,14 @@ def sync_photos_to_usb():
             try:
                 result = subprocess.run(
                     ["/usr/bin/sudo", "/bin/bash", script_path],
-                    capture_output=True, text=True, timeout=600
+                    capture_output=True, text=True, timeout=1800
                 )
                 print(f"USB sync stdout: {result.stdout[-500:]}")
                 if result.stderr:
                     print(f"USB sync stderr: {result.stderr[-500:]}")
                 print(f"USB sync exit code: {result.returncode}")
             except subprocess.TimeoutExpired:
-                print("USB sync timed out after 600s!", flush=True)
+                print("USB sync timed out after 1800s!", flush=True)
         else:
             print(f"USB sync script not found: {script_path}")
     finally:
