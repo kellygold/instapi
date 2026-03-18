@@ -19,14 +19,14 @@ echo "====================="
 echo ""
 
 # Check if mode passed as argument or environment variable
-if [ "$1" = "usb" ] || [ "$1" = "hdmi" ]; then
+if [ "$1" = "usb" ] || [ "$1" = "hdmi" ] || [ "$1" = "server" ]; then
     DISPLAY_MODE="$1"
     echo "Mode: $DISPLAY_MODE (from argument)"
-elif [ "$DISPLAY_MODE" = "usb" ] || [ "$DISPLAY_MODE" = "hdmi" ]; then
+elif [ "$DISPLAY_MODE" = "usb" ] || [ "$DISPLAY_MODE" = "hdmi" ] || [ "$DISPLAY_MODE" = "server" ]; then
     echo "Mode: $DISPLAY_MODE (from environment)"
 elif [ -n "$1" ]; then
     echo "Unknown mode: $1"
-    echo "Usage: ./install.sh [usb|hdmi]"
+    echo "Usage: ./install.sh [usb|hdmi|server]"
     exit 1
 else
     DISPLAY_MODE=""
@@ -352,6 +352,27 @@ elif [ "$DISPLAY_MODE" = "hdmi" ]; then
 │ 3. Connect HDMI screen to Pi           │
 │                                        │
 │ 4. Screen will show QR code - scan it! │"
+
+# ==========================================
+# HEADLESS SERVER MODE SETUP
+# ==========================================
+elif [ "$DISPLAY_MODE" = "server" ]; then
+    echo "🖥️  Configuring headless server mode..."
+
+    # Install systemd services (Flask + WiFi only, no display services)
+    echo "⚙️  Installing services..."
+    for svc in instapi.service instapi-wifi.service; do
+        sed "s|@@USER@@|$USER|g; s|@@HOME@@|$HOME|g" "$INSTALL_DIR/pi-setup/$svc" | sudo tee "/etc/systemd/system/$svc" > /dev/null
+    done
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable instapi
+    sudo systemctl enable instapi-wifi
+
+    NEXT_STEPS="
+│ 3. Access admin panel to configure     │
+│                                        │
+│ 4. Set up as master or child           │"
 fi
 
 # ==========================================

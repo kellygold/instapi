@@ -89,7 +89,9 @@ usb_prepare_and_swap() {
     flock -u 9
 }
 
-# Watermark files in a directory (one at a time to avoid OOM on Pi Zero).
+# Watermark files in a directory.
+# Automatically uses parallel processing on devices with >1.5GB RAM (Pi 5),
+# falls back to sequential on low-RAM devices (Pi Zero).
 # $1 = directory containing photos to watermark
 # $2 = space-separated list of filenames to watermark (or "all" for all photos)
 usb_watermark() {
@@ -103,22 +105,44 @@ usb_watermark() {
 
     cd "$instapi_dir/app"
     "$venv" -c "
-import sys, os, gc
-from utils import add_qr_watermark
+import sys, os, gc, glob
+
+# Build target list
 target_dir = '$dir'
 file_list = '''$files'''.strip()
 if file_list == 'all':
-    import glob
     targets = glob.glob(os.path.join(target_dir, '*.jpg')) + glob.glob(os.path.join(target_dir, '*.jpeg')) + glob.glob(os.path.join(target_dir, '*.png'))
 else:
     targets = [os.path.join(target_dir, f) for f in file_list.split() if f]
-count = 0
-for i, path in enumerate(targets):
-    if os.path.exists(path) and 'qr-placeholder' not in path and 'wifi-fix' not in path:
-        add_qr_watermark(path)
+targets = [p for p in targets if os.path.exists(p) and 'qr-placeholder' not in p and 'wifi-fix' not in p]
+
+if not targets:
+    print('No photos to watermark')
+    sys.exit(0)
+
+# Get watermark URL once (requires DB access — do this in parent process)
+from utils import get_upload_url, add_qr_watermark
+url = get_upload_url()
+
+# Check available RAM to decide parallel vs sequential
+mem_gb = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / (1024**3)
+
+if mem_gb >= 1.5 and len(targets) > 1:
+    import multiprocessing
+    workers = min(4, multiprocessing.cpu_count(), len(targets))
+    # Use a wrapper that passes the pre-computed URL (avoids DB access in workers)
+    def _wm(path):
+        add_qr_watermark(path, watermark_url=url)
+    with multiprocessing.Pool(workers) as pool:
+        pool.map(_wm, targets)
+    print(f'Watermarked {len(targets)} photos ({workers} workers)')
+else:
+    count = 0
+    for i, path in enumerate(targets):
+        add_qr_watermark(path, watermark_url=url)
         count += 1
-    if (i + 1) % 3 == 0:
-        gc.collect()
-print(f'Watermarked {count} photos')
+        if (i + 1) % 3 == 0:
+            gc.collect()
+    print(f'Watermarked {count} photos (sequential)')
 " 2>/dev/null || echo "Watermark failed (non-fatal)"
 }

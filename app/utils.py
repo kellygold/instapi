@@ -24,14 +24,20 @@ def get_upload_url():
     return f"{get_base_url()}/upload?t={token}"
 
 
-def add_qr_watermark(image_path):
-    """Add a small QR code watermark to bottom-right of image."""
+def add_qr_watermark(image_path, watermark_url=None):
+    """Add a small QR code watermark to bottom-right of image.
+
+    Args:
+        watermark_url: URL for the QR code. If None, looks up from DB.
+            Pass explicitly when calling from multiprocessing workers
+            (which can't access the parent's DB connections).
+    """
     try:
         img = Image.open(image_path).convert('RGBA')
 
         # Generate small QR linking to auth page
         qr = qrcode.QRCode(box_size=2, border=1)
-        qr.add_data(get_upload_url())
+        qr.add_data(watermark_url or get_upload_url())
         qr.make(fit=True)
         qr_img = qr.make_image(fill_color='black', back_color='white').convert('RGBA')
 
