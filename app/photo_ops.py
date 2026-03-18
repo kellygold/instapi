@@ -104,7 +104,9 @@ def notify_photos_changed():
     Do NOT call this per-photo in a loop. Call it once after the loop.
     """
     from utils import get_display_mode, sync_photos_to_usb
+    from routes.sync_routes import mark_manifest_dirty
 
+    mark_manifest_dirty()
     count = db.get_photo_count()
     if count > 0:
         db.set_setting("done", True)
