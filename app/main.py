@@ -109,7 +109,7 @@ if __name__ == "__main__":
     # This catches: failed USB updates, mode detection fixes, service restarts
     # where sync deleted/added photos but USB was never refreshed.
     from utils import get_display_mode, sync_photos_to_usb
-    if get_display_mode() == "usb" and db.get_photo_count() > 0:
+    if get_display_mode() == "usb":
         import threading
         def _startup_usb_sync():
             import time
