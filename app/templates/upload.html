@@ -426,54 +426,89 @@
         const progressPct = document.getElementById('progressPct');
         const progressLabel = document.getElementById('progressLabel');
 
+        const BATCH_SIZE = 10;
         fileInput.addEventListener('change', handleFiles);
 
-        function handleFiles() {
-            const files = fileInput.files;
+        async function handleFiles() {
+            const files = Array.from(fileInput.files);
             if (!files.length) return;
 
-            // Switch to progress state
             uploadZone.style.display = 'none';
             progressState.classList.add('active');
-            progressLabel.textContent = `Uploading ${files.length} photo${files.length > 1 ? 's' : ''}...`;
 
-            const formData = new FormData();
-            formData.append('t', token);
-            for (const file of files) {
-                formData.append('photos', file);
+            const totalFiles = files.length;
+            const batches = [];
+            for (let i = 0; i < files.length; i += BATCH_SIZE) {
+                batches.push(files.slice(i, i + BATCH_SIZE));
             }
 
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', `/upload?t=${encodeURIComponent(token)}`);
+            let uploaded = 0;
+            let skipped = 0;
+            let failed = false;
 
-            xhr.upload.addEventListener('progress', (e) => {
-                if (e.lengthComputable) {
-                    const pct = Math.round((e.loaded / e.total) * 100);
-                    setProgress(pct);
-                }
-            });
+            for (let b = 0; b < batches.length; b++) {
+                const batch = batches[b];
+                progressLabel.textContent = `Uploading batch ${b + 1}/${batches.length} (${uploaded}/${totalFiles} photos)...`;
 
-            xhr.addEventListener('load', () => {
                 try {
-                    const data = JSON.parse(xhr.responseText);
-                    if (data.success) {
-                        showSuccess(data.count, data.skipped || 0);
-                    } else {
-                        showError(data.error || 'Upload failed');
-                        resetUpload();
-                    }
+                    const result = await uploadBatch(batch, uploaded, totalFiles);
+                    uploaded += result.count || 0;
+                    skipped += result.skipped || 0;
                 } catch (e) {
-                    showError('Upload failed');
-                    resetUpload();
+                    showError(`Batch ${b + 1} failed: ${e.message || 'Connection lost'}`);
+                    failed = true;
+                    break;
                 }
-            });
+            }
 
-            xhr.addEventListener('error', () => {
-                showError('Connection lost. Try again.');
+            if (!failed) {
+                showSuccess(uploaded, skipped);
+            } else if (uploaded > 0) {
+                showSuccess(uploaded, skipped);
+                document.getElementById('successSubtitle').textContent =
+                    `${uploaded} added, some batches failed. Tap to add more.`;
+            } else {
                 resetUpload();
-            });
+            }
+        }
 
-            xhr.send(formData);
+        function uploadBatch(files, alreadyDone, totalFiles) {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+                for (const file of files) {
+                    formData.append('photos', file);
+                }
+
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', `/upload?t=${encodeURIComponent(token)}`);
+
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const batchPct = e.loaded / e.total;
+                        const overallPct = Math.round(((alreadyDone + batchPct * files.length) / totalFiles) * 100);
+                        setProgress(overallPct);
+                    }
+                });
+
+                xhr.addEventListener('load', () => {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        if (data.success) {
+                            resolve(data);
+                        } else {
+                            reject(new Error(data.error || 'Upload failed'));
+                        }
+                    } catch (e) {
+                        reject(new Error('Invalid response'));
+                    }
+                });
+
+                xhr.addEventListener('error', () => reject(new Error('Connection lost')));
+                xhr.addEventListener('timeout', () => reject(new Error('Upload timed out')));
+                xhr.timeout = 120000; // 2 min per batch
+
+                xhr.send(formData);
+            });
         }
 
         function setProgress(pct) {
