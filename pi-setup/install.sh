@@ -226,6 +226,12 @@ fi
 echo "🛡️  Installing watchdog..."
 (crontab -l 2>/dev/null | grep -v watchdog; echo "*/5 * * * * $INSTALL_DIR/pi-setup/watchdog.sh") | crontab -
 
+# Enable hardware watchdog (auto-reboot on kernel hang within 15s)
+echo "🛡️  Enabling hardware watchdog..."
+if ! grep -q "^RuntimeWatchdogSec=" /etc/systemd/system.conf; then
+    sudo sed -i 's/^#RuntimeWatchdogSec=.*/RuntimeWatchdogSec=15/' /etc/systemd/system.conf
+fi
+
 # Generate QR placeholder image with this Pi's IP
 echo "📱 Generating QR code placeholder..."
 cd "$INSTALL_DIR/app"

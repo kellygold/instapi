@@ -548,14 +548,27 @@ def _reconcile_after_sync():
 
 
 def _sync_loop():
-    """Background loop that runs sync cycles at configured interval."""
+    """Background loop that runs sync cycles at configured interval.
+
+    On failure, retries with exponential backoff: 5 min → 10 min → 20 min,
+    capped at the normal sync interval. Resets to normal interval on success.
+    """
     # Initial delay to let the app finish starting
     if _sync_stop_event.wait(10):
         return
 
+    fail_count = 0
     while not _sync_stop_event.is_set():
         run_sync_cycle()
-        interval = db.get_setting("sync_interval", config.DEFAULT_SYNC_INTERVAL)
+        last_result = db.get_setting("last_sync_result")
+        if last_result == "success":
+            fail_count = 0
+            interval = db.get_setting("sync_interval", config.DEFAULT_SYNC_INTERVAL)
+        else:
+            fail_count += 1
+            normal_interval = db.get_setting("sync_interval", config.DEFAULT_SYNC_INTERVAL)
+            interval = min(300 * (2 ** (fail_count - 1)), normal_interval)
+            print(f"[SYNC] Retry in {interval}s (attempt {fail_count})")
         if _sync_stop_event.wait(interval):
             break
 

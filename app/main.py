@@ -114,8 +114,11 @@ if __name__ == "__main__":
         def _startup_usb_sync():
             import time
             time.sleep(30)  # let Flask and USB gadget finish starting
-            print("[STARTUP] Running USB sync to ensure frame matches disk...", flush=True)
+            photo_count = db.get_photo_count()
+            est_min = (photo_count * 5) // 60 if photo_count > 0 else 0
+            print(f"[STARTUP] Running USB sync — {photo_count} photos (est. {est_min} min for watermarking)...", flush=True)
             sync_photos_to_usb()
+            print("[STARTUP] USB sync complete", flush=True)
         threading.Thread(target=_startup_usb_sync, daemon=True).start()
 
     port = int(os.environ.get("PORT", 3000))

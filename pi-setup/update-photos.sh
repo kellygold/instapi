@@ -47,7 +47,14 @@ done
 PHOTO_COUNT=$(ls -1 "$STAGING"/*.jpg "$STAGING"/*.jpeg "$STAGING"/*.png 2>/dev/null | wc -l)
 
 if [ "$PHOTO_COUNT" -eq 0 ]; then
-    # No photos — stage QR placeholder instead
+    # Safety: refuse to wipe USB if photos exist on disk but staging is empty
+    DISK_COUNT=$(find "$PHOTOS_DIR" -maxdepth 3 -type f \( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" \) ! -path "*/thumbs/*" 2>/dev/null | wc -l)
+    if [ "$DISK_COUNT" -gt 0 ]; then
+        echo "ERROR: 0 photos staged but $DISK_COUNT on disk — aborting to protect frame"
+        rm -rf "$STAGING"
+        exit 1
+    fi
+    # Truly no photos anywhere — stage QR placeholder
     if [ -f "$QR_PLACEHOLDER" ]; then
         cp "$QR_PLACEHOLDER" "$STAGING/"
     fi
