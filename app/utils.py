@@ -24,8 +24,14 @@ def get_upload_url():
     return f"{get_base_url()}/upload?t={token}"
 
 
+MAX_FRAME_RESOLUTION = 1920  # Max dimension for USB frames — cheap frames choke on 24MP images
+
+
 def add_qr_watermark(image_path, watermark_url=None):
     """Add a small QR code watermark to bottom-right of image.
+
+    Also downsizes images to MAX_FRAME_RESOLUTION to prevent cheap photo
+    frames from freezing on high-resolution photos.
 
     Args:
         watermark_url: URL for the QR code. If None, looks up from DB.
@@ -34,6 +40,10 @@ def add_qr_watermark(image_path, watermark_url=None):
     """
     try:
         img = Image.open(image_path).convert('RGBA')
+
+        # Downsize for cheap frames — they can't handle 24MP images
+        if max(img.width, img.height) > MAX_FRAME_RESOLUTION:
+            img.thumbnail((MAX_FRAME_RESOLUTION, MAX_FRAME_RESOLUTION), Image.LANCZOS)
 
         # Generate small QR linking to auth page
         qr = qrcode.QRCode(box_size=2, border=1)

@@ -38,6 +38,9 @@ for subdir in "" upload picker album sync sync/picker sync/upload; do
             fname=$(basename "$f")
             # Skip if already in staging (first copy wins)
             [ -f "$STAGING/$fname" ] && continue
+            # Skip tiny files (<10KB) — likely broken and can freeze cheap frames
+            fsize=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null)
+            [ "$fsize" -lt 10240 ] && continue
             cp "$f" "$STAGING/$fname"
         done
     done
