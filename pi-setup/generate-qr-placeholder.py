@@ -6,27 +6,16 @@ from PIL import Image
 import os
 import sys
 
-def _get_upload_url():
-    """Get the upload URL from the app (same URL used for watermarks)."""
-    try:
-        from utils import get_upload_url
-        return get_upload_url()
-    except Exception:
-        pass
-    return None
 
 def generate_qr_placeholder(output_path=None, url=None):
     """Overlay QR on background screenshot."""
 
     if url is None:
         # Placeholder QR points to this frame's admin page (not upload)
+        # Use ngrok URL if available, otherwise local IP
+        import subprocess
+        ngrok_domain = None
         try:
-            import db
-            db.init_db()
-            # Use ngrok URL if available, otherwise local
-            ngrok_domain = None
-            # Check if ngrok service has a domain configured
-            import subprocess
             result = subprocess.run(['grep', 'domain', '/etc/systemd/system/ngrok.service'],
                                     capture_output=True, text=True)
             if result.returncode == 0:
@@ -34,21 +23,21 @@ def generate_qr_placeholder(output_path=None, url=None):
                     if '.ngrok.dev' in part:
                         ngrok_domain = part
                         break
-            if ngrok_domain:
-                url = f"https://{ngrok_domain}/admin"
-            else:
-                import socket
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                try:
-                    s.connect(('8.8.8.8', 80))
-                    ip = s.getsockname()[0]
-                except Exception:
-                    ip = 'instapi.local'
-                finally:
-                    s.close()
-                url = f"http://{ip}:3000/admin"
         except Exception:
-            url = "http://instapi.local:3000/admin"
+            pass
+
+        if ngrok_domain:
+            url = f"https://{ngrok_domain}/admin"
+        else:
+            import socket
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(('8.8.8.8', 80))
+                ip = s.getsockname()[0]
+                s.close()
+            except Exception:
+                ip = 'instapi.local'
+            url = f"http://{ip}:3000/admin"
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
     if output_path is None:
