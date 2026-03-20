@@ -1,5 +1,6 @@
 #!/bin/bash
-# Update photos on the USB drive — prepare in staging, then quick swap.
+# Update photos on the USB drive — incremental staging with watermark cache.
+# Staging dir persists across runs so only NEW photos get watermarked.
 # Frame stays up during preparation, only goes down briefly for the swap.
 # Called by Flask app after new photos are uploaded or synced.
 
@@ -22,12 +23,17 @@ STAGING="$USER_HOME/usb_staging"
 echo "Updating photos on USB drive..."
 
 # ============================================================
-# Phase 1: Prepare in staging (frame stays up during this)
+# Phase 1: Incremental staging (frame stays up during this)
+# Staging persists across runs — already-watermarked photos are kept.
+# Only new/changed photos are copied and watermarked.
 # ============================================================
-rm -rf "$STAGING"
 mkdir -p "$STAGING"
 
-# Copy all current photos to staging
+# Track which filenames should be in the final set (for cleanup)
+DESIRED_DIR=$(mktemp -d)
+NEW_FILES=""
+
+# Copy only NEW photos to staging (skip those already watermarked)
 for subdir in "" upload picker album sync sync/picker sync/upload; do
     dir="$PHOTOS_DIR"
     [ -n "$subdir" ] && dir="$PHOTOS_DIR/$subdir"
@@ -36,15 +42,35 @@ for subdir in "" upload picker album sync sync/picker sync/upload; do
         for f in "$dir"/*."$ext"; do
             [ -f "$f" ] || continue
             fname=$(basename "$f")
-            # Skip if already in staging (first copy wins)
-            [ -f "$STAGING/$fname" ] && continue
+            # Skip if already tracked (first copy wins — dedup across subdirs)
+            [ -f "$DESIRED_DIR/$fname" ] && continue
             # Skip tiny files (<10KB) — likely broken and can freeze cheap frames
             fsize=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null)
             [ "$fsize" -lt 10240 ] && continue
+            # Mark as desired
+            touch "$DESIRED_DIR/$fname"
+            # Skip if already in staging (already watermarked from previous run)
+            [ -f "$STAGING/$fname" ] && continue
+            # New photo — copy to staging for watermarking
             cp "$f" "$STAGING/$fname"
+            NEW_FILES="$NEW_FILES $fname"
         done
     done
 done
+
+# Remove photos from staging that are no longer on disk
+REMOVED=0
+for f in "$STAGING"/*; do
+    [ -f "$f" ] || continue
+    fname=$(basename "$f")
+    if [ ! -f "$DESIRED_DIR/$fname" ]; then
+        rm "$f"
+        REMOVED=$((REMOVED + 1))
+    fi
+done
+[ "$REMOVED" -gt 0 ] && echo "Removed $REMOVED deleted photos from staging"
+
+rm -rf "$DESIRED_DIR"
 
 # Count photos in staging
 PHOTO_COUNT=$(ls -1 "$STAGING"/*.jpg "$STAGING"/*.jpeg "$STAGING"/*.png 2>/dev/null | wc -l)
@@ -54,7 +80,6 @@ if [ "$PHOTO_COUNT" -eq 0 ]; then
     DISK_COUNT=$(find "$PHOTOS_DIR" -maxdepth 3 -type f \( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" \) ! -path "*/thumbs/*" 2>/dev/null | wc -l)
     if [ "$DISK_COUNT" -gt 0 ]; then
         echo "ERROR: 0 photos staged but $DISK_COUNT on disk — aborting to protect frame"
-        rm -rf "$STAGING"
         exit 1
     fi
     # Truly no photos anywhere — stage QR placeholder
@@ -67,21 +92,21 @@ else
     rm -f "$STAGING/qr-placeholder.jpg" 2>/dev/null
 fi
 
-# Watermark all photos in staging (they're fresh copies from source, unwatermarked)
-# Frame stays up during this — watermarking happens on staging copies, not USB
-echo "Watermarking photos in staging..."
-usb_watermark "$STAGING" "all"
+# Watermark ONLY new photos (not all — staging already has watermarked copies)
+NEW_COUNT=$(echo $NEW_FILES | wc -w)
+if [ "$NEW_COUNT" -gt 0 ]; then
+    echo "Watermarking $NEW_COUNT new photos..."
+    usb_watermark "$STAGING" "$NEW_FILES"
+else
+    echo "No new photos to watermark"
+fi
 
-echo "Staging ready: $PHOTO_COUNT photos"
+echo "Staging ready: $PHOTO_COUNT photos ($NEW_COUNT new)"
 
 # ============================================================
 # Phase 2: Quick swap (frame down briefly ~5s)
 # ============================================================
 usb_prepare_and_swap "$IMG_FILE" "$MOUNT_POINT" "$STAGING"
 
-# ============================================================
-# Phase 3: Cleanup
-# ============================================================
-rm -rf "$STAGING"
-
+# Phase 3: Staging persists as watermark cache — do NOT delete it
 echo "USB drive updated! Frame should refresh."
