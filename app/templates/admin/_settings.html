@@ -58,3 +58,30 @@
         </div>
     </div>
 </div>
+
+{% if sync_role == 'child' %}
+<div class="section" id="frameBalanceSection">
+    <div class="section-header">
+        <span class="icon">⚖️</span>
+        <h2>Frame Balance</h2>
+    </div>
+    <p class="section-desc">Balance this child frame by uploader. Selected uploaders must add up to 100%. When enabled, unspecified uploaders are excluded and child playback uses the balanced playlist instead of shuffle.</p>
+    <div style="padding: 0 16px;">
+        <div class="toggle-row" style="margin-bottom:16px;">
+            <div class="toggle-label">
+                Enable Frame Balance
+                <span>Applies to this child frame only</span>
+            </div>
+            <label class="toggle">
+                <input type="checkbox" id="frameBalanceEnabled">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div id="frameBalanceList"></div>
+        <div id="frameBalanceStatus" style="margin-top:12px; font-size:0.85em; color:#999;"></div>
+        <div style="margin-top:16px;">
+            <button class="action-btn primary" onclick="saveFrameBalance()" id="frameBalanceSaveBtn">Save Balance</button>
+        </div>
+    </div>
+</div>
+{% endif %}

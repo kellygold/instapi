@@ -1,5 +1,5 @@
 #!/bin/bash
-# Update photos on the USB drive — incremental staging with watermark cache.
+# Update photos on the USB drive - incremental staging with watermark cache.
 # Staging dir persists across runs so only NEW photos get watermarked.
 # Frame stays up during preparation, only goes down briefly for the swap.
 # Called by Flask app after new photos are uploaded or synced.
@@ -15,6 +15,8 @@ USER_HOME="$(dirname "$INSTAPI_DIR")"
 IMG_FILE="$USER_HOME/usb_drive.img"
 MOUNT_POINT="$USER_HOME/usb_mount"
 PHOTOS_DIR="$INSTAPI_DIR/app/static/photos"
+FRAME_EXPORT_DIR="$INSTAPI_DIR/app/frame_export"
+FRAME_EXPORT_MANIFEST="$FRAME_EXPORT_DIR/manifest.json"
 QR_PLACEHOLDER="$INSTAPI_DIR/pi-setup/qr-placeholder.jpg"
 STAGING="$USER_HOME/usb_staging"
 
@@ -24,7 +26,7 @@ echo "Updating photos on USB drive..."
 
 # ============================================================
 # Phase 1: Incremental staging (frame stays up during this)
-# Staging persists across runs — already-watermarked photos are kept.
+# Staging persists across runs - already-watermarked photos are kept.
 # Only new/changed photos are copied and watermarked.
 # ============================================================
 mkdir -p "$STAGING"
@@ -33,30 +35,45 @@ mkdir -p "$STAGING"
 DESIRED_DIR=$(mktemp -d)
 NEW_FILES=""
 
-# Copy only NEW photos to staging (skip those already watermarked)
-for subdir in "" upload picker album sync sync/picker sync/upload; do
-    dir="$PHOTOS_DIR"
-    [ -n "$subdir" ] && dir="$PHOTOS_DIR/$subdir"
-    [ -d "$dir" ] || continue
-    for ext in jpg jpeg png; do
-        for f in "$dir"/*."$ext"; do
-            [ -f "$f" ] || continue
-            fname=$(basename "$f")
-            # Skip if already tracked (first copy wins — dedup across subdirs)
-            [ -f "$DESIRED_DIR/$fname" ] && continue
-            # Skip tiny files (<10KB) — likely broken and can freeze cheap frames
-            fsize=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null)
-            [ "$fsize" -lt 10240 ] && continue
-            # Mark as desired
-            touch "$DESIRED_DIR/$fname"
-            # Skip if already in staging (already watermarked from previous run)
-            [ -f "$STAGING/$fname" ] && continue
-            # New photo — copy to staging for watermarking
-            cp "$f" "$STAGING/$fname"
-            NEW_FILES="$NEW_FILES $fname"
+if [ -f "$FRAME_EXPORT_MANIFEST" ]; then
+    echo "Using balanced frame export from $FRAME_EXPORT_DIR"
+    for f in "$FRAME_EXPORT_DIR"/*; do
+        [ -f "$f" ] || continue
+        fname=$(basename "$f")
+        [ "$fname" = "manifest.json" ] && continue
+        fsize=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null)
+        [ "$fsize" -lt 10240 ] && continue
+        touch "$DESIRED_DIR/$fname"
+        [ -f "$STAGING/$fname" ] && continue
+        cp "$f" "$STAGING/$fname"
+        NEW_FILES="$NEW_FILES $fname"
+    done
+else
+    # Copy only NEW photos to staging (skip those already watermarked)
+    for subdir in "" upload picker album sync sync/picker sync/upload; do
+        dir="$PHOTOS_DIR"
+        [ -n "$subdir" ] && dir="$PHOTOS_DIR/$subdir"
+        [ -d "$dir" ] || continue
+        for ext in jpg jpeg png; do
+            for f in "$dir"/*."$ext"; do
+                [ -f "$f" ] || continue
+                fname=$(basename "$f")
+                # Skip if already tracked (first copy wins - dedup across subdirs)
+                [ -f "$DESIRED_DIR/$fname" ] && continue
+                # Skip tiny files (<10KB) - likely broken and can freeze cheap frames
+                fsize=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null)
+                [ "$fsize" -lt 10240 ] && continue
+                # Mark as desired
+                touch "$DESIRED_DIR/$fname"
+                # Skip if already in staging (already watermarked from previous run)
+                [ -f "$STAGING/$fname" ] && continue
+                # New photo - copy to staging for watermarking
+                cp "$f" "$STAGING/$fname"
+                NEW_FILES="$NEW_FILES $fname"
+            done
         done
     done
-done
+fi
 
 # Remove photos from staging that are no longer on disk
 REMOVED=0
@@ -79,10 +96,10 @@ if [ "$PHOTO_COUNT" -eq 0 ]; then
     # Safety: refuse to wipe USB if photos exist on disk but staging is empty
     DISK_COUNT=$(find "$PHOTOS_DIR" -maxdepth 3 -type f \( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" \) ! -path "*/thumbs/*" 2>/dev/null | wc -l)
     if [ "$DISK_COUNT" -gt 0 ]; then
-        echo "ERROR: 0 photos staged but $DISK_COUNT on disk — aborting to protect frame"
+        echo "ERROR: 0 photos staged but $DISK_COUNT on disk - aborting to protect frame"
         exit 1
     fi
-    # Truly no photos anywhere — stage QR placeholder
+    # Truly no photos anywhere - stage QR placeholder
     if [ -f "$QR_PLACEHOLDER" ]; then
         cp "$QR_PLACEHOLDER" "$STAGING/"
     fi
@@ -92,7 +109,7 @@ else
     rm -f "$STAGING/qr-placeholder.jpg" 2>/dev/null
 fi
 
-# Watermark ONLY new photos (not all — staging already has watermarked copies)
+# Watermark ONLY new photos (not all - staging already has watermarked copies)
 NEW_COUNT=$(echo $NEW_FILES | wc -w)
 if [ "$NEW_COUNT" -gt 0 ]; then
     echo "Watermarking $NEW_COUNT new photos..."
@@ -108,5 +125,5 @@ echo "Staging ready: $PHOTO_COUNT photos ($NEW_COUNT new)"
 # ============================================================
 usb_prepare_and_swap "$IMG_FILE" "$MOUNT_POINT" "$STAGING"
 
-# Phase 3: Staging persists as watermark cache — do NOT delete it
+# Phase 3: Staging persists as watermark cache - do NOT delete it
 echo "USB drive updated! Frame should refresh."

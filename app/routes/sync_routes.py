@@ -43,6 +43,7 @@ def _build_manifest():
             "path": path,
             "size": row["size_bytes"] or 0,
             "md5": row["md5"] or "",
+            "created_at": row["created_at"],
         })
     _manifest_cache = {
         "photos": photos,
@@ -372,7 +373,10 @@ def run_sync_cycle():
             return
 
         manifest = resp.json()
-        master_photos = {p["path"]: p["md5"] for p in manifest.get("photos", [])}
+        master_photos = {
+            p["path"]: {"md5": p["md5"], "created_at": p.get("created_at")}
+            for p in manifest.get("photos", [])
+        }
 
         # Save upload metadata from master (who uploaded each photo)
         upload_meta = manifest.get("upload_meta", {})
@@ -396,8 +400,8 @@ def run_sync_cycle():
 
         # 3. Diff
         to_download = [
-            path for path, md5 in master_photos.items()
-            if path not in local_photos or local_photos[path] != md5
+            path for path, meta in master_photos.items()
+            if path not in local_photos or local_photos[path] != meta["md5"]
         ]
         to_delete = [
             path for path in local_photos
@@ -450,9 +454,12 @@ def run_sync_cycle():
 
                 # Track in DB
                 uploader = upload_meta.get(os.path.basename(path), "")
-                db.add_photo(os.path.basename(path), subdir="sync",
+                rel_subdir = os.path.dirname(path).replace("\\", "/")
+                sync_subdir = config.SYNC_DIR_NAME if not rel_subdir else f"{config.SYNC_DIR_NAME}/{rel_subdir}"
+                db.add_photo(os.path.basename(path), subdir=sync_subdir,
                              uploaded_by=uploader,
-                             size_bytes=file_size, md5=file_md5)
+                             size_bytes=file_size, md5=file_md5,
+                             created_at=master_photos[path].get("created_at"))
 
                 # Generate thumbnail
                 generate_thumbnail(dest, os.path.join(thumb_dir, os.path.basename(path)))
