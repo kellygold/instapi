@@ -8,7 +8,7 @@ import db
 import config as _config
 from config import SCOPES, PHOTOS_DIR, SECRETS_PATH, load_slideshow_config, save_slideshow_config, get_redirect_uri
 from google_auth_oauthlib.flow import Flow
-from utils import get_display_mode
+from utils import get_display_mode, get_upload_url
 from auth import require_admin, verify_password
 from photo_ops import delete_photo_files, notify_photos_changed, walk_photos
 from routes.sync_routes import mark_manifest_dirty
@@ -20,14 +20,15 @@ _FALLBACK_REDIRECT_URI = get_redirect_uri()
 @app.route("/admin/login", methods=["GET", "POST"])
 @rate_limit(max_attempts=5, window_seconds=300, message="Too many login attempts. Try again in 5 minutes.")
 def admin_login():
+    upload_url = get_upload_url()
     if request.method == "POST":
         password = request.form.get("password", "")
         if verify_password(password):
             session["admin_authenticated"] = True
             clear_rate_limit(request.remote_addr)
             return redirect(url_for("admin"))
-        return render_template("admin_login.html", error="Invalid password"), 401
-    return render_template("admin_login.html")
+        return render_template("admin_login.html", error="Invalid password", upload_url=upload_url), 401
+    return render_template("admin_login.html", upload_url=upload_url)
 
 
 @app.route("/admin/logout")

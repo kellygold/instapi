@@ -46,6 +46,21 @@ def test_admin_photos_empty(app_client):
     assert data == []
 
 
+def test_admin_login_upload_footer_uses_tokenized_upload_url(app_client):
+    """Admin login footer should link to the tokenized upload page."""
+    import db
+
+    db.set_setting("upload_token", "footer-token")
+
+    with app_client.session_transaction() as sess:
+        sess.pop("admin_authenticated", None)
+
+    resp = app_client.get("/admin/login")
+    assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    assert 'href="http://localhost:3000/upload?t=footer-token"' in html
+
+
 def test_admin_settings_get(app_client):
     """Should return slideshow settings."""
     resp = app_client.get("/admin/settings")
