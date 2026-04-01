@@ -64,3 +64,55 @@ def test_parse_time_value_empty_uses_default():
     """Should return default for empty string."""
     from utils import parse_time_value
     assert parse_time_value("", 7) == 7
+
+
+def test_list_picker_photo_urls_follows_pagination(monkeypatch):
+    """Should collect every selected picker item across paginated responses."""
+    from utils import list_picker_photo_urls
+
+    responses = [
+        {
+            "mediaItems": [
+                {"mediaFile": {"baseUrl": "https://example.com/photo-1"}},
+                {"mediaFile": {"baseUrl": "https://example.com/photo-2"}},
+            ],
+            "nextPageToken": "page-2",
+        },
+        {
+            "mediaItems": [
+                {"mediaFile": {"baseUrl": "https://example.com/photo-3"}},
+            ],
+        },
+    ]
+    calls = []
+
+    class FakeResponse:
+        def __init__(self, payload):
+            self.status_code = 200
+            self._payload = payload
+            self.text = ""
+
+        def json(self):
+            return self._payload
+
+    def fake_get(url, headers=None, params=None):
+        calls.append({"url": url, "headers": headers, "params": params})
+        return FakeResponse(responses[len(calls) - 1])
+
+    import utils
+    monkeypatch.setattr(utils.requests, "get", fake_get)
+
+    result = list_picker_photo_urls("session-123", {"Authorization": "Bearer token"})
+
+    assert result == [
+        "https://example.com/photo-1=w2048-h1024",
+        "https://example.com/photo-2=w2048-h1024",
+        "https://example.com/photo-3=w2048-h1024",
+    ]
+    assert len(calls) == 2
+    assert calls[0]["params"] == {"sessionId": "session-123", "pageSize": 100}
+    assert calls[1]["params"] == {
+        "sessionId": "session-123",
+        "pageSize": 100,
+        "pageToken": "page-2",
+    }

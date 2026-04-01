@@ -188,6 +188,39 @@ def sync_photos_to_usb():
         _usb_sync_lock.release()
 
 
+def list_picker_photo_urls(session_id, headers):
+    """List every selected picker photo URL across paginated API responses."""
+    picker_photo_urls = []
+    page_token = None
+
+    while True:
+        params = {
+            "sessionId": session_id,
+            "pageSize": 100,
+        }
+        if page_token:
+            params["pageToken"] = page_token
+
+        media_items_url = f"{PICKER_API_BASE_URL}/mediaItems"
+        resp_items = requests.get(media_items_url, headers=headers, params=params)
+        if resp_items.status_code != 200:
+            print("Failed to list media items from picker:", resp_items.status_code, resp_items.text)
+            return []
+
+        media_items_data = resp_items.json()
+        listed_items = media_items_data.get("mediaItems", [])
+        for item in listed_items:
+            if "mediaFile" in item and "baseUrl" in item["mediaFile"]:
+                # Request a large-enough resolution
+                picker_photo_urls.append(item["mediaFile"]["baseUrl"] + "=w2048-h1024")
+
+        page_token = media_items_data.get("nextPageToken")
+        if not page_token:
+            break
+
+    return picker_photo_urls
+
+
 def fetch_and_download_picker_photos(session_id):
     """
     Fetch photos from the picker session and download them.
@@ -202,17 +235,8 @@ def fetch_and_download_picker_photos(session_id):
         "Authorization": f"Bearer {creds['token']}",
         "Content-Type": "application/json",
     }
-    media_items_url = f"{PICKER_API_BASE_URL}/mediaItems?sessionId={session_id}"
-    resp_items = requests.get(media_items_url, headers=headers)
-    if resp_items.status_code == 200:
-        media_items_data = resp_items.json()
-        listed_items = media_items_data.get("mediaItems", [])
-        picker_photo_urls = []
-        for item in listed_items:
-            if "mediaFile" in item and "baseUrl" in item["mediaFile"]:
-                # Request a large-enough resolution
-                picker_photo_urls.append(item["mediaFile"]["baseUrl"] + "=w2048-h1024")
-
+    picker_photo_urls = list_picker_photo_urls(session_id, headers)
+    if picker_photo_urls:
         # Track download progress for admin UI
         db.set_setting("downloading", True)
         db.set_setting("download_total", len(picker_photo_urls))
@@ -226,7 +250,7 @@ def fetch_and_download_picker_photos(session_id):
         from photo_ops import notify_photos_changed
         notify_photos_changed()
     else:
-        print("Failed to list media items from picker:", resp_items.status_code, resp_items.text)
+        db.set_setting("downloading", False)
 
 def fetch_picker_photos():
     """
@@ -248,16 +272,7 @@ def fetch_picker_photos():
     if resp.status_code == 200:
         session_data = resp.json()
         if session_data.get("mediaItemsSet"):
-            media_items_url = f"{PICKER_API_BASE_URL}/mediaItems?sessionId={session_id}"
-            resp_items = requests.get(media_items_url, headers=headers)
-            if resp_items.status_code == 200:
-                media_items_data = resp_items.json()
-                listed_items = media_items_data.get("mediaItems", [])
-                picker_photo_urls = []
-                for item in listed_items:
-                    if "mediaFile" in item and "baseUrl" in item["mediaFile"]:
-                        picker_photo_urls.append(item["mediaFile"]["baseUrl"] + "=w2048-h1024")
-                return picker_photo_urls
+            return list_picker_photo_urls(session_id, headers)
     return []
 
 def poll_for_media_items(poll_interval, poll_timeout):
