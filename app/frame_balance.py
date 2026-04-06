@@ -231,8 +231,6 @@ def _log_balanced_playlist(weights, grouped, playlist_entries, seed):
 
     That makes it easy to confirm, at a glance, whether a saved balance like
     `{"Michael": 50, "Kelly": 30, "Ana": 20}` produced the expected mix.
-    The final line also prints the ordered uploader/filename sequence that the
-    child frame will cycle through.
     """
     summary = ", ".join(
         f"{uploader}={len(grouped.get(uploader, []))} photos @ {weights[uploader]}%"
@@ -243,13 +241,8 @@ def _log_balanced_playlist(weights, grouped, playlist_entries, seed):
         f"{uploader}={counts.get(uploader, 0)}"
         for uploader in sorted(weights)
     )
-    ordered = ", ".join(
-        f"{entry['uploaded_by']}:{entry['filename']}"
-        for entry in playlist_entries
-    )
     print(f"[FRAME BALANCE] seed={seed} | source={summary}", flush=True)
     print(f"[FRAME BALANCE] playlist counts={realized} | total={len(playlist_entries)}", flush=True)
-    print(f"[FRAME BALANCE] ordered playlist={ordered}", flush=True)
 
 
 def get_balanced_playlist():
