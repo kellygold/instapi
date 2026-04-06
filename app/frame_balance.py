@@ -155,6 +155,25 @@ def _build_signature(weights, grouped):
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _log_balanced_playlist(weights, grouped, playlist_entries, seed):
+    summary = ", ".join(
+        f"{uploader}={len(grouped.get(uploader, []))} photos @ {weights[uploader]}%"
+        for uploader in sorted(weights)
+    )
+    counts = Counter(entry["uploaded_by"] for entry in playlist_entries)
+    realized = ", ".join(
+        f"{uploader}={counts.get(uploader, 0)}"
+        for uploader in sorted(weights)
+    )
+    ordered = ", ".join(
+        f"{entry['uploaded_by']}:{entry['filename']}"
+        for entry in playlist_entries
+    )
+    print(f"[FRAME BALANCE] seed={seed} | source={summary}", flush=True)
+    print(f"[FRAME BALANCE] playlist counts={realized} | total={len(playlist_entries)}", flush=True)
+    print(f"[FRAME BALANCE] ordered playlist={ordered}", flush=True)
+
+
 def get_balanced_playlist():
     playlist = db.get_setting(FRAME_BALANCE_PLAYLIST_KEY, []) or []
     if not playlist:
@@ -199,6 +218,7 @@ def rebuild_balanced_playlist(force=False):
     if current_index >= len(playlist_urls):
         db.set_setting(FRAME_BALANCE_INDEX_KEY, 0)
     export_balanced_playlist(playlist_entries)
+    _log_balanced_playlist(weights, grouped, playlist_entries, seed)
     return playlist_urls
 
 
