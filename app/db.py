@@ -99,29 +99,29 @@ def clear_all_settings():
 def add_photo(filename, subdir='', uploaded_by='admin', size_bytes=0, md5=None, created_at=None):
     """Add a photo record. Updates mutable fields if exists, preserves uploaded_by unless changed."""
     db = get_db()
+    fields = {
+        "subdir": subdir,
+        "uploaded_by": uploaded_by,
+        "size_bytes": size_bytes,
+        "md5": md5,
+    }
+    if created_at is not None:
+        fields["created_at"] = created_at
+
     existing = db.execute("SELECT id FROM photos WHERE filename=?", (filename,)).fetchone()
     if existing:
-        if created_at is None:
-            db.execute(
-                "UPDATE photos SET subdir=?, uploaded_by=?, size_bytes=?, md5=? WHERE filename=?",
-                (subdir, uploaded_by, size_bytes, md5, filename)
-            )
-        else:
-            db.execute(
-                "UPDATE photos SET subdir=?, uploaded_by=?, size_bytes=?, md5=?, created_at=? WHERE filename=?",
-                (subdir, uploaded_by, size_bytes, md5, created_at, filename)
-            )
+        assignments = ", ".join(f"{key}=?" for key in fields)
+        db.execute(
+            f"UPDATE photos SET {assignments} WHERE filename=?",
+            (*fields.values(), filename)
+        )
     else:
-        if created_at is None:
-            db.execute(
-                "INSERT INTO photos (filename, subdir, uploaded_by, size_bytes, md5) VALUES (?, ?, ?, ?, ?)",
-                (filename, subdir, uploaded_by, size_bytes, md5)
-            )
-        else:
-            db.execute(
-                "INSERT INTO photos (filename, subdir, uploaded_by, size_bytes, md5, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (filename, subdir, uploaded_by, size_bytes, md5, created_at)
-            )
+        columns = ["filename", *fields.keys()]
+        placeholders = ", ".join("?" for _ in columns)
+        db.execute(
+            f"INSERT INTO photos ({', '.join(columns)}) VALUES ({placeholders})",
+            (filename, *fields.values())
+        )
     get_db().commit()
 
 
