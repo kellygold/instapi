@@ -20,16 +20,31 @@ FRAME_BALANCE_EXPORT_MANIFEST = os.path.join(FRAME_BALANCE_EXPORT_DIR, "manifest
 
 
 def is_balance_applicable():
+    """Return whether child-local frame balance should control playback.
+
+    Frame balance only applies on child frames and only when the feature has
+    been enabled in settings.
+    """
     return db.get_setting("sync_role") == "child" and db.get_setting(FRAME_BALANCE_ENABLED_KEY, False)
 
 
 def get_frame_balance_settings():
+    """Load the persisted frame-balance toggle and weight map.
+
+    Returns a dict shaped like:
+    `{"enabled": True, "weights": {"Michael": 50, "Kelly": 50}}`
+    """
     weights = db.get_setting(FRAME_BALANCE_WEIGHTS_KEY, {}) or {}
     enabled = bool(db.get_setting(FRAME_BALANCE_ENABLED_KEY, False))
     return {"enabled": enabled, "weights": weights}
 
 
 def get_frame_balance_candidates():
+    """Return uploaders that currently have photos on this frame.
+
+    Each item includes the uploader label and how many photos they own, which
+    is what the admin UI uses to build the frame-balance form.
+    """
     rows = db.get_db().execute(
         """
         SELECT uploaded_by, COUNT(*) AS count
@@ -43,6 +58,19 @@ def get_frame_balance_candidates():
 
 
 def validate_weights(weights, candidates=None):
+    """Validate and normalize a user-provided uploader percentage map.
+
+    Rules:
+    - at least one uploader must be selected
+    - values must be integers
+    - zero/negative values are discarded
+    - remaining values must add up to 100
+    - when `candidates` is provided, every uploader must exist on the frame
+
+    Example:
+    `{"Michael": "50", "Kelly": 50, "Ana": 0}` becomes
+    `(True, {"Michael": 50, "Kelly": 50})`
+    """
     if not isinstance(weights, dict) or not weights:
         return False, "Choose at least one uploader."
     normalized = {}
@@ -69,6 +97,12 @@ def validate_weights(weights, candidates=None):
 
 
 def _group_photos_for_balance(weights):
+    """Group eligible photos by uploader in newest-first order.
+
+    Only uploaders present in `weights` are included. Each returned photo entry
+    carries both its slideshow URL and its on-disk source path so the same
+    grouped data can drive playback and exported frame files.
+    """
     rows = db.get_db().execute(
         """
         SELECT filename, subdir, uploaded_by, created_at
@@ -99,6 +133,15 @@ def _group_photos_for_balance(weights):
 
 
 def _normalize_ratios(weights):
+    """Reduce percentage weights to their simplest whole-number ratio.
+
+    Example:
+    `{"Michael": 50, "Kelly": 30, "Ana": 20}` becomes
+    `{"Michael": 5, "Kelly": 3, "Ana": 2}`.
+
+    This makes it easier to compute how many playlist slots each uploader needs
+    before any duplication is introduced.
+    """
     values = list(weights.values())
     gcd = values[0]
     for value in values[1:]:
@@ -107,6 +150,16 @@ def _normalize_ratios(weights):
 
 
 def _compute_targets(grouped, weights):
+    """Choose per-uploader slot counts that satisfy the requested ratio.
+
+    The target count for each uploader is the smallest multiple of the
+    normalized ratio that can cover the uploader's available photos.
+
+    Example:
+    if grouped counts are `Michael=6`, `Kelly=4`, `Ana=2` and weights are
+    `50/30/20`, the normalized ratio is `5/3/2` and the targets become
+    `Michael=10`, `Kelly=6`, `Ana=4`.
+    """
     ratios = _normalize_ratios(weights)
     multiplier = max(
         int(math.ceil(len(grouped[uploader]) / ratios[uploader]))
@@ -116,6 +169,15 @@ def _compute_targets(grouped, weights):
 
 
 def _build_playlist_entries(grouped, targets, seed):
+    """Build a shuffled playlist that realizes the target uploader counts.
+
+    If an uploader does not have enough unique photos to fill its target count,
+    its newest photos are reused in a round-robin loop.
+
+    Example:
+    if Ana has 2 photos but needs 4 slots, her two photos will each appear
+    twice in the final playlist.
+    """
     per_uploader_entries = {}
     for uploader, photos in grouped.items():
         target_count = targets[uploader]
@@ -141,6 +203,12 @@ def _build_playlist_entries(grouped, targets, seed):
 
 
 def _build_signature(weights, grouped):
+    """Hash the current balance inputs so no-op rebuilds can be skipped.
+
+    The signature changes when either:
+    - the selected weights change
+    - the set/order/timestamps of grouped photos change
+    """
     signature_payload = {
         "weights": weights,
         "photos": {
@@ -156,6 +224,16 @@ def _build_signature(weights, grouped):
 
 
 def _log_balanced_playlist(weights, grouped, playlist_entries, seed):
+    """Print a human-readable summary of the rebuilt balanced playlist.
+
+    Example output:
+    `[FRAME BALANCE] playlist counts=Ana=2, Kelly=3, Michael=5 | total=10`
+
+    That makes it easy to confirm, at a glance, whether a saved balance like
+    `{"Michael": 50, "Kelly": 30, "Ana": 20}` produced the expected mix.
+    The final line also prints the ordered uploader/filename sequence that the
+    child frame will cycle through.
+    """
     summary = ", ".join(
         f"{uploader}={len(grouped.get(uploader, []))} photos @ {weights[uploader]}%"
         for uploader in sorted(weights)
@@ -175,6 +253,7 @@ def _log_balanced_playlist(weights, grouped, playlist_entries, seed):
 
 
 def get_balanced_playlist():
+    """Return the cached balanced playlist URLs from the database."""
     playlist = db.get_setting(FRAME_BALANCE_PLAYLIST_KEY, []) or []
     if not playlist:
         return []
@@ -182,6 +261,19 @@ def get_balanced_playlist():
 
 
 def rebuild_balanced_playlist(force=False):
+    """Recompute and persist the balanced playlist for a child frame.
+
+    This is the core orchestration step. It:
+    - validates the saved weights
+    - groups photos by uploader
+    - skips work when the inputs have not changed
+    - computes target slot counts from the requested ratio
+    - builds a deterministic shuffled playlist using a saved seed
+    - exports the ordered files into `frame_export`
+
+    Returns the slideshow URLs in playback order. If frame balance is disabled
+    or invalid, it clears the cached/exported state and returns an empty list.
+    """
     settings = get_frame_balance_settings()
     if not settings["enabled"] or db.get_setting("sync_role") != "child":
         clear_balanced_playlist()
@@ -223,6 +315,7 @@ def rebuild_balanced_playlist(force=False):
 
 
 def clear_balanced_playlist():
+    """Remove all cached frame-balance state and exported files."""
     db.delete_setting(FRAME_BALANCE_PLAYLIST_KEY)
     db.delete_setting(FRAME_BALANCE_SIGNATURE_KEY)
     db.delete_setting(FRAME_BALANCE_INDEX_KEY)
@@ -231,11 +324,18 @@ def clear_balanced_playlist():
 
 
 def clear_export_dir():
+    """Delete the on-disk export directory if it exists."""
     if os.path.isdir(FRAME_BALANCE_EXPORT_DIR):
         shutil.rmtree(FRAME_BALANCE_EXPORT_DIR, ignore_errors=True)
 
 
 def export_balanced_playlist(playlist_entries):
+    """Write the ordered balanced playlist to the export directory.
+
+    The export is a flat numbered copy of the selected source photos plus a
+    `manifest.json` file listing the exported filenames in playback order.
+    USB sync consumes this directory when balance is enabled on a child frame.
+    """
     clear_export_dir()
     os.makedirs(FRAME_BALANCE_EXPORT_DIR, exist_ok=True)
     manifest = []
@@ -251,10 +351,16 @@ def export_balanced_playlist(playlist_entries):
 
 
 def get_export_dir():
+    """Return the directory where balanced playlist exports are written."""
     return FRAME_BALANCE_EXPORT_DIR
 
 
 def get_effective_photo_urls():
+    """Return the slideshow photo list that should be used right now.
+
+    When frame balance is active, this returns the balanced playlist.
+    Otherwise it falls back to the normal chronological photo URLs from `db.py`.
+    """
     if is_balance_applicable():
         playlist = rebuild_balanced_playlist()
         if playlist:
@@ -263,6 +369,11 @@ def get_effective_photo_urls():
 
 
 def get_next_balanced_photos(count):
+    """Return the next `count` photos from the balanced playlist and advance.
+
+    The current index is persisted so repeated calls walk through the balanced
+    sequence instead of starting over from the beginning each time.
+    """
     playlist = rebuild_balanced_playlist()
     if not playlist:
         return []
@@ -277,6 +388,12 @@ def get_next_balanced_photos(count):
 
 
 def handle_photo_collection_changed():
+    """Refresh or clear frame-balance artifacts after photo changes.
+
+    When balance is active, a photo add/delete may change the candidate pools
+    and duplication requirements, so the playlist is refreshed. Otherwise any
+    stale exported balance directory is removed.
+    """
     if is_balance_applicable():
         rebuild_balanced_playlist(force=False)
     else:

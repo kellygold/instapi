@@ -22,6 +22,12 @@ if str(APP_DIR) not in sys.path:
 
 
 def ensure_demo_environment():
+    """Point the app at isolated demo state before app modules import.
+
+    This switches the process to a throwaway demo DB while still serving
+    images from the real Flask static tree so the browser can load them.
+    It also sets a predictable admin password for quick local testing.
+    """
     os.environ.setdefault("INSTAPI_ADMIN_PASSWORD", "test123")
     os.environ["INSTAPI_PHOTOS_DIR"] = str(STATIC_PHOTOS_DIR)
     os.environ["INSTAPI_DB_PATH"] = str(DEMO_DB_PATH)
@@ -48,15 +54,34 @@ UPLOADER_SPECS = [
 
 
 def ensure_secrets_file():
+    """Create `secrets.json` from the template when local dev has none.
+
+    The demo path does not need working Google credentials, but several app
+    routes expect the file to exist. Copying the template avoids startup noise
+    on a fresh checkout.
+    """
     if not SECRETS_PATH.exists() and SECRETS_TEMPLATE_PATH.exists():
         shutil.copy2(SECRETS_TEMPLATE_PATH, SECRETS_PATH)
 
 
 def force_hdmi_mode():
+    """Force the app into HDMI mode so the demo avoids USB sync scripts.
+
+    The browser-testing workflow only needs the web slideshow and admin UI.
+    Writing `hdmi` to the mode file keeps the app from invoking USB-only shell
+    scripts during startup or balance updates.
+    """
     Path(config.MODE_FILE).write_text("hdmi", encoding="utf-8")
 
 
 def reset_demo_data():
+    """Clear prior demo-only state and prepare fresh directories.
+
+    This removes the throwaway demo database and any previously generated
+    `demo_*.jpg` assets, then recreates the directories needed for a clean run.
+    Real user photos are left alone because only demo-prefixed files are
+    deleted from the shared static photo folders.
+    """
     if DEMO_ROOT.exists():
         shutil.rmtree(DEMO_ROOT)
     DEMO_ROOT.mkdir(parents=True, exist_ok=True)
@@ -69,6 +94,13 @@ def reset_demo_data():
 
 
 def create_demo_image(target_path, uploader, index, color):
+    """Generate a synthetic JPEG that is easy to identify in the UI.
+
+    Example: calling this with uploader `Kelly` and index `0` produces a
+    colored card-like image labeled `Kelly` and `Synthetic upload #1`.
+    That makes it obvious in the slideshow which uploader a frame-balance slot
+    came from.
+    """
     img = Image.new("RGB", (1600, 900), color)
     draw = ImageDraw.Draw(img)
     accent = tuple(max(channel - 40, 0) for channel in color)
@@ -91,6 +123,19 @@ def create_demo_image(target_path, uploader, index, color):
 
 
 def seed_demo_photos():
+    """Populate the demo DB and static photo folders with test content.
+
+    The seeded rows mimic child-frame sync data by storing photos under the
+    `sync/upload` subdir and setting `uploaded_by` metadata for each uploader.
+
+    Example seeded mix:
+    - Michael: 6 photos, target weight 50
+    - Kelly: 4 photos, target weight 30
+    - Ana: 2 photos, target weight 20
+
+    After inserting the photos, the function enables frame balance and builds
+    the initial balanced playlist so the browser demo is ready immediately.
+    """
     db.init_db()
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     weights = {}
@@ -130,6 +175,12 @@ def seed_demo_photos():
 
 
 def launch_main():
+    """Print quick-start info, then replace this process with `main.py`.
+
+    `os.execv(...)` is used instead of spawning a child process so the terminal
+    behaves like a normal app launch: one process, one stream of logs, and
+    Ctrl-C stops the Flask server directly.
+    """
     os.chdir(APP_DIR)
     print("Demo data ready.")
     print(f"Photos dir: {STATIC_PHOTOS_DIR}")
@@ -141,6 +192,15 @@ def launch_main():
 
 
 def main():
+    """Run the full demo setup flow, then start the Flask app.
+
+    Order matters here:
+    1. Ensure config files exist
+    2. Force HDMI mode
+    3. Reset old demo state
+    4. Seed synthetic photos + metadata
+    5. Hand off to `main.py`
+    """
     ensure_secrets_file()
     force_hdmi_mode()
     reset_demo_data()
