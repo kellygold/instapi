@@ -21,8 +21,5 @@ app/.demo_frame_balance/
 app/static/photos/*
 !app/static/photos/.gitkeepstatic/photos_backup/
 app/static/photos_backup/
-app/frame_export/*.jpg
-app/frame_export/*.jpeg
-app/frame_export/*.png
-app/frame_export/*.gif
+app/frame_export/*
 .claude/worktrees/
