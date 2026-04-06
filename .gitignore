@@ -22,4 +22,7 @@ app/static/photos/*
 !app/static/photos/.gitkeepstatic/photos_backup/
 app/static/photos_backup/
 app/frame_export/*
+
+# AI
 .claude/worktrees/
+.codex
