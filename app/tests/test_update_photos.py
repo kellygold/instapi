@@ -1,0 +1,183 @@
+import json
+import os
+import subprocess
+from hashlib import sha256
+from pathlib import Path
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+UPDATE_PHOTOS_SCRIPT = REPO_ROOT / "pi-setup" / "update-photos.sh"
+
+
+def _source_signature(source_relpath, source_md5):
+    return sha256(f"{source_relpath}\0{source_md5}".encode("utf-8")).hexdigest()
+
+
+def _manifest_entry(export_name, source_relpath, source_md5, uploaded_by="Michael"):
+    return {
+        "export_name": export_name,
+        "source_relpath": source_relpath,
+        "source_md5": source_md5,
+        "source_signature": _source_signature(source_relpath, source_md5),
+        "uploaded_by": uploaded_by,
+    }
+
+
+def _write_large_image(path, marker):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = (marker.encode("utf-8") * 4096)[:12000]
+    path.write_bytes(b"\xff\xd8\xff\xe0" + payload)
+
+
+def _write_export_manifest(path, entries):
+    path.write_text(json.dumps({"version": 1, "entries": entries}, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _write_staging_manifest(path, entries):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"version": 1, "entries": entries}, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _write_usb_helper(path):
+    path.write_text(
+        "\n".join([
+            "usb_prepare_and_swap() { :; }",
+            "usb_watermark() {",
+            "  printf '%s\\n' \"$2\" > \"$USB_WATERMARK_LOG\"",
+            "}",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+
+
+def _run_update_photos(tmp_path, manifest_entries, export_markers, staging_manifest_entries=None, staging_files=None):
+    frame_export_dir = tmp_path / "frame_export"
+    frame_export_dir.mkdir(parents=True, exist_ok=True)
+    staging_dir = tmp_path / "usb_staging"
+    staging_dir.mkdir(parents=True, exist_ok=True)
+    photos_dir = tmp_path / "photos"
+    photos_dir.mkdir(parents=True, exist_ok=True)
+    helper_path = tmp_path / "usb-helper.sh"
+    log_path = tmp_path / "usb-watermark.log"
+    qr_placeholder = tmp_path / "qr-placeholder.jpg"
+    qr_placeholder.write_bytes(b"placeholder")
+    img_file = tmp_path / "usb_drive.img"
+    img_file.write_bytes(b"img")
+    mount_point = tmp_path / "mount"
+    mount_point.mkdir(parents=True, exist_ok=True)
+
+    _write_usb_helper(helper_path)
+    _write_export_manifest(frame_export_dir / "manifest.json", manifest_entries)
+
+    for export_name, marker in export_markers.items():
+        _write_large_image(frame_export_dir / export_name, marker)
+
+    if staging_manifest_entries is not None:
+        _write_staging_manifest(staging_dir / ".manifest.json", staging_manifest_entries)
+    if staging_files:
+        for filename, marker in staging_files.items():
+            _write_large_image(staging_dir / filename, marker)
+
+    env = os.environ.copy()
+    env.update({
+        "FRAME_EXPORT_DIR": str(frame_export_dir),
+        "FRAME_EXPORT_MANIFEST": str(frame_export_dir / "manifest.json"),
+        "STAGING": str(staging_dir),
+        "STAGING_MANIFEST": str(staging_dir / ".manifest.json"),
+        "PHOTOS_DIR": str(photos_dir),
+        "QR_PLACEHOLDER": str(qr_placeholder),
+        "IMG_FILE": str(img_file),
+        "MOUNT_POINT": str(mount_point),
+        "USB_HELPER_PATH": str(helper_path),
+        "USB_WATERMARK_LOG": str(log_path),
+    })
+
+    result = subprocess.run(
+        ["bash", str(UPDATE_PHOTOS_SCRIPT)],
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return {
+        "result": result,
+        "frame_export_dir": frame_export_dir,
+        "staging_dir": staging_dir,
+        "log_path": log_path,
+    }
+
+
+def test_update_photos_balanced_export_noop_reuses_staged_files(tmp_path):
+    entry = _manifest_entry("00000_Michael.jpg", "sync/upload/michael_1.jpg", "md5-a")
+    run = _run_update_photos(
+        tmp_path,
+        manifest_entries=[entry],
+        export_markers={"00000_Michael.jpg": "export-a"},
+        staging_manifest_entries={"00000_Michael.jpg": entry["source_signature"]},
+        staging_files={"00000_Michael.jpg": "staged-a"},
+    )
+
+    assert "No new photos to watermark" in run["result"].stdout
+    assert not run["log_path"].exists()
+    assert (run["staging_dir"] / "00000_Michael.jpg").read_bytes() == (b"\xff\xd8\xff\xe0" + ("staged-a".encode("utf-8") * 4096)[:12000])
+
+
+def test_update_photos_balanced_export_refreshes_changed_slot(tmp_path):
+    old_entry = _manifest_entry("00000_Michael.jpg", "sync/upload/michael_old.jpg", "old-md5")
+    new_entry = _manifest_entry("00000_Michael.jpg", "sync/upload/michael_new.jpg", "new-md5")
+    run = _run_update_photos(
+        tmp_path,
+        manifest_entries=[new_entry],
+        export_markers={"00000_Michael.jpg": "export-new"},
+        staging_manifest_entries={"00000_Michael.jpg": old_entry["source_signature"]},
+        staging_files={"00000_Michael.jpg": "staged-old"},
+    )
+
+    assert run["log_path"].read_text(encoding="utf-8").strip() == "00000_Michael.jpg"
+    assert (run["staging_dir"] / "00000_Michael.jpg").read_bytes() == (b"\xff\xd8\xff\xe0" + ("export-new".encode("utf-8") * 4096)[:12000])
+
+    with open(run["staging_dir"] / ".manifest.json", encoding="utf-8") as fh:
+        staging_manifest = json.load(fh)
+    assert staging_manifest["entries"] == {"00000_Michael.jpg": new_entry["source_signature"]}
+
+
+def test_update_photos_balanced_export_only_refreshes_changed_slots(tmp_path):
+    entry_a = _manifest_entry("00000_Michael.jpg", "sync/upload/michael_1.jpg", "md5-a")
+    old_entry_b = _manifest_entry("00001_Kyle.jpg", "sync/upload/kyle_old.jpg", "md5-b-old", uploaded_by="Kyle")
+    new_entry_b = _manifest_entry("00001_Kyle.jpg", "sync/upload/kyle_new.jpg", "md5-b-new", uploaded_by="Kyle")
+    entry_c = _manifest_entry("00003_Ana.jpg", "sync/upload/ana_1.jpg", "md5-c", uploaded_by="Ana")
+
+    run = _run_update_photos(
+        tmp_path,
+        manifest_entries=[entry_a, new_entry_b, entry_c],
+        export_markers={
+            "00000_Michael.jpg": "export-a",
+            "00001_Kyle.jpg": "export-b-new",
+            "00003_Ana.jpg": "export-c",
+        },
+        staging_manifest_entries={
+            "00000_Michael.jpg": entry_a["source_signature"],
+            "00001_Kyle.jpg": old_entry_b["source_signature"],
+            "00002_Stale.jpg": "stale-signature",
+        },
+        staging_files={
+            "00000_Michael.jpg": "staged-a",
+            "00001_Kyle.jpg": "staged-b-old",
+            "00002_Stale.jpg": "staged-stale",
+        },
+    )
+
+    refreshed = set(run["log_path"].read_text(encoding="utf-8").split())
+    assert refreshed == {"00001_Kyle.jpg", "00003_Ana.jpg"}
+    assert (run["staging_dir"] / "00000_Michael.jpg").read_bytes() == (b"\xff\xd8\xff\xe0" + ("staged-a".encode("utf-8") * 4096)[:12000])
+    assert not (run["staging_dir"] / "00002_Stale.jpg").exists()
+
+    with open(run["staging_dir"] / ".manifest.json", encoding="utf-8") as fh:
+        staging_manifest = json.load(fh)
+    assert staging_manifest["entries"] == {
+        "00000_Michael.jpg": entry_a["source_signature"],
+        "00001_Kyle.jpg": new_entry_b["source_signature"],
+        "00003_Ana.jpg": entry_c["source_signature"],
+    }

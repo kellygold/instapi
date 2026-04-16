@@ -17,6 +17,7 @@ FRAME_BALANCE_SIGNATURE_KEY = "frame_balance_signature"
 FRAME_BALANCE_PLAYLIST_KEY = "frame_balance_playlist"
 FRAME_BALANCE_EXPORT_DIR = os.path.join(os.path.dirname(__file__), "frame_export")
 FRAME_BALANCE_EXPORT_MANIFEST = os.path.join(FRAME_BALANCE_EXPORT_DIR, "manifest.json")
+FRAME_BALANCE_EXPORT_MANIFEST_VERSION = 1
 
 
 def is_balance_applicable():
@@ -105,7 +106,7 @@ def _group_photos_for_balance(weights):
     """
     rows = db.get_db().execute(
         """
-        SELECT filename, subdir, uploaded_by, created_at
+        SELECT filename, subdir, uploaded_by, created_at, md5
         FROM photos
         ORDER BY datetime(created_at) DESC, filename ASC
         """
@@ -126,6 +127,7 @@ def _group_photos_for_balance(weights):
             "subdir": row["subdir"],
             "uploaded_by": uploader,
             "created_at": row["created_at"],
+            "md5": row["md5"] or "",
             "url": url,
             "source_path": source_path,
         })
@@ -322,25 +324,44 @@ def clear_export_dir():
         shutil.rmtree(FRAME_BALANCE_EXPORT_DIR, ignore_errors=True)
 
 
+def _build_source_signature(source_relpath, source_md5):
+    """Build a stable signature for staged USB cache reuse."""
+    payload = f"{source_relpath}\0{source_md5}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def export_balanced_playlist(playlist_entries):
     """Write the ordered balanced playlist to the export directory.
 
     The export is a flat numbered copy of the selected source photos plus a
-    `manifest.json` file listing the exported filenames in playback order.
-    USB sync consumes this directory when balance is enabled on a child frame.
+    structured `manifest.json` file that records where each export slot came
+    from. USB sync uses the manifest to decide which staged files can be
+    reused without re-watermarking.
     """
     clear_export_dir()
     os.makedirs(FRAME_BALANCE_EXPORT_DIR, exist_ok=True)
-    manifest = []
+    manifest_entries = []
     for index, entry in enumerate(playlist_entries):
         ext = os.path.splitext(entry["filename"])[1].lower() or ".jpg"
         export_name = f"{index:05d}_{entry['uploaded_by'].replace(' ', '_')}{ext}"
         export_path = os.path.join(FRAME_BALANCE_EXPORT_DIR, export_name)
         if os.path.exists(entry["source_path"]):
             shutil.copy2(entry["source_path"], export_path)
-            manifest.append(export_name)
+            source_relpath = os.path.join(entry["subdir"], entry["filename"]) if entry["subdir"] else entry["filename"]
+            source_relpath = source_relpath.replace(os.sep, "/")
+            source_md5 = entry["md5"] or ""
+            manifest_entries.append({
+                "export_name": export_name,
+                "source_relpath": source_relpath,
+                "source_md5": source_md5,
+                "source_signature": _build_source_signature(source_relpath, source_md5),
+                "uploaded_by": entry["uploaded_by"],
+            })
     with open(os.path.join(FRAME_BALANCE_EXPORT_DIR, "manifest.json"), "w", encoding="utf-8") as fh:
-        json.dump(manifest, fh)
+        json.dump({
+            "version": FRAME_BALANCE_EXPORT_MANIFEST_VERSION,
+            "entries": manifest_entries,
+        }, fh, indent=2, sort_keys=True)
 
 
 def get_export_dir():

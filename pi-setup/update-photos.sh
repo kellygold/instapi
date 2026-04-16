@@ -12,15 +12,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTAPI_DIR="$(dirname "$SCRIPT_DIR")"
 USER_HOME="$(dirname "$INSTAPI_DIR")"
 
-IMG_FILE="$USER_HOME/usb_drive.img"
-MOUNT_POINT="$USER_HOME/usb_mount"
-PHOTOS_DIR="$INSTAPI_DIR/app/static/photos"
-FRAME_EXPORT_DIR="$INSTAPI_DIR/app/frame_export"
-FRAME_EXPORT_MANIFEST="$FRAME_EXPORT_DIR/manifest.json"
-QR_PLACEHOLDER="$INSTAPI_DIR/pi-setup/qr-placeholder.jpg"
-STAGING="$USER_HOME/usb_staging"
+IMG_FILE="${IMG_FILE:-$USER_HOME/usb_drive.img}"
+MOUNT_POINT="${MOUNT_POINT:-$USER_HOME/usb_mount}"
+PHOTOS_DIR="${PHOTOS_DIR:-$INSTAPI_DIR/app/static/photos}"
+FRAME_EXPORT_DIR="${FRAME_EXPORT_DIR:-$INSTAPI_DIR/app/frame_export}"
+FRAME_EXPORT_MANIFEST="${FRAME_EXPORT_MANIFEST:-$FRAME_EXPORT_DIR/manifest.json}"
+QR_PLACEHOLDER="${QR_PLACEHOLDER:-$INSTAPI_DIR/pi-setup/qr-placeholder.jpg}"
+STAGING="${STAGING:-$USER_HOME/usb_staging}"
+STAGING_MANIFEST="${STAGING_MANIFEST:-$STAGING/.manifest.json}"
+USB_HELPER_PATH="${USB_HELPER_PATH:-$SCRIPT_DIR/usb-gadget-helper.sh}"
 
-. "$SCRIPT_DIR/usb-gadget-helper.sh"
+. "$USB_HELPER_PATH"
 
 echo "Updating photos on USB drive..."
 
@@ -34,20 +36,55 @@ mkdir -p "$STAGING"
 # Track which filenames should be in the final set (for cleanup)
 DESIRED_DIR=$(mktemp -d)
 NEW_FILES=""
+USING_BALANCED_EXPORT=0
+BALANCED_STAGING_ENTRIES=$(mktemp)
 
 if [ -f "$FRAME_EXPORT_MANIFEST" ]; then
     echo "Using balanced frame export from $FRAME_EXPORT_DIR"
-    for f in "$FRAME_EXPORT_DIR"/*; do
+    USING_BALANCED_EXPORT=1
+    BALANCED_ACTIONS=$(mktemp)
+    python3 - "$FRAME_EXPORT_MANIFEST" "$STAGING_MANIFEST" > "$BALANCED_ACTIONS" <<'PY'
+import json
+import sys
+
+frame_manifest_path, staging_manifest_path = sys.argv[1:3]
+with open(frame_manifest_path, encoding="utf-8") as fh:
+    frame_manifest = json.load(fh)
+
+staging_entries = {}
+try:
+    with open(staging_manifest_path, encoding="utf-8") as fh:
+        staging_manifest = json.load(fh)
+    entries = staging_manifest.get("entries", {})
+    if isinstance(entries, dict):
+        staging_entries = entries
+except (FileNotFoundError, json.JSONDecodeError, OSError, ValueError):
+    pass
+
+for entry in frame_manifest.get("entries", []):
+    export_name = entry.get("export_name")
+    source_signature = entry.get("source_signature", "")
+    if not export_name:
+        continue
+    action = "reuse" if staging_entries.get(export_name) == source_signature else "copy"
+    print(f"{export_name}\t{source_signature}\t{action}")
+PY
+
+    while IFS=$'\t' read -r fname source_signature action; do
+        [ -n "$fname" ] || continue
+        f="$FRAME_EXPORT_DIR/$fname"
         [ -f "$f" ] || continue
-        fname=$(basename "$f")
-        [ "$fname" = "manifest.json" ] && continue
         fsize=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null)
         [ "$fsize" -lt 10240 ] && continue
         touch "$DESIRED_DIR/$fname"
-        [ -f "$STAGING/$fname" ] && continue
+        printf '%s\t%s\n' "$fname" "$source_signature" >> "$BALANCED_STAGING_ENTRIES"
+        if [ "$action" = "reuse" ] && [ -f "$STAGING/$fname" ]; then
+            continue
+        fi
         cp "$f" "$STAGING/$fname"
         NEW_FILES="$NEW_FILES $fname"
-    done
+    done < "$BALANCED_ACTIONS"
+    rm -f "$BALANCED_ACTIONS"
 else
     # Copy only NEW photos to staging (skip those already watermarked)
     for subdir in "" upload picker album sync sync/picker sync/upload; do
@@ -87,6 +124,29 @@ for f in "$STAGING"/*; do
 done
 [ "$REMOVED" -gt 0 ] && echo "Removed $REMOVED deleted photos from staging"
 
+if [ "$USING_BALANCED_EXPORT" -eq 1 ]; then
+    python3 - "$BALANCED_STAGING_ENTRIES" "$STAGING_MANIFEST" <<'PY'
+import json
+import sys
+
+entries_path, staging_manifest_path = sys.argv[1:3]
+entries = {}
+with open(entries_path, encoding="utf-8") as fh:
+    for raw_line in fh:
+        line = raw_line.rstrip("\n")
+        if not line:
+            continue
+        filename, source_signature = line.split("\t", 1)
+        entries[filename] = source_signature
+
+with open(staging_manifest_path, "w", encoding="utf-8") as fh:
+    json.dump({"version": 1, "entries": entries}, fh, indent=2, sort_keys=True)
+PY
+else
+    rm -f "$STAGING_MANIFEST"
+fi
+
+rm -f "$BALANCED_STAGING_ENTRIES"
 rm -rf "$DESIRED_DIR"
 
 # Count photos in staging
