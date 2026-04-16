@@ -144,3 +144,26 @@ def test_balanced_export_manifest_includes_source_metadata(app_client, tmp_path,
     assert michael_entry["source_md5"] == "michael-md5"
     assert michael_entry["export_name"].startswith("000")
     assert michael_entry["source_signature"] == sha256("sync/upload/michael_0.jpg\0michael-md5".encode("utf-8")).hexdigest()
+
+
+def test_invalid_balanced_weights_disable_feature_and_fall_back(app_client):
+    import db
+    import frame_balance
+
+    db.set_setting("sync_role", "child")
+    db.set_setting(frame_balance.FRAME_BALANCE_ENABLED_KEY, True)
+    db.set_setting(frame_balance.FRAME_BALANCE_WEIGHTS_KEY, {"Michael": 50, "Kyle": 50})
+
+    _add_weighted_photo(db, "Michael", 0)
+    _add_weighted_photo(db, "Kyle", 0)
+    frame_balance.rebuild_balanced_playlist(force=True)
+
+    db.remove_photo("kyle_0.jpg")
+    frame_balance.handle_photo_collection_changed()
+
+    assert db.get_setting(frame_balance.FRAME_BALANCE_ENABLED_KEY) is False
+    assert db.get_setting(frame_balance.FRAME_BALANCE_PLAYLIST_KEY) is None
+
+    resp = app_client.get("/get_next_photos?count=1")
+    data = resp.get_json()
+    assert data == ["/static/photos/sync/upload/michael_0.jpg"]

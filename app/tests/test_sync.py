@@ -677,3 +677,65 @@ def test_noop_sync_does_not_regenerate_balanced_playlist(monkeypatch, tmp_path):
     if hasattr(db._local, 'conn') and db._local.conn is not None:
         db._local.conn.close()
         db._local.conn = None
+
+
+def test_noop_sync_updates_created_at_for_existing_synced_rows(monkeypatch, tmp_path):
+    """Existing synced rows should adopt master created_at during metadata refresh."""
+    import config
+    import routes.sync_routes as sr
+    import utils
+    db = _init_test_db(monkeypatch, tmp_path)
+
+    photos_dir = str(tmp_path / "photos")
+    os.makedirs(os.path.join(photos_dir, "sync", "upload"), exist_ok=True)
+    monkeypatch.setattr(config, "PHOTOS_DIR", photos_dir)
+
+    db.set_setting("sync_role", "child")
+    db.set_setting("master_url", "https://master.test")
+    db.set_setting("sync_token", "tok123")
+    db.add_photo(
+        "michael_0.jpg",
+        subdir="sync/upload",
+        uploaded_by="Old Label",
+        size_bytes=100,
+        md5="m0",
+        created_at="2020-01-01 00:00:00",
+    )
+
+    class MockResp:
+        def __init__(self, status_code, data=None):
+            self.status_code = status_code
+            self._data = data
+
+        def json(self):
+            return self._data
+
+    def mock_get(url, **kwargs):
+        if "/sync/manifest" in url:
+            return MockResp(200, data={
+                "photos": [
+                    {"path": "upload/michael_0.jpg", "size": 100, "md5": "m0", "created_at": "2026-01-01 10:00:00"},
+                ],
+                "upload_meta": {
+                    "michael_0.jpg": "Michael",
+                },
+                "photo_count": 1,
+                "timestamp": 1000,
+            })
+        return MockResp(404)
+
+    monkeypatch.setattr("routes.sync_routes.requests.get", mock_get)
+    monkeypatch.setattr(sr, "sync_photos_to_usb", lambda: None)
+    monkeypatch.setattr(sr, "get_display_mode", lambda: "hdmi")
+    monkeypatch.setattr(utils, "sync_photos_to_usb", lambda: None)
+    monkeypatch.setattr(utils, "get_display_mode", lambda: "hdmi")
+
+    sr.run_sync_cycle()
+
+    photo = db.get_photo("michael_0.jpg")
+    assert photo["uploaded_by"] == "Michael"
+    assert photo["created_at"] == "2026-01-01 10:00:00"
+
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None

@@ -384,11 +384,18 @@ def run_sync_cycle():
             for fname, uploader in upload_meta.items():
                 photo = db.get_photo(fname)
                 if photo:
+                    if photo["subdir"] == config.SYNC_DIR_NAME:
+                        master_path = fname
+                    elif photo["subdir"] and photo["subdir"].startswith(config.SYNC_DIR_NAME + "/"):
+                        master_path = f"{photo['subdir'][len(config.SYNC_DIR_NAME) + 1:]}/{fname}"
+                    else:
+                        master_path = f"{photo['subdir']}/{fname}" if photo["subdir"] else fname
                     # Update uploaded_by on existing record
                     db.add_photo(fname, subdir=photo["subdir"],
                                  uploaded_by=uploader,
                                  size_bytes=photo["size_bytes"],
-                                 md5=photo["md5"])
+                                 md5=photo["md5"],
+                                 created_at=master_photos.get(master_path, {}).get("created_at"))
 
         # Save our own label (so we know which photos are "mine")
         your_label = manifest.get("your_label")

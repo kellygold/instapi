@@ -255,6 +255,12 @@ def get_balanced_playlist():
     return playlist
 
 
+def disable_frame_balance():
+    """Disable frame balance while preserving saved weights for later editing."""
+    db.set_setting(FRAME_BALANCE_ENABLED_KEY, False)
+    clear_balanced_playlist()
+
+
 def rebuild_balanced_playlist(force=False):
     """Recompute and persist the balanced playlist for a child frame.
 
@@ -277,12 +283,12 @@ def rebuild_balanced_playlist(force=False):
     candidates = get_frame_balance_candidates()
     valid, weights = validate_weights(settings["weights"], candidates)
     if not valid:
-        clear_balanced_playlist()
+        disable_frame_balance()
         return []
 
     grouped = _group_photos_for_balance(weights)
     if set(grouped) != set(weights):
-        clear_balanced_playlist()
+        disable_frame_balance()
         return []
 
     signature = _build_signature(weights, grouped)
