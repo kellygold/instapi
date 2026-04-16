@@ -1,5 +1,6 @@
 import json
 import os
+import sqlite3
 import subprocess
 from hashlib import sha256
 from pathlib import Path
@@ -38,6 +39,18 @@ def _write_staging_manifest(path, entries):
     path.write_text(json.dumps({"version": 1, "entries": entries}, indent=2, sort_keys=True), encoding="utf-8")
 
 
+def _write_settings_db(path, sync_role="child", frame_balance_enabled=True):
+    conn = sqlite3.connect(path)
+    conn.execute("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)")
+    conn.execute("INSERT INTO settings (key, value) VALUES (?, ?)", ("sync_role", json.dumps(sync_role)))
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES (?, ?)",
+        ("frame_balance_enabled", json.dumps(frame_balance_enabled)),
+    )
+    conn.commit()
+    conn.close()
+
+
 def _write_usb_helper(path):
     path.write_text(
         "\n".join([
@@ -51,13 +64,22 @@ def _write_usb_helper(path):
     )
 
 
-def _run_update_photos(tmp_path, manifest_entries, export_markers, staging_manifest_entries=None, staging_files=None):
+def _run_update_photos(
+    tmp_path,
+    manifest_entries,
+    export_markers,
+    staging_manifest_entries=None,
+    staging_files=None,
+    photo_markers=None,
+    frame_balance_active=True,
+):
     frame_export_dir = tmp_path / "frame_export"
     frame_export_dir.mkdir(parents=True, exist_ok=True)
     staging_dir = tmp_path / "usb_staging"
     staging_dir.mkdir(parents=True, exist_ok=True)
     photos_dir = tmp_path / "photos"
     photos_dir.mkdir(parents=True, exist_ok=True)
+    db_path = tmp_path / "instapi.db"
     helper_path = tmp_path / "usb-helper.sh"
     log_path = tmp_path / "usb-watermark.log"
     qr_placeholder = tmp_path / "qr-placeholder.jpg"
@@ -73,11 +95,17 @@ def _run_update_photos(tmp_path, manifest_entries, export_markers, staging_manif
     for export_name, marker in export_markers.items():
         _write_large_image(frame_export_dir / export_name, marker)
 
+    if photo_markers:
+        for relative_path, marker in photo_markers.items():
+            _write_large_image(photos_dir / relative_path, marker)
+
     if staging_manifest_entries is not None:
         _write_staging_manifest(staging_dir / ".manifest.json", staging_manifest_entries)
     if staging_files:
         for filename, marker in staging_files.items():
             _write_large_image(staging_dir / filename, marker)
+
+    _write_settings_db(db_path, frame_balance_enabled=frame_balance_active)
 
     env = os.environ.copy()
     env.update({
@@ -89,6 +117,7 @@ def _run_update_photos(tmp_path, manifest_entries, export_markers, staging_manif
         "QR_PLACEHOLDER": str(qr_placeholder),
         "IMG_FILE": str(img_file),
         "MOUNT_POINT": str(mount_point),
+        "INSTAPI_DB_PATH": str(db_path),
         "USB_HELPER_PATH": str(helper_path),
         "USB_WATERMARK_LOG": str(log_path),
     })
@@ -181,3 +210,18 @@ def test_update_photos_balanced_export_only_refreshes_changed_slots(tmp_path):
         "00001_Kyle.jpg": new_entry_b["source_signature"],
         "00003_Ana.jpg": entry_c["source_signature"],
     }
+
+
+def test_update_photos_ignores_stale_balanced_manifest_when_balance_inactive(tmp_path):
+    entry = _manifest_entry("00000_Michael.jpg", "sync/upload/michael_1.jpg", "md5-a")
+    run = _run_update_photos(
+        tmp_path,
+        manifest_entries=[entry],
+        export_markers={"00000_Michael.jpg": "export-a"},
+        photo_markers={"upload/library.jpg": "library-live"},
+        frame_balance_active=False,
+    )
+
+    assert run["log_path"].read_text(encoding="utf-8").strip() == "library.jpg"
+    assert (run["staging_dir"] / "library.jpg").exists()
+    assert not (run["staging_dir"] / "00000_Michael.jpg").exists()

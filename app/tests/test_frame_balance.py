@@ -146,6 +146,46 @@ def test_balanced_export_manifest_includes_source_metadata(app_client, tmp_path,
     assert michael_entry["source_signature"] == sha256("sync/upload/michael_0.jpg\0michael-md5".encode("utf-8")).hexdigest()
 
 
+def test_balance_signature_tracks_source_md5_changes(app_client, tmp_path, monkeypatch):
+    import config
+    import db
+    import frame_balance
+
+    export_dir = tmp_path / "frame_export"
+    export_manifest = export_dir / "manifest.json"
+    monkeypatch.setattr(frame_balance, "FRAME_BALANCE_EXPORT_DIR", str(export_dir))
+    monkeypatch.setattr(frame_balance, "FRAME_BALANCE_EXPORT_MANIFEST", str(export_manifest))
+
+    db.set_setting("sync_role", "child")
+    db.set_setting(frame_balance.FRAME_BALANCE_ENABLED_KEY, True)
+    db.set_setting(frame_balance.FRAME_BALANCE_WEIGHTS_KEY, {"Michael": 50, "Kyle": 50})
+
+    _write_source_photo(config.PHOTOS_DIR, "michael_0.jpg")
+    _write_source_photo(config.PHOTOS_DIR, "kyle_0.jpg")
+    db.add_photo("michael_0.jpg", subdir="sync/upload", uploaded_by="Michael", md5="michael-md5", created_at="2026-02-01 10:00:00")
+    db.add_photo("kyle_0.jpg", subdir="sync/upload", uploaded_by="Kyle", md5="kyle-md5", created_at="2026-02-01 10:00:01")
+
+    frame_balance.rebuild_balanced_playlist(force=True)
+
+    export_calls = []
+    original_export = frame_balance.export_balanced_playlist
+
+    def tracking_export(entries):
+        export_calls.append([entry["md5"] for entry in entries])
+        return original_export(entries)
+
+    monkeypatch.setattr(frame_balance, "export_balanced_playlist", tracking_export)
+    db.add_photo("michael_0.jpg", subdir="sync/upload", uploaded_by="Michael", md5="michael-md5-updated", created_at="2026-02-01 10:00:00")
+
+    frame_balance.rebuild_balanced_playlist(force=False)
+
+    assert len(export_calls) == 1
+    with open(export_manifest, encoding="utf-8") as fh:
+        manifest = json.load(fh)
+    entries_by_relpath = {entry["source_relpath"]: entry for entry in manifest["entries"]}
+    assert entries_by_relpath["sync/upload/michael_0.jpg"]["source_md5"] == "michael-md5-updated"
+
+
 def test_invalid_balanced_weights_disable_feature_and_fall_back(app_client):
     import db
     import frame_balance

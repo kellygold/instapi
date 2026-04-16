@@ -209,13 +209,13 @@ def _build_signature(weights, grouped):
 
     The signature changes when either:
     - the selected weights change
-    - the set/order/timestamps of grouped photos change
+    - the set/order/timestamps/content of grouped photos change
     """
     signature_payload = {
         "weights": weights,
         "photos": {
             uploader: [
-                (photo["filename"], photo["subdir"], photo["created_at"])
+                (photo["filename"], photo["subdir"], photo["created_at"], photo["md5"])
                 for photo in photos
             ]
             for uploader, photos in grouped.items()

@@ -17,6 +17,7 @@ MOUNT_POINT="${MOUNT_POINT:-$USER_HOME/usb_mount}"
 PHOTOS_DIR="${PHOTOS_DIR:-$INSTAPI_DIR/app/static/photos}"
 FRAME_EXPORT_DIR="${FRAME_EXPORT_DIR:-$INSTAPI_DIR/app/frame_export}"
 FRAME_EXPORT_MANIFEST="${FRAME_EXPORT_MANIFEST:-$FRAME_EXPORT_DIR/manifest.json}"
+INSTAPI_DB_PATH="${INSTAPI_DB_PATH:-$INSTAPI_DIR/app/instapi.db}"
 QR_PLACEHOLDER="${QR_PLACEHOLDER:-$INSTAPI_DIR/pi-setup/qr-placeholder.jpg}"
 STAGING="${STAGING:-$USER_HOME/usb_staging}"
 STAGING_MANIFEST="${STAGING_MANIFEST:-$STAGING/.manifest.json}"
@@ -38,8 +39,38 @@ DESIRED_DIR=$(mktemp -d)
 NEW_FILES=""
 USING_BALANCED_EXPORT=0
 BALANCED_STAGING_ENTRIES=$(mktemp)
+FRAME_BALANCE_ACTIVE=$(python3 - "$INSTAPI_DB_PATH" <<'PY'
+import json
+import sqlite3
+import sys
 
-if [ -f "$FRAME_EXPORT_MANIFEST" ]; then
+db_path = sys.argv[1]
+sync_role = None
+frame_balance_enabled = False
+
+try:
+    conn = sqlite3.connect(db_path)
+    rows = conn.execute(
+        "SELECT key, value FROM settings WHERE key IN (?, ?)",
+        ("sync_role", "frame_balance_enabled"),
+    ).fetchall()
+    conn.close()
+    values = {}
+    for key, raw_value in rows:
+        try:
+            values[key] = json.loads(raw_value)
+        except Exception:
+            values[key] = raw_value
+    sync_role = values.get("sync_role")
+    frame_balance_enabled = bool(values.get("frame_balance_enabled", False))
+except Exception:
+    pass
+
+sys.stdout.write("1" if sync_role == "child" and frame_balance_enabled else "0")
+PY
+)
+
+if [ "$FRAME_BALANCE_ACTIVE" = "1" ] && [ -f "$FRAME_EXPORT_MANIFEST" ]; then
     echo "Using balanced frame export from $FRAME_EXPORT_DIR"
     USING_BALANCED_EXPORT=1
     BALANCED_ACTIONS=$(mktemp)

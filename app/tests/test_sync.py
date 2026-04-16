@@ -225,6 +225,30 @@ def test_sync_config_saves_role(app_client):
     assert db.get_setting("sync_role") == "master"
 
 
+def test_sync_config_clears_balanced_export_when_leaving_child(app_client, tmp_path, monkeypatch):
+    import db
+    import frame_balance
+
+    export_dir = tmp_path / "frame_export"
+    export_dir.mkdir(parents=True, exist_ok=True)
+    (export_dir / "manifest.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(frame_balance, "FRAME_BALANCE_EXPORT_DIR", str(export_dir))
+
+    db.set_setting("sync_role", "child")
+    db.set_setting(frame_balance.FRAME_BALANCE_ENABLED_KEY, True)
+    db.set_setting(frame_balance.FRAME_BALANCE_WEIGHTS_KEY, {"Michael": 100})
+
+    resp = app_client.post(
+        "/admin/sync_config",
+        json={"sync_role": "master"},
+        content_type="application/json"
+    )
+
+    data = resp.get_json()
+    assert data["success"] is True
+    assert not export_dir.exists()
+
+
 def test_sync_config_validates_role(app_client):
     """Should reject invalid role values."""
     resp = app_client.post(
@@ -735,6 +759,69 @@ def test_noop_sync_updates_created_at_for_existing_synced_rows(monkeypatch, tmp_
     photo = db.get_photo("michael_0.jpg")
     assert photo["uploaded_by"] == "Michael"
     assert photo["created_at"] == "2026-01-01 10:00:00"
+
+    if hasattr(db._local, 'conn') and db._local.conn is not None:
+        db._local.conn.close()
+        db._local.conn = None
+
+
+def test_metadata_only_sync_triggers_frame_update_notifications(monkeypatch, tmp_path):
+    """Metadata-only syncs should still rebuild frame state for balance/USB updates."""
+    import config
+    import routes.sync_routes as sr
+    import utils
+    db = _init_test_db(monkeypatch, tmp_path)
+
+    photos_dir = str(tmp_path / "photos")
+    os.makedirs(os.path.join(photos_dir, "sync", "upload"), exist_ok=True)
+    monkeypatch.setattr(config, "PHOTOS_DIR", photos_dir)
+
+    db.set_setting("sync_role", "child")
+    db.set_setting("master_url", "https://master.test")
+    db.set_setting("sync_token", "tok123")
+    db.add_photo(
+        "michael_0.jpg",
+        subdir="sync/upload",
+        uploaded_by="Old Label",
+        size_bytes=100,
+        md5="m0",
+        created_at="2020-01-01 00:00:00",
+    )
+
+    notifications = []
+
+    class MockResp:
+        def __init__(self, status_code, data=None):
+            self.status_code = status_code
+            self._data = data
+
+        def json(self):
+            return self._data
+
+    def mock_get(url, **kwargs):
+        if "/sync/manifest" in url:
+            return MockResp(200, data={
+                "photos": [
+                    {"path": "upload/michael_0.jpg", "size": 100, "md5": "m0", "created_at": "2026-01-01 10:00:00"},
+                ],
+                "upload_meta": {
+                    "michael_0.jpg": "Michael",
+                },
+                "photo_count": 1,
+                "timestamp": 1000,
+            })
+        return MockResp(404)
+
+    monkeypatch.setattr("routes.sync_routes.requests.get", mock_get)
+    monkeypatch.setattr(sr, "notify_photos_changed", lambda: notifications.append("called"))
+    monkeypatch.setattr(sr, "sync_photos_to_usb", lambda: None)
+    monkeypatch.setattr(sr, "get_display_mode", lambda: "usb")
+    monkeypatch.setattr(utils, "sync_photos_to_usb", lambda: None)
+    monkeypatch.setattr(utils, "get_display_mode", lambda: "usb")
+
+    sr.run_sync_cycle()
+
+    assert notifications == ["called"]
 
     if hasattr(db._local, 'conn') and db._local.conn is not None:
         db._local.conn.close()

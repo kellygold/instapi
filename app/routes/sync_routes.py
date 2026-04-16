@@ -281,6 +281,10 @@ def save_sync_config():
         db.delete_setting("master_url")
         db.delete_setting("sync_token")
 
+    if role != "child":
+        from frame_balance import clear_balanced_playlist
+        clear_balanced_playlist()
+
     # Start/stop/restart sync loop
     if role == "child":
         # Restart loop to pick up any changes (interval, master URL, token)
@@ -377,6 +381,7 @@ def run_sync_cycle():
             p["path"]: {"md5": p["md5"], "created_at": p.get("created_at")}
             for p in manifest.get("photos", [])
         }
+        metadata_changed = False
 
         # Save upload metadata from master (who uploaded each photo)
         upload_meta = manifest.get("upload_meta", {})
@@ -390,12 +395,17 @@ def run_sync_cycle():
                         master_path = f"{photo['subdir'][len(config.SYNC_DIR_NAME) + 1:]}/{fname}"
                     else:
                         master_path = f"{photo['subdir']}/{fname}" if photo["subdir"] else fname
+                    master_created_at = master_photos.get(master_path, {}).get("created_at")
+                    if photo["uploaded_by"] != uploader:
+                        metadata_changed = True
+                    if master_created_at is not None and photo["created_at"] != master_created_at:
+                        metadata_changed = True
                     # Update uploaded_by on existing record
                     db.add_photo(fname, subdir=photo["subdir"],
                                  uploaded_by=uploader,
                                  size_bytes=photo["size_bytes"],
                                  md5=photo["md5"],
-                                 created_at=master_photos.get(master_path, {}).get("created_at"))
+                                 created_at=master_created_at)
 
         # Save our own label (so we know which photos are "mine")
         your_label = manifest.get("your_label")
@@ -496,10 +506,14 @@ def run_sync_cycle():
             if root != sync_dir and not files and not dirs:
                 os.rmdir(root)
 
-        # 7. Notify: sets done/photos_chosen, triggers USB sync if needed
-        if downloaded > 0 or deleted > 0:
+        # 7. Notify: sets done/photos_chosen, rebuilds frame balance, triggers USB sync if needed
+        if downloaded > 0 or deleted > 0 or metadata_changed:
             db.set_setting("sync_phase", "updating_frame")
-            print(f"[SYNC] USB check: mode={get_display_mode()}, downloaded={downloaded}, deleted={deleted}", flush=True)
+            print(
+                f"[SYNC] Frame update check: mode={get_display_mode()}, "
+                f"downloaded={downloaded}, deleted={deleted}, metadata_changed={metadata_changed}",
+                flush=True
+            )
             # Mark USB as stale before update — cleared on success
             try:
                 with open("/tmp/instapi_usb_stale", "w") as f:
