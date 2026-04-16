@@ -281,6 +281,8 @@ def save_sync_config():
         db.delete_setting("master_url")
         db.delete_setting("sync_token")
 
+    left_child_mode = old_role == "child" and role != "child"
+
     if role != "child":
         from frame_balance import clear_balanced_playlist
         clear_balanced_playlist()
@@ -289,8 +291,10 @@ def save_sync_config():
     if role == "child":
         # Restart loop to pick up any changes (interval, master URL, token)
         start_sync_loop()
-    elif old_role == "child" and role != "child":
+    elif left_child_mode:
         stop_sync_loop()
+        if get_display_mode() == "usb":
+            sync_photos_to_usb()
 
     return jsonify({"success": True})
 

@@ -228,11 +228,15 @@ def test_sync_config_saves_role(app_client):
 def test_sync_config_clears_balanced_export_when_leaving_child(app_client, tmp_path, monkeypatch):
     import db
     import frame_balance
+    import routes.sync_routes as sr
 
     export_dir = tmp_path / "frame_export"
     export_dir.mkdir(parents=True, exist_ok=True)
     (export_dir / "manifest.json").write_text("{}", encoding="utf-8")
     monkeypatch.setattr(frame_balance, "FRAME_BALANCE_EXPORT_DIR", str(export_dir))
+    usb_sync_calls = []
+    monkeypatch.setattr(sr, "get_display_mode", lambda: "usb")
+    monkeypatch.setattr(sr, "sync_photos_to_usb", lambda: usb_sync_calls.append(True))
 
     db.set_setting("sync_role", "child")
     db.set_setting(frame_balance.FRAME_BALANCE_ENABLED_KEY, True)
@@ -247,6 +251,7 @@ def test_sync_config_clears_balanced_export_when_leaving_child(app_client, tmp_p
     data = resp.get_json()
     assert data["success"] is True
     assert not export_dir.exists()
+    assert usb_sync_calls == [True]
 
 
 def test_sync_config_validates_role(app_client):

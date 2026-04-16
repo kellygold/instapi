@@ -88,7 +88,10 @@ if __name__ == "__main__":
     db.init_db()
     db.migrate_from_json(config.PHOTOS_DIR)
 
-    reconcile_photos()
+    if os.environ.get("INSTAPI_SKIP_RECONCILE") == "1":
+        print("[STARTUP] Skipping reconcile_photos due to INSTAPI_SKIP_RECONCILE", flush=True)
+    else:
+        reconcile_photos()
 
     # Generate upload token if not set
     if not db.get_setting("upload_token"):

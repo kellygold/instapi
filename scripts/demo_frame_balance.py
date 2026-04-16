@@ -24,13 +24,14 @@ if str(APP_DIR) not in sys.path:
 def ensure_demo_environment():
     """Point the app at isolated demo state before app modules import.
 
-    This switches the process to a throwaway demo DB while still serving
-    images from the real Flask static tree so the browser can load them.
-    It also sets a predictable admin password for quick local testing.
+    This switches the process to a throwaway demo DB, keeps startup from
+    reconciling any pre-existing real photo library into that DB, and sets
+    a predictable admin password for quick local testing.
     """
     os.environ.setdefault("INSTAPI_ADMIN_PASSWORD", "test123")
     os.environ["INSTAPI_PHOTOS_DIR"] = str(STATIC_PHOTOS_DIR)
     os.environ["INSTAPI_DB_PATH"] = str(DEMO_DB_PATH)
+    os.environ["INSTAPI_SKIP_RECONCILE"] = "1"
 
 
 ensure_demo_environment()
