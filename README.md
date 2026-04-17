@@ -32,6 +32,7 @@ Connect the Pi to any photo frame with a USB port. The Pi appears as a USB drive
 - Photos synced to USB with smart reformatting (avoids frame caching issues)
 - QR watermark on photos for easy admin access
 - 3-second gadget delay ensures reliable frame detection
+- Frame balance ordering assumes the hardware frame is playing files sequentially by filename; in random mode the uploader ratios still hold, but the interleaving order will not.
 
 ### HDMI Mode (Smart Display)
 Connect the Pi to any TV or monitor via HDMI.

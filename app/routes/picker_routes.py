@@ -6,6 +6,7 @@ from flask import render_template, jsonify, request, redirect, url_for
 from app import app
 import config
 import db
+from frame_balance import get_effective_photo_urls, get_next_balanced_photos, is_balance_applicable
 from routes.sync_routes import mark_manifest_dirty
 from photo_ops import compute_md5, notify_photos_changed
 from utils import (
@@ -100,7 +101,7 @@ def done():
 @app.route("/slideshow")
 def slideshow():
     """Display the slideshow page on the frame."""
-    photo_urls = db.get_photo_urls()
+    photo_urls = get_effective_photo_urls()
     indices = list(range(len(photo_urls)))
     return render_template("slideshow.html", media_items=indices)
 
@@ -109,6 +110,14 @@ def slideshow():
 def get_next_photos():
     """Return the next set of photos for the slideshow."""
     import random
+
+    if is_balance_applicable():
+        count_str = request.args.get("count", "1")
+        try:
+            count = int(count_str)
+        except ValueError:
+            count = 1
+        return jsonify(get_next_balanced_photos(count))
 
     photo_urls = db.get_photo_urls()
     if not photo_urls:

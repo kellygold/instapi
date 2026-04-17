@@ -15,9 +15,14 @@ frame-registry.txt
 family.md
 app/device_state.json
 app/instapi.db
+app/.demo_frame_balance/
 
 # Downloaded photos
 app/static/photos/*
 !app/static/photos/.gitkeepstatic/photos_backup/
 app/static/photos_backup/
+app/frame_export/*
+
+# AI
 .claude/worktrees/
+.codex

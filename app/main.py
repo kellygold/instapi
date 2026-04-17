@@ -37,6 +37,8 @@ def reconcile_photos():
 
         # Check if MD5 needs backfilling (only compute if not already in DB)
         existing = db.get_photo(filename)
+        uploader = existing["uploaded_by"] if existing else "admin"
+        created_at = existing["created_at"] if existing else None
         if existing and existing["md5"]:
             md5 = existing["md5"]
         else:
@@ -45,8 +47,8 @@ def reconcile_photos():
             if md5_backfilled % 50 == 0:
                 print(f"[RECONCILE] MD5 backfill progress: {md5_backfilled} photos...")
 
-        db.add_photo(filename, subdir=subdir, uploaded_by='admin',
-                     size_bytes=size, md5=md5)
+        db.add_photo(filename, subdir=subdir, uploaded_by=uploader,
+                     size_bytes=size, md5=md5, created_at=created_at)
 
         # Backfill thumbnails for photos that predate this feature
         thumb = os.path.join(thumb_dir, filename)
@@ -86,7 +88,10 @@ if __name__ == "__main__":
     db.init_db()
     db.migrate_from_json(config.PHOTOS_DIR)
 
-    reconcile_photos()
+    if os.environ.get("INSTAPI_SKIP_RECONCILE") == "1":
+        print("[STARTUP] Skipping reconcile_photos due to INSTAPI_SKIP_RECONCILE", flush=True)
+    else:
+        reconcile_photos()
 
     # Generate upload token if not set
     if not db.get_setting("upload_token"):

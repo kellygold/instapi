@@ -115,5 +115,8 @@ def notify_photos_changed():
         db.set_setting("done", False)
         db.set_setting("photos_chosen", False)
 
+    from frame_balance import handle_photo_collection_changed
+    handle_photo_collection_changed()
+
     if get_display_mode() == "usb":
         sync_photos_to_usb()  # Handles 0 photos too (shows QR placeholder)

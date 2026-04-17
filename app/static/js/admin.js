@@ -98,6 +98,7 @@
 
         let allPhotos = [];
         let activeFilter = 'all';
+        let frameBalanceState = { enabled: false, weights: {}, candidates: [] };
 
         function filterPhotos(uploader) {
             activeFilter = uploader;
@@ -194,6 +195,115 @@
             } catch (e) {
                 console.error('Failed to load settings:', e);
             }
+        }
+
+        async function loadFrameBalance() {
+            if (window.INSTAPI_CONFIG.syncRole !== 'child') return;
+            try {
+                const resp = await fetch('/admin/frame_balance');
+                frameBalanceState = await resp.json();
+                const enabledInput = document.getElementById('frameBalanceEnabled');
+                if (enabledInput) {
+                    enabledInput.checked = !!frameBalanceState.enabled;
+                    enabledInput.onchange = renderFrameBalance;
+                }
+                renderFrameBalance();
+            } catch (e) {
+                console.error('Failed to load frame balance:', e);
+            }
+        }
+
+        function renderFrameBalance() {
+            const list = document.getElementById('frameBalanceList');
+            const status = document.getElementById('frameBalanceStatus');
+            const enabled = document.getElementById('frameBalanceEnabled')?.checked;
+            if (!list || !status) return;
+
+            const candidates = frameBalanceState.candidates || [];
+            if (candidates.length === 0) {
+                list.innerHTML = '<div class="no-photos" style="font-size:1em;">No uploader metadata available on this child yet.</div>';
+                status.textContent = '';
+                return;
+            }
+
+            list.innerHTML = candidates.map(candidate => {
+                const value = frameBalanceState.weights?.[candidate.uploaded_by] || '';
+                return `
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid rgba(255,255,255,0.06);">
+                        <div>
+                            <div style="font-weight:600;">${candidate.uploaded_by}</div>
+                            <div style="font-size:0.8em; color:#999;">${candidate.count} photos</div>
+                        </div>
+                        <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="1"
+                            ${enabled ? '' : 'disabled'}
+                            value="${value}"
+                            data-uploader="${candidate.uploaded_by}"
+                            oninput="updateFrameBalanceDraft(this)"
+                            style="width:90px; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.05); color:#fff; font-size:0.95em;"
+                        />
+                    </div>
+                `;
+            }).join('');
+
+            const total = candidates.reduce((sum, candidate) => {
+                return sum + (parseInt(frameBalanceState.weights?.[candidate.uploaded_by] || 0, 10) || 0);
+            }, 0);
+            if (!enabled) {
+                status.textContent = 'Frame balance is off.';
+            } else if (total === 100) {
+                status.textContent = 'Ready to save. Total: 100%.';
+            } else {
+                status.textContent = `Percentages must add up to 100%. Current total: ${total}%.`;
+            }
+        }
+
+        function updateFrameBalanceDraft(input) {
+            const uploader = input.dataset.uploader;
+            const value = parseInt(input.value || '0', 10) || 0;
+            frameBalanceState.weights = frameBalanceState.weights || {};
+            if (value > 0) {
+                frameBalanceState.weights[uploader] = value;
+            } else {
+                delete frameBalanceState.weights[uploader];
+            }
+            renderFrameBalance();
+        }
+
+        async function saveFrameBalance() {
+            const enabled = !!document.getElementById('frameBalanceEnabled')?.checked;
+            const total = Object.values(frameBalanceState.weights || {}).reduce((sum, value) => sum + (parseInt(value, 10) || 0), 0);
+            if (enabled && total !== 100) {
+                showToast('Percentages must add up to 100', true);
+                return;
+            }
+            const btn = document.getElementById('frameBalanceSaveBtn');
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+            try {
+                const resp = await fetch('/admin/frame_balance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled, weights: frameBalanceState.weights || {} })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    frameBalanceState.enabled = data.enabled;
+                    frameBalanceState.weights = data.weights || {};
+                    frameBalanceState.candidates = data.candidates || frameBalanceState.candidates;
+                    renderFrameBalance();
+                    showToast(enabled ? 'Frame balance saved' : 'Frame balance disabled');
+                } else {
+                    showToast(data.error || 'Failed to save frame balance', true);
+                }
+            } catch (e) {
+                showToast('Failed to save frame balance', true);
+            }
+            btn.disabled = false;
+            btn.textContent = 'Save Balance';
         }
 
         // Save setting
@@ -724,6 +834,7 @@
             loadSystemInfo();
             loadPhotos();
             loadSettings();
+            loadFrameBalance();
             initShareLink();
             loadSyncStatus();
             loadChildFrames();

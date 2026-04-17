@@ -96,19 +96,31 @@ def clear_all_settings():
 
 # --- Photos helpers ---
 
-def add_photo(filename, subdir='', uploaded_by='admin', size_bytes=0, md5=None):
-    """Add a photo record. Updates size/md5 if exists, preserves uploaded_by."""
+def add_photo(filename, subdir='', uploaded_by='admin', size_bytes=0, md5=None, created_at=None):
+    """Add a photo record. Updates mutable fields if exists, preserves uploaded_by unless changed."""
     db = get_db()
+    fields = {
+        "subdir": subdir,
+        "uploaded_by": uploaded_by,
+        "size_bytes": size_bytes,
+        "md5": md5,
+    }
+    if created_at is not None:
+        fields["created_at"] = created_at
+
     existing = db.execute("SELECT id FROM photos WHERE filename=?", (filename,)).fetchone()
     if existing:
+        assignments = ", ".join(f"{key}=?" for key in fields)
         db.execute(
-            "UPDATE photos SET subdir=?, size_bytes=?, md5=? WHERE filename=?",
-            (subdir, size_bytes, md5, filename)
+            f"UPDATE photos SET {assignments} WHERE filename=?",
+            (*fields.values(), filename)
         )
     else:
+        columns = ["filename", *fields.keys()]
+        placeholders = ", ".join("?" for _ in columns)
         db.execute(
-            "INSERT INTO photos (filename, subdir, uploaded_by, size_bytes, md5) VALUES (?, ?, ?, ?, ?)",
-            (filename, subdir, uploaded_by, size_bytes, md5)
+            f"INSERT INTO photos ({', '.join(columns)}) VALUES ({placeholders})",
+            (filename, *fields.values())
         )
     get_db().commit()
 

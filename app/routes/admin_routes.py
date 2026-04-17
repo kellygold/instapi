@@ -7,6 +7,15 @@ from app import app
 import db
 import config as _config
 from config import SCOPES, PHOTOS_DIR, SECRETS_PATH, load_slideshow_config, save_slideshow_config, get_redirect_uri
+from frame_balance import (
+    FRAME_BALANCE_ENABLED_KEY,
+    FRAME_BALANCE_WEIGHTS_KEY,
+    get_frame_balance_candidates,
+    get_frame_balance_settings,
+    rebuild_balanced_playlist,
+    validate_weights,
+    clear_balanced_playlist,
+)
 from google_auth_oauthlib.flow import Flow
 from utils import get_display_mode, get_upload_url
 from auth import require_admin, verify_password
@@ -375,7 +384,9 @@ def delete_single_photo():
 @require_admin
 def get_settings():
     """Get current slideshow settings."""
-    return jsonify(load_slideshow_config())
+    settings = load_slideshow_config()
+    settings["frame_balance_enabled"] = db.get_setting(FRAME_BALANCE_ENABLED_KEY, False)
+    return jsonify(settings)
 
 
 @app.route("/admin/settings", methods=["POST"])
@@ -400,6 +411,58 @@ def update_settings():
             return jsonify({"success": True, "config": config})
         else:
             return jsonify({"success": False, "error": "Failed to save"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/admin/frame_balance", methods=["GET"])
+@require_admin
+def get_frame_balance():
+    """Return child-local frame balance settings and uploader candidates."""
+    if db.get_setting("sync_role") != "child":
+        return jsonify({"enabled": False, "weights": {}, "candidates": []})
+    return jsonify({
+        **get_frame_balance_settings(),
+        "candidates": get_frame_balance_candidates(),
+    })
+
+
+@app.route("/admin/frame_balance", methods=["POST"])
+@require_admin
+def update_frame_balance():
+    """Update child-local frame balancing."""
+    try:
+        if db.get_setting("sync_role") != "child":
+            return jsonify({"success": False, "error": "Frame balance is only available on child frames"})
+        data = request.get_json() or {}
+        enabled = bool(data.get("enabled", False))
+        candidates = get_frame_balance_candidates()
+        weights = data.get("weights", {})
+
+        if enabled:
+            valid, normalized = validate_weights(weights, candidates)
+            if not valid:
+                return jsonify({"success": False, "error": normalized})
+            db.set_setting(FRAME_BALANCE_ENABLED_KEY, True)
+            db.set_setting(FRAME_BALANCE_WEIGHTS_KEY, normalized)
+            playlist = rebuild_balanced_playlist(force=True)
+        else:
+            db.set_setting(FRAME_BALANCE_ENABLED_KEY, False)
+            db.delete_setting(FRAME_BALANCE_WEIGHTS_KEY)
+            clear_balanced_playlist()
+            playlist = []
+
+        if get_display_mode() == "usb":
+            from utils import sync_photos_to_usb
+            sync_photos_to_usb()
+
+        return jsonify({
+            "success": True,
+            "enabled": enabled,
+            "weights": db.get_setting(FRAME_BALANCE_WEIGHTS_KEY, {}) if enabled else {},
+            "playlist_length": len(playlist),
+            "candidates": candidates,
+        })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
