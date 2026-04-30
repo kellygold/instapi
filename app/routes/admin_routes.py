@@ -98,33 +98,47 @@ def admin():
 
 
 
+def _safe_git_pull(repo_root):
+    """Run `git pull` after discarding install-script mutations.
+
+    The Pi's install/setup scripts mutate tracked files in place (chmod +x on
+    pi-setup/*.sh, regenerated wifi-fix.jpg, the JSON->SQLite migration that
+    deletes app/slideshow_config.json). Those leave the working tree dirty,
+    so a future upstream commit touching any of them would make `git pull`
+    abort with "Your local changes would be overwritten by merge" — silently
+    breaking OTA updates on every Pi, including remote children we can't SSH
+    into. Treat the Pi as a deployment target: discard local mods to tracked
+    files before pulling. Untracked files (DB, .migrated markers) are kept.
+    """
+    status_result = subprocess.run(
+        ["/usr/bin/git", "status", "--short"],
+        cwd=repo_root, capture_output=True, text=True, timeout=10,
+    )
+    print(f"[GIT PULL] Pre-checkout status: {status_result.stdout.strip() or 'clean'}")
+
+    checkout = subprocess.run(
+        ["/usr/bin/git", "checkout", "--", "."],
+        cwd=repo_root, capture_output=True, text=True, timeout=10,
+    )
+    if checkout.returncode != 0:
+        print(f"[GIT PULL] checkout warning: {checkout.stderr.strip()}")
+
+    return subprocess.run(
+        ["/usr/bin/git", "pull"],
+        cwd=repo_root, capture_output=True, text=True, timeout=30,
+        env={**os.environ, "PATH": "/usr/bin:/bin:/usr/local/bin"},
+    )
+
+
 @app.route("/admin/git_pull", methods=["POST"])
 @require_admin
 def git_pull():
     """Pull latest code from git."""
     try:
-        # Get the repo root (parent of app directory)
         repo_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         print(f"[GIT PULL] Starting git pull in: {repo_root}")
 
-        # First check current branch and status
-        status_result = subprocess.run(
-            ["/usr/bin/git", "status", "--short"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-        print(f"[GIT PULL] Current status: {status_result.stdout.strip() or 'clean'}")
-
-        result = subprocess.run(
-            ["/usr/bin/git", "pull"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            env={**os.environ, "PATH": "/usr/bin:/bin:/usr/local/bin"}
-        )
+        result = _safe_git_pull(repo_root)
 
         print(f"[GIT PULL] Return code: {result.returncode}")
         print(f"[GIT PULL] stdout: {result.stdout}")
@@ -510,11 +524,7 @@ def update_and_restart():
     """Pull latest code and restart the service."""
     try:
         repo_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        result = subprocess.run(
-            ["/usr/bin/git", "pull"], cwd=repo_root,
-            capture_output=True, text=True, timeout=30,
-            env={**os.environ, "PATH": "/usr/bin:/bin:/usr/local/bin"}
-        )
+        result = _safe_git_pull(repo_root)
         if result.returncode != 0:
             return jsonify({"success": False, "error": result.stderr or result.stdout})
 
