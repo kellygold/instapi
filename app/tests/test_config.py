@@ -2,6 +2,8 @@ import os
 import json
 import pytest
 
+pytestmark = pytest.mark.timeout(5)
+
 
 def test_photos_dir_uses_file_not_getcwd():
     """PHOTOS_DIR must use __file__ so it works regardless of cwd."""

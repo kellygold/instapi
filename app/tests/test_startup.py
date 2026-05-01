@@ -1,6 +1,8 @@
 import os
 import pytest
 
+pytestmark = pytest.mark.timeout(5)
+
 
 def _reconcile_photos():
     """Import reconcile_photos without triggering route registration."""

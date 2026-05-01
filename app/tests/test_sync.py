@@ -2,6 +2,8 @@ import os
 import hashlib
 import pytest
 
+pytestmark = pytest.mark.timeout(5)
+
 
 def _init_test_db(monkeypatch, tmp_path):
     """Initialize an isolated test DB. Returns the db module."""
@@ -278,13 +280,15 @@ def test_sync_config_child_requires_url(app_client):
 
 
 def test_sync_now_returns_immediately(sync_child_client, monkeypatch):
-    """Sync now should return 200 without blocking."""
+    """Sync now should return 200 and start the sync loop with no initial delay."""
     import routes.sync_routes as sr
-    monkeypatch.setattr(sr, "run_sync_cycle", lambda: None)
+    loop_calls = []
+    monkeypatch.setattr(sr, "start_sync_loop", lambda initial_delay=10: loop_calls.append(initial_delay))
 
     resp = sync_child_client.post("/admin/sync_now")
     data = resp.get_json()
     assert data["success"] is True
+    assert loop_calls == [0]
 
 
 def test_sync_status_returns_state(sync_child_client):

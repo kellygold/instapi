@@ -105,7 +105,7 @@ PY
         [ -n "$fname" ] || continue
         f="$FRAME_EXPORT_DIR/$fname"
         [ -f "$f" ] || continue
-        fsize=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null)
+        fsize=$(stat -L -c%s "$f" 2>/dev/null || stat -L -f%z "$f" 2>/dev/null)
         [ "$fsize" -lt 10240 ] && continue
         touch "$DESIRED_DIR/$fname"
         printf '%s\t%s\n' "$fname" "$source_signature" >> "$BALANCED_STAGING_ENTRIES"
@@ -129,7 +129,7 @@ else
                 # Skip if already tracked (first copy wins - dedup across subdirs)
                 [ -f "$DESIRED_DIR/$fname" ] && continue
                 # Skip tiny files (<10KB) - likely broken and can freeze cheap frames
-                fsize=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null)
+                fsize=$(stat -L -c%s "$f" 2>/dev/null || stat -L -f%z "$f" 2>/dev/null)
                 [ "$fsize" -lt 10240 ] && continue
                 # Mark as desired
                 touch "$DESIRED_DIR/$fname"

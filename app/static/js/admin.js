@@ -249,8 +249,16 @@
                 `;
             }).join('');
 
-            const total = candidates.reduce((sum, candidate) => {
-                return sum + (parseInt(frameBalanceState.weights?.[candidate.uploaded_by] || 0, 10) || 0);
+            updateFrameBalanceStatus();
+        }
+
+        function updateFrameBalanceStatus() {
+            const status = document.getElementById('frameBalanceStatus');
+            if (!status) return;
+            const enabled = document.getElementById('frameBalanceEnabled')?.checked;
+            const candidates = frameBalanceState.candidates || [];
+            const total = candidates.reduce((sum, c) => {
+                return sum + (parseInt(frameBalanceState.weights?.[c.uploaded_by] || 0, 10) || 0);
             }, 0);
             if (!enabled) {
                 status.textContent = 'Frame balance is off.';
@@ -270,7 +278,7 @@
             } else {
                 delete frameBalanceState.weights[uploader];
             }
-            renderFrameBalance();
+            updateFrameBalanceStatus();
         }
 
         async function saveFrameBalance() {
@@ -281,27 +289,60 @@
                 return;
             }
             const btn = document.getElementById('frameBalanceSaveBtn');
+            const track = document.getElementById('frameBalanceProgressTrack');
+            const fill = document.getElementById('frameBalanceProgressFill');
+            const status = document.getElementById('frameBalanceStatus');
+
             btn.disabled = true;
             btn.textContent = 'Saving...';
+            fill.style.transition = 'none';
+            fill.style.width = '0%';
+            track.style.display = 'block';
+
+            function setProgress(pct, smooth) {
+                fill.style.transition = smooth ? 'width 0.4s ease' : 'none';
+                fill.style.width = pct + '%';
+            }
+
             try {
                 const resp = await fetch('/admin/frame_balance', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ enabled, weights: frameBalanceState.weights || {} })
                 });
-                const data = await resp.json();
-                if (data.success) {
-                    frameBalanceState.enabled = data.enabled;
-                    frameBalanceState.weights = data.weights || {};
-                    frameBalanceState.candidates = data.candidates || frameBalanceState.candidates;
-                    renderFrameBalance();
-                    showToast(enabled ? 'Frame balance saved' : 'Frame balance disabled');
-                } else {
-                    showToast(data.error || 'Failed to save frame balance', true);
+                const reader = resp.body.getReader();
+                const decoder = new TextDecoder();
+                let buf = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buf += decoder.decode(value, { stream: true });
+                    const lines = buf.split('\n');
+                    buf = lines.pop();
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        let event;
+                        try { event = JSON.parse(line.slice(6)); } catch { continue; }
+                        if (event.progress != null) setProgress(event.progress, true);
+                        if (event.message) status.textContent = event.message;
+                        if (event.step === 'done') {
+                            const data = event.result;
+                            frameBalanceState.enabled = data.enabled;
+                            frameBalanceState.weights = data.weights || {};
+                            frameBalanceState.candidates = data.candidates || frameBalanceState.candidates;
+                            renderFrameBalance();
+                            showToast(enabled ? 'Frame balance saved' : 'Frame balance disabled');
+                        } else if (event.step === 'error') {
+                            showToast(event.message || 'Failed to save frame balance', true);
+                        }
+                    }
                 }
             } catch (e) {
                 showToast('Failed to save frame balance', true);
             }
+
+            setProgress(100, true);
+            setTimeout(() => { track.style.display = 'none'; fill.style.width = '0%'; }, 450);
             btn.disabled = false;
             btn.textContent = 'Save Balance';
         }

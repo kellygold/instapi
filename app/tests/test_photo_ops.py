@@ -3,6 +3,9 @@ import hashlib
 import threading
 import pytest
 
+pytestmark = pytest.mark.timeout(5)
+import pytest
+
 
 def _init_test_db(monkeypatch, tmp_path):
     """Initialize an isolated test DB."""

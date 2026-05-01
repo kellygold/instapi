@@ -2,6 +2,8 @@ import os
 import json
 import pytest
 
+pytestmark = pytest.mark.timeout(5)
+
 
 def test_index_returns_200(app_client):
     """Home page should return 200."""
