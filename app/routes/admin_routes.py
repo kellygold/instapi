@@ -1,7 +1,9 @@
-import os
+﻿import os
+import queue
 import shutil
 import subprocess
 import socket
+import threading
 import json as _json
 from flask import render_template, jsonify, request, session, redirect, url_for, Response, stream_with_context
 from app import app
@@ -438,7 +440,6 @@ def update_frame_balance():
     def _sse(payload):
         return f"data: {_json.dumps(payload)}\n\n"
 
-    @stream_with_context
     def generate():
         try:
             if db.get_setting("sync_role") != "child":
@@ -459,23 +460,44 @@ def update_frame_balance():
 
                 yield _sse({"step": "building", "message": "Building playlist…", "progress": 25})
 
-                total_files = [0]
+                event_queue = queue.Queue()
 
                 def on_export_progress(current, total):
-                    total_files[0] = total
                     pct = 30 + int(current / total * 50) if total else 80
-                    yield_queue.append(_sse({
+                    event_queue.put(_sse({
                         "step": "exporting",
                         "message": f"Exporting files ({current} / {total})…",
                         "progress": pct,
                     }))
 
-                yield_queue = []
-                playlist = rebuild_balanced_playlist(force=True, progress_cb=on_export_progress)
-                for event in yield_queue:
-                    yield event
+                result_holder = [None]
+                error_holder = [None]
 
-                if not yield_queue:
+                def run_export():
+                    try:
+                        result_holder[0] = rebuild_balanced_playlist(force=True, progress_cb=on_export_progress)
+                    except Exception as exc:
+                        error_holder[0] = exc
+                    finally:
+                        event_queue.put(None)  # sentinel
+
+                t = threading.Thread(target=run_export)
+                t.start()
+
+                while True:
+                    item = event_queue.get()
+                    if item is None:
+                        break
+                    yield item
+
+                t.join()
+
+                if error_holder[0]:
+                    raise error_holder[0]
+
+                playlist = result_holder[0]
+
+                if not playlist:
                     yield _sse({"step": "exporting", "message": "Exporting files…", "progress": 80})
             else:
                 yield _sse({"step": "saving", "message": "Disabling frame balance…", "progress": 20})
@@ -505,7 +527,7 @@ def update_frame_balance():
         except Exception as e:
             yield _sse({"step": "error", "message": str(e)})
 
-    return Response(generate(), content_type="text/event-stream")
+    return Response(stream_with_context(generate()), content_type="text/event-stream")
 
 
 @app.route("/admin/switch_mode", methods=["POST"])

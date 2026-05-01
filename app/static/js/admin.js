@@ -339,12 +339,11 @@
                 }
             } catch (e) {
                 showToast('Failed to save frame balance', true);
+            } finally {
+                setTimeout(() => { track.style.display = 'none'; fill.style.width = '0%'; }, 450);
+                btn.disabled = false;
+                btn.textContent = 'Save Balance';
             }
-
-            setProgress(100, true);
-            setTimeout(() => { track.style.display = 'none'; fill.style.width = '0%'; }, 450);
-            btn.disabled = false;
-            btn.textContent = 'Save Balance';
         }
 
         // Save setting
