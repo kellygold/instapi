@@ -1,4 +1,4 @@
-﻿import os
+import os
 import queue
 import shutil
 import subprocess
