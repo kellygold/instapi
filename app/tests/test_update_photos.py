@@ -1,12 +1,12 @@
 import json
 import os
 import sqlite3
-import pytest
-
-pytestmark = pytest.mark.timeout(5)
 import subprocess
+import pytest
 from hashlib import sha256
 from pathlib import Path
+
+pytestmark = pytest.mark.timeout(5)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

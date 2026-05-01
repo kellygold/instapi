@@ -1,10 +1,10 @@
 import json
 import os
 import pytest
+from collections import Counter
 from hashlib import sha256
 
 pytestmark = pytest.mark.timeout(5)
-from collections import Counter
 
 
 def _parse_sse(data: bytes) -> list:

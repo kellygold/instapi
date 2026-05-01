@@ -276,7 +276,7 @@ def rebuild_balanced_playlist(force=False, progress_cb=None):
     or invalid, it clears the cached/exported state and returns an empty list.
 
     progress_cb, if provided, is forwarded to export_balanced_playlist for
-    per-file copy progress reporting.
+    per-file symlink progress reporting.
     """
     settings = get_frame_balance_settings()
     if not settings["enabled"] or db.get_setting("sync_role") != "child":
@@ -342,13 +342,14 @@ def _build_source_signature(source_relpath, source_md5):
 def export_balanced_playlist(playlist_entries, progress_cb=None):
     """Write the ordered balanced playlist to the export directory.
 
-    The export is a flat numbered copy of the selected source photos plus a
-    structured `manifest.json` file that records where each export slot came
-    from. USB sync uses the manifest to decide which staged files can be
-    reused without re-watermarking.
+    The export is a flat directory of symlinks to the selected source photos
+    plus a structured `manifest.json` that records where each slot came from.
+    USB sync uses the manifest to decide which staged files can be reused
+    without re-watermarking. `cp` dereferences symlinks on copy, so FAT32
+    never sees a symlink.
 
     progress_cb, if provided, is called as progress_cb(current, total) after
-    each file is copied so callers can stream per-file progress.
+    each entry is processed so callers can stream per-file progress.
     """
     clear_export_dir()
     os.makedirs(FRAME_BALANCE_EXPORT_DIR, exist_ok=True)
