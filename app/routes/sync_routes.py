@@ -625,5 +625,5 @@ def stop_sync_loop():
     global _sync_thread
     _sync_stop_event.set()
     if _sync_thread and _sync_thread.is_alive():
-        _sync_thread.join(timeout=5)
+        _sync_thread.join(timeout=0.5)
     _sync_thread = None

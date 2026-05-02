@@ -481,7 +481,7 @@ def update_frame_balance():
                     finally:
                         event_queue.put(None)  # sentinel
 
-                t = threading.Thread(target=run_export)
+                t = threading.Thread(target=run_export, daemon=True)
                 t.start()
 
                 while True:
@@ -512,14 +512,15 @@ def update_frame_balance():
                 from utils import sync_photos_to_usb
                 sync_photos_to_usb()
 
+            final_enabled = db.get_setting(FRAME_BALANCE_ENABLED_KEY, False)
             yield _sse({
                 "step": "done",
                 "message": "Saved.",
                 "progress": 100,
                 "result": {
                     "success": True,
-                    "enabled": enabled,
-                    "weights": db.get_setting(FRAME_BALANCE_WEIGHTS_KEY, {}) if enabled else {},
+                    "enabled": final_enabled,
+                    "weights": db.get_setting(FRAME_BALANCE_WEIGHTS_KEY, {}) if final_enabled else {},
                     "playlist_length": len(playlist),
                     "candidates": candidates,
                 },

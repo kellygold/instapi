@@ -310,10 +310,15 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ enabled, weights: frameBalanceState.weights || {} })
                 });
+                if (!resp.ok) {
+                    const text = await resp.text();
+                    throw new Error(text || `Server error ${resp.status}`);
+                }
                 const reader = resp.body.getReader();
                 const decoder = new TextDecoder();
                 let buf = '';
-                while (true) {
+                let terminal = false;
+                while (!terminal) {
                     const { done, value } = await reader.read();
                     if (done) break;
                     buf += decoder.decode(value, { stream: true });
@@ -332,8 +337,10 @@
                             frameBalanceState.candidates = data.candidates || frameBalanceState.candidates;
                             renderFrameBalance();
                             showToast(enabled ? 'Frame balance saved' : 'Frame balance disabled');
+                            terminal = true;
                         } else if (event.step === 'error') {
                             showToast(event.message || 'Failed to save frame balance', true);
+                            terminal = true;
                         }
                     }
                 }
