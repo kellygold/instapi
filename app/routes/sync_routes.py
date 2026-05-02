@@ -219,7 +219,7 @@ def trigger_sync_now():
     if db.get_setting("sync_in_progress", False):
         return jsonify({"success": False, "error": "Sync already in progress"})
 
-    start_sync_loop()  # stops existing loop, starts fresh (runs cycle after 10s)
+    start_sync_loop(initial_delay=0)  # skip startup delay — user wants sync now
     return jsonify({"success": True, "message": "Sync started"})
 
 
@@ -579,14 +579,17 @@ def _reconcile_after_sync():
         db.set_setting("done", False)
 
 
-def _sync_loop():
+def _sync_loop(initial_delay=10):
     """Background loop that runs sync cycles at configured interval.
 
     On failure, retries with exponential backoff: 5 min → 10 min → 20 min,
     capped at the normal sync interval. Resets to normal interval on success.
+
+    initial_delay: seconds to wait before the first cycle. Default 10 lets the
+    app finish starting. Pass 0 when the user explicitly triggers a sync so the
+    cycle starts immediately.
     """
-    # Initial delay to let the app finish starting
-    if _sync_stop_event.wait(10):
+    if initial_delay > 0 and _sync_stop_event.wait(initial_delay):
         return
 
     fail_count = 0
@@ -607,12 +610,12 @@ def _sync_loop():
     print("[SYNC] Sync loop stopped")
 
 
-def start_sync_loop():
+def start_sync_loop(initial_delay=10):
     """Start the background sync loop."""
     global _sync_thread
     stop_sync_loop()
     _sync_stop_event.clear()
-    _sync_thread = threading.Thread(target=_sync_loop, daemon=True)
+    _sync_thread = threading.Thread(target=_sync_loop, kwargs={"initial_delay": initial_delay}, daemon=True)
     _sync_thread.start()
     print("[SYNC] Sync loop started")
 

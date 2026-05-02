@@ -261,7 +261,7 @@ def disable_frame_balance():
     clear_balanced_playlist()
 
 
-def rebuild_balanced_playlist(force=False):
+def rebuild_balanced_playlist(force=False, progress_cb=None):
     """Recompute and persist the balanced playlist for a child frame.
 
     This is the core orchestration step. It:
@@ -274,6 +274,9 @@ def rebuild_balanced_playlist(force=False):
 
     Returns the slideshow URLs in playback order. If frame balance is disabled
     or invalid, it clears the cached/exported state and returns an empty list.
+
+    progress_cb, if provided, is forwarded to export_balanced_playlist for
+    per-file symlink progress reporting.
     """
     settings = get_frame_balance_settings()
     if not settings["enabled"] or db.get_setting("sync_role") != "child":
@@ -310,7 +313,7 @@ def rebuild_balanced_playlist(force=False):
     current_index = db.get_setting(FRAME_BALANCE_INDEX_KEY, 0)
     if current_index >= len(playlist_urls):
         db.set_setting(FRAME_BALANCE_INDEX_KEY, 0)
-    export_balanced_playlist(playlist_entries)
+    export_balanced_playlist(playlist_entries, progress_cb=progress_cb)
     _log_balanced_playlist(weights, grouped, playlist_entries, seed)
     return playlist_urls
 
@@ -336,23 +339,28 @@ def _build_source_signature(source_relpath, source_md5):
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def export_balanced_playlist(playlist_entries):
+def export_balanced_playlist(playlist_entries, progress_cb=None):
     """Write the ordered balanced playlist to the export directory.
 
-    The export is a flat numbered copy of the selected source photos plus a
-    structured `manifest.json` file that records where each export slot came
-    from. USB sync uses the manifest to decide which staged files can be
-    reused without re-watermarking.
+    The export is a flat directory of symlinks to the selected source photos
+    plus a structured `manifest.json` that records where each slot came from.
+    USB sync uses the manifest to decide which staged files can be reused
+    without re-watermarking. `cp` dereferences symlinks on copy, so FAT32
+    never sees a symlink.
+
+    progress_cb, if provided, is called as progress_cb(current, total) after
+    each entry is processed so callers can stream per-file progress.
     """
     clear_export_dir()
     os.makedirs(FRAME_BALANCE_EXPORT_DIR, exist_ok=True)
     manifest_entries = []
+    total = len(playlist_entries)
     for index, entry in enumerate(playlist_entries):
         ext = os.path.splitext(entry["filename"])[1].lower() or ".jpg"
         export_name = f"{index:05d}_{entry['uploaded_by'].replace(' ', '_')}{ext}"
         export_path = os.path.join(FRAME_BALANCE_EXPORT_DIR, export_name)
         if os.path.exists(entry["source_path"]):
-            shutil.copy2(entry["source_path"], export_path)
+            os.symlink(entry["source_path"], export_path)
             source_relpath = os.path.join(entry["subdir"], entry["filename"]) if entry["subdir"] else entry["filename"]
             source_relpath = source_relpath.replace(os.sep, "/")
             source_md5 = entry["md5"] or ""
@@ -363,6 +371,8 @@ def export_balanced_playlist(playlist_entries):
                 "source_signature": _build_source_signature(source_relpath, source_md5),
                 "uploaded_by": entry["uploaded_by"],
             })
+        if progress_cb:
+            progress_cb(index + 1, total)
     with open(os.path.join(FRAME_BALANCE_EXPORT_DIR, "manifest.json"), "w", encoding="utf-8") as fh:
         json.dump({
             "version": FRAME_BALANCE_EXPORT_MANIFEST_VERSION,

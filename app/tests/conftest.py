@@ -40,6 +40,15 @@ def mock_secrets():
         os.remove(secrets_path)
 
 
+@pytest.fixture(autouse=True)
+def stop_sync_threads():
+    """Stop any running sync loop before and after each test."""
+    import routes.sync_routes as sr
+    sr.stop_sync_loop()
+    yield
+    sr.stop_sync_loop()
+
+
 @pytest.fixture
 def photos_dir(tmp_path):
     """Create a temporary photos directory with some test images."""

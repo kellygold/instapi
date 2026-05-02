@@ -2,8 +2,11 @@ import json
 import os
 import sqlite3
 import subprocess
+import pytest
 from hashlib import sha256
 from pathlib import Path
+
+pytestmark = pytest.mark.timeout(5)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -225,3 +228,74 @@ def test_update_photos_ignores_stale_balanced_manifest_when_balance_inactive(tmp
     assert run["log_path"].read_text(encoding="utf-8").strip() == "library.jpg"
     assert (run["staging_dir"] / "library.jpg").exists()
     assert not (run["staging_dir"] / "00000_Michael.jpg").exists()
+
+
+def test_update_photos_balanced_export_symlinks_pass_size_filter(tmp_path):
+    """Symlinks in frame_export/ should be staged correctly via stat -L size check.
+
+    Without stat -L, stat reports the symlink path-string length (~50 bytes), which
+    trips the <10KB guard and silently skips the file.  With stat -L the real file
+    size is measured, the file passes the filter, and its content lands in staging.
+    """
+    # Real source file lives outside frame_export (simulating static/photos/)
+    source_dir = tmp_path / "source_photos"
+    source_dir.mkdir()
+    source_file = source_dir / "michael_0.jpg"
+    _write_large_image(source_file, "real-content")
+
+    # frame_export/ holds a symlink instead of a copy
+    frame_export_dir = tmp_path / "frame_export"
+    frame_export_dir.mkdir(parents=True)
+    symlink_in_export = frame_export_dir / "00000_Michael.jpg"
+    symlink_in_export.symlink_to(source_file)
+
+    entry = _manifest_entry("00000_Michael.jpg", "sync/upload/michael_0.jpg", "md5-a")
+    _write_export_manifest(frame_export_dir / "manifest.json", [entry])
+
+    # Build the same environment that _run_update_photos would set up
+    staging_dir = tmp_path / "usb_staging"
+    staging_dir.mkdir(parents=True)
+    photos_dir = tmp_path / "photos"
+    photos_dir.mkdir(parents=True)
+    db_path = tmp_path / "instapi.db"
+    helper_path = tmp_path / "usb-helper.sh"
+    log_path = tmp_path / "usb-watermark.log"
+    qr_placeholder = tmp_path / "qr-placeholder.jpg"
+    qr_placeholder.write_bytes(b"placeholder")
+    img_file = tmp_path / "usb_drive.img"
+    img_file.write_bytes(b"img")
+    mount_point = tmp_path / "mount"
+    mount_point.mkdir(parents=True)
+
+    _write_usb_helper(helper_path)
+    _write_settings_db(db_path, frame_balance_enabled=True)
+
+    env = os.environ.copy()
+    env.update({
+        "FRAME_EXPORT_DIR": str(frame_export_dir),
+        "FRAME_EXPORT_MANIFEST": str(frame_export_dir / "manifest.json"),
+        "STAGING": str(staging_dir),
+        "STAGING_MANIFEST": str(staging_dir / ".manifest.json"),
+        "PHOTOS_DIR": str(photos_dir),
+        "QR_PLACEHOLDER": str(qr_placeholder),
+        "IMG_FILE": str(img_file),
+        "MOUNT_POINT": str(mount_point),
+        "INSTAPI_DB_PATH": str(db_path),
+        "USB_HELPER_PATH": str(helper_path),
+        "USB_WATERMARK_LOG": str(log_path),
+    })
+
+    result = subprocess.run(
+        ["bash", str(UPDATE_PHOTOS_SCRIPT)],
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    staged = staging_dir / "00000_Michael.jpg"
+    assert staged.exists(), f"symlinked file not staged.\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    # cp dereferences the symlink, so staging should hold a real file (not a symlink)
+    assert not staged.is_symlink(), "staging should contain a regular file, not a symlink"
+    assert staged.read_bytes() == source_file.read_bytes(), "staged content should match the symlink target"

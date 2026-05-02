@@ -1,8 +1,11 @@
 import os
+import queue
 import shutil
 import subprocess
 import socket
-from flask import render_template, jsonify, request, session, redirect, url_for
+import threading
+import json as _json
+from flask import render_template, jsonify, request, session, redirect, url_for, Response, stream_with_context
 from app import app
 import db
 import config as _config
@@ -444,41 +447,102 @@ def get_frame_balance():
 @app.route("/admin/frame_balance", methods=["POST"])
 @require_admin
 def update_frame_balance():
-    """Update child-local frame balancing."""
-    try:
-        if db.get_setting("sync_role") != "child":
-            return jsonify({"success": False, "error": "Frame balance is only available on child frames"})
-        data = request.get_json() or {}
-        enabled = bool(data.get("enabled", False))
-        candidates = get_frame_balance_candidates()
-        weights = data.get("weights", {})
+    """Update child-local frame balancing, streaming SSE progress events."""
+    data = request.get_json() or {}
+    enabled = bool(data.get("enabled", False))
+    weights = data.get("weights", {})
 
-        if enabled:
-            valid, normalized = validate_weights(weights, candidates)
-            if not valid:
-                return jsonify({"success": False, "error": normalized})
-            db.set_setting(FRAME_BALANCE_ENABLED_KEY, True)
-            db.set_setting(FRAME_BALANCE_WEIGHTS_KEY, normalized)
-            playlist = rebuild_balanced_playlist(force=True)
-        else:
-            db.set_setting(FRAME_BALANCE_ENABLED_KEY, False)
-            db.delete_setting(FRAME_BALANCE_WEIGHTS_KEY)
-            clear_balanced_playlist()
-            playlist = []
+    def _sse(payload):
+        return f"data: {_json.dumps(payload)}\n\n"
 
-        if get_display_mode() == "usb":
-            from utils import sync_photos_to_usb
-            sync_photos_to_usb()
+    def generate():
+        try:
+            if db.get_setting("sync_role") != "child":
+                yield _sse({"step": "error", "message": "Frame balance is only available on child frames"})
+                return
 
-        return jsonify({
-            "success": True,
-            "enabled": enabled,
-            "weights": db.get_setting(FRAME_BALANCE_WEIGHTS_KEY, {}) if enabled else {},
-            "playlist_length": len(playlist),
-            "candidates": candidates,
-        })
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+            candidates = get_frame_balance_candidates()
+
+            if enabled:
+                valid, normalized = validate_weights(weights, candidates)
+                if not valid:
+                    yield _sse({"step": "error", "message": normalized})
+                    return
+
+                yield _sse({"step": "saving", "message": "Saving settings…", "progress": 10})
+                db.set_setting(FRAME_BALANCE_ENABLED_KEY, True)
+                db.set_setting(FRAME_BALANCE_WEIGHTS_KEY, normalized)
+
+                yield _sse({"step": "building", "message": "Building playlist…", "progress": 25})
+
+                event_queue = queue.Queue()
+
+                def on_export_progress(current, total):
+                    pct = 30 + int(current / total * 50) if total else 80
+                    event_queue.put(_sse({
+                        "step": "exporting",
+                        "message": f"Exporting files ({current} / {total})…",
+                        "progress": pct,
+                    }))
+
+                result_holder = [None]
+                error_holder = [None]
+
+                def run_export():
+                    try:
+                        result_holder[0] = rebuild_balanced_playlist(force=True, progress_cb=on_export_progress)
+                    except Exception as exc:
+                        error_holder[0] = exc
+                    finally:
+                        event_queue.put(None)  # sentinel
+
+                t = threading.Thread(target=run_export)
+                t.start()
+
+                while True:
+                    item = event_queue.get()
+                    if item is None:
+                        break
+                    yield item
+
+                t.join()
+
+                if error_holder[0]:
+                    raise error_holder[0]
+
+                playlist = result_holder[0]
+
+                if not playlist:
+                    yield _sse({"step": "exporting", "message": "Exporting files…", "progress": 80})
+            else:
+                yield _sse({"step": "saving", "message": "Disabling frame balance…", "progress": 20})
+                db.set_setting(FRAME_BALANCE_ENABLED_KEY, False)
+                db.delete_setting(FRAME_BALANCE_WEIGHTS_KEY)
+                clear_balanced_playlist()
+                playlist = []
+
+            usb_mode = get_display_mode() == "usb"
+            if usb_mode:
+                yield _sse({"step": "usb", "message": "Syncing to USB drive…", "progress": 85})
+                from utils import sync_photos_to_usb
+                sync_photos_to_usb()
+
+            yield _sse({
+                "step": "done",
+                "message": "Saved.",
+                "progress": 100,
+                "result": {
+                    "success": True,
+                    "enabled": enabled,
+                    "weights": db.get_setting(FRAME_BALANCE_WEIGHTS_KEY, {}) if enabled else {},
+                    "playlist_length": len(playlist),
+                    "candidates": candidates,
+                },
+            })
+        except Exception as e:
+            yield _sse({"step": "error", "message": str(e)})
+
+    return Response(stream_with_context(generate()), content_type="text/event-stream")
 
 
 @app.route("/admin/switch_mode", methods=["POST"])

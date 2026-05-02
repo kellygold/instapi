@@ -1,6 +1,9 @@
 import os
 import runpy
+import pytest
 from pathlib import Path
+
+pytestmark = pytest.mark.timeout(5)
 
 
 def test_demo_script_skips_startup_reconcile(monkeypatch):

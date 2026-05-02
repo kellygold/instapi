@@ -1,6 +1,8 @@
 import os
 import pytest
 
+pytestmark = pytest.mark.timeout(5)
+
 
 def test_get_display_mode_reads_file(tmp_path, monkeypatch):
     """Should read mode from .display_mode file."""
