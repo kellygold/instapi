@@ -291,4 +291,4 @@ MIT — Do whatever you want with it.
 
 ---
 
-🌐 **Website:** [instapi.dev](https://instapi.dev) · 📧 **Contact:** [hello@instapi.dev](mailto:hello@instapi.dev) · ☕ **Support:** [Buy Me a Coffee](https://www.buymeacoffee.com/justkeepshipping)
+🌐 **Website:** [instapi.dev](https://instapi.dev) · 📧 **Contact:** [hello@instapi.dev](mailto:hello@instapi.dev) · ☕ **Support:** [Buy Me a Coffee](https://buymeacoffee.com/burnertools)
