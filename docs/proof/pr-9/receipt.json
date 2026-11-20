@@ -1,0 +1,86 @@
+{
+  "instapi-live-auth-proof.json": {
+    "aud": "703865103732-485q5dqte3etagt91l0q9qclvv3ubj7p.apps.googleusercontent.com",
+    "azp": "703865103732-485q5dqte3etagt91l0q9qclvv3ubj7p.apps.googleusercontent.com",
+    "scope": "https://www.googleapis.com/auth/photospicker.mediaitems.readonly",
+    "expires_in": "3503",
+    "expectedClient": "703865103732-485q5dqte3etagt91l0q9qclvv3ubj7p.apps.googleusercontent.com",
+    "clientMatches": true
+  },
+  "instapi-live-photo-proof.json": {
+    "downloadCount": 3,
+    "syntheticImageMatches": [
+      {
+        "download": "picker_1795194654_0.jpg",
+        "matchingSyntheticSource": "instapi-verification-sample-3.jpg",
+        "perceptualHashDistance": 0,
+        "sha256": "ae5a0cdc679578aeabcea552d49a068a40276e1afdf215cf73b51a30eef161fc"
+      },
+      {
+        "download": "picker_1795194654_1.jpg",
+        "matchingSyntheticSource": "instapi-verification-sample-1.jpg",
+        "perceptualHashDistance": 0,
+        "sha256": "982de80edd29d2c6f146365285bf36808c2671c742c0bb021cbcac27bf2cc214"
+      },
+      {
+        "download": "picker_1795194654_2.jpg",
+        "matchingSyntheticSource": "instapi-verification-sample-2.jpg",
+        "perceptualHashDistance": 0,
+        "sha256": "d8be86c53f176867a0ff7bdf32de17834d77b2046af8b853a517e42a8e999274"
+      }
+    ],
+    "realPhotosPickerCompleted": true
+  },
+  "instapi-hosted-live-auth-proof.json": {
+    "aud": "703865103732-9e23dhs6ot5o2r5gao0pagbomd1iln5r.apps.googleusercontent.com",
+    "azp": "703865103732-9e23dhs6ot5o2r5gao0pagbomd1iln5r.apps.googleusercontent.com",
+    "scope": "https://www.googleapis.com/auth/photospicker.mediaitems.readonly",
+    "expires_in": "3419",
+    "expectedClient": "703865103732-9e23dhs6ot5o2r5gao0pagbomd1iln5r.apps.googleusercontent.com",
+    "clientMatches": true
+  },
+  "instapi-hosted-live-photo-proof.json": {
+    "downloadCount": 3,
+    "syntheticImageMatches": [
+      {
+        "download": "picker_1795195692_2.jpg",
+        "matchingSyntheticSource": "instapi-verification-sample-2.jpg",
+        "sha256": "d8be86c53f176867a0ff7bdf32de17834d77b2046af8b853a517e42a8e999274"
+      },
+      {
+        "download": "picker_1795195692_0.jpg",
+        "matchingSyntheticSource": "instapi-verification-sample-3.jpg",
+        "sha256": "ae5a0cdc679578aeabcea552d49a068a40276e1afdf215cf73b51a30eef161fc"
+      },
+      {
+        "download": "picker_1795195692_1.jpg",
+        "matchingSyntheticSource": "instapi-verification-sample-1.jpg",
+        "sha256": "982de80edd29d2c6f146365285bf36808c2671c742c0bb021cbcac27bf2cc214"
+      }
+    ],
+    "realPhotosPickerCompleted": true
+  },
+  "candidate": {
+    "remoteHead": "b7430a48b0690aede4cb770207134e146e986d41",
+    "localHead": "a052ae4",
+    "tree": "1ede7a1ee9a66ebab714dd57639b4c401877c48f",
+    "authReviewedAndTestedHead": "58ad838cf5f4a1b541234ccb6b6917c8bf4da0e6",
+    "laterDelta": "three logo image references only"
+  },
+  "tests": {
+    "pinnedRequirements": "111 passed in 3.87s",
+    "newerOAuthLibrary": "111 passed, 12 warnings in 1.13s"
+  },
+  "crossLabReview": {
+    "reviewer": "Claude Opus",
+    "rounds": 2,
+    "blockingFindingsRemaining": 0,
+    "runtimeSeconds": 218.115160417,
+    "nonblockingLimit": "32 pending attempts may evict an active attempt during high unauthenticated traffic; a rescan recovers."
+  },
+  "cleanup": {
+    "temporaryHostedSecret": "pending demo completion",
+    "sampleGooglePhotos": "retained for ongoing OAuth verification recording",
+    "productionInstancesTouched": false
+  }
+}
