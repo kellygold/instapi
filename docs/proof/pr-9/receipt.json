@@ -80,7 +80,7 @@
   },
   "cleanup": {
     "temporaryHostedSecret": "Deleted after demo; original Nov30 2025 secret remains enabled",
-    "sampleGooglePhotos": "retained for ongoing OAuth verification recording",
+    "sampleGooglePhotos": "All three generated samples moved to Trash (restorable); empty task album deleted",
     "productionInstancesTouched": false,
     "temporaryHostedRedirect": "Removed127.0.0.1:3001 callback; both original redirects preserved",
     "localInstancesStopped": true,
@@ -103,6 +103,23 @@
     "temporaryHostedSecretDeleted": true,
     "originalProductionSecretPreserved": true,
     "temporaryHostedRedirectRemoved": true,
-    "remoteSyntheticPhotoAlbum": "pending cleanup after upload"
-  }
+    "remoteSyntheticPhotoAlbum": "Deleted; original album URL returns 404",
+    "remainingTaskAlbumItems": 0,
+    "mainLibrarySearchPerformed": false
+  },
+  "video": {
+    "watchUrl": "https://www.youtube.com/watch?v=kMDUVBxJdk0",
+    "visibility": "Unlisted",
+    "channel": "Kelly Gold (@goldfishtechnic)",
+    "durationSeconds": 134.533008,
+    "originalSha256": "a246c35a246166df9a5f4ea9a5a89b3a2d8445c8d190692047735699c49877f5"
+  },
+  "verification": {
+    "project": "kellygold",
+    "submittedAtApprox": "2026-11-21T05:08:32+11:00",
+    "observedStatus": "Your app's data access is under review.",
+    "approved": false
+  },
+  "receiptSha256": "a0a74ea606e6b612160315c9ed80047cd323f920611873f21d21d5750e80f8b3",
+  "checksumMethod": "SHA-256 of canonical sorted compact JSON before receiptSha256 and checksumMethod fields were added"
 }
