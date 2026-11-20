@@ -10,7 +10,7 @@ A fun, privacy-focused digital photo frame for Raspberry Pi. One person sets it 
 - **Multi-Frame Family Sync** — Set up a host frame, generate tokens for family members. Child frames auto-sync photos from the host every 30 minutes. Everyone stays in sync.
 - **WiFi Self-Setup** — No WiFi configured? The Pi creates an "InstaPi-Setup" hotspot with a captive portal. Pick your network, enter the password, done. Falls back to AP mode automatically if WiFi drops.
 - **Over-the-Air Updates** — Tap "Update & Restart" in the admin panel. The frame pulls the latest code from GitHub and restarts. No SSH required.
-- **Privacy First** — Everything runs locally on your Pi. No cloud servers, no tracking, no data collection.
+- **Privacy First** — Runs on your Pi with offline photo display. No hosted InstaPi service or tracking; Google Photos imports and family-frame sharing are optional.
 - **Self-Healing** — Watchdog monitors all services every 5 minutes and auto-recovers from crashes, network drops, WiFi failures, and USB issues
 - **Admin Panel** — Manage photos, slideshow settings, multi-frame sync, and system info from your phone
 - **Two Display Modes** — USB (any photo frame with a USB port) or HDMI (any TV/monitor with a web-based slideshow)
@@ -275,7 +275,7 @@ Photos stay as files on disk — only metadata is in the database. The `settings
 
 ## Privacy
 
-InstaPi runs entirely on your Raspberry Pi. There are no external servers, no analytics, no tracking. All settings, photo metadata, and sync history are stored in a local SQLite database. OAuth tokens exist only in your Pi's memory. Photos are stored locally and never transmitted anywhere. See our [Privacy Policy](https://instapi.dev/privacy).
+InstaPi runs on your Raspberry Pi and displays locally stored photos while offline. There is no hosted InstaPi service, analytics or tracking. Settings, photo metadata, sync history and Google OAuth credentials are stored in the Pi's local SQLite database. Optional Google Photos imports contact Google; family-frame sharing transfers photos to the frames you configure. Remote access may use a tunnelling provider you choose. See our [Privacy Policy](https://instapi.dev/privacy) and [Terms](https://instapi.dev/terms).
 
 ## Security
 
