@@ -37,7 +37,7 @@
     <header class="py-6 px-6 border-b border-white/10">
         <div class="max-w-4xl mx-auto flex items-center gap-4">
             <a href="/" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                <img src="/assets/instapi-mark.svg" alt="InstaPi" class="w-10 h-10 rounded-xl">
+                <img src="/assets/logo.jpg" alt="InstaPi" class="w-10 h-10 rounded-xl">
                 <span class="text-xl font-bold title-shimmer">InstaPi</span>
             </a>
             <span class="text-gray-500 ml-auto text-sm">Terms of Service</span>
@@ -54,13 +54,13 @@
 
                 <section>
                     <h2 class="text-2xl font-bold text-white mb-4">1. What InstaPi Is</h2>
-                    <p>InstaPi is free, open-source software (MIT License) that turns a Raspberry Pi into a digital picture frame using Google Photos. It is provided as a personal project for friends, family, and anyone who finds it useful.</p>
+                    <p>InstaPi is free, open-source software (MIT License) that turns a Raspberry Pi into a digital picture frame for locally stored photos. It runs on your own hardware and displays locally stored photos, including while offline. There is no hosted InstaPi service or subscription. Optional Google Photos imports and remote frame sharing require a network connection.</p>
                 </section>
 
                 <section>
                     <h2 class="text-2xl font-bold text-white mb-4">2. The Software</h2>
                     <p>InstaPi is provided <strong class="text-white">"as is"</strong> without warranty of any kind, express or implied. This includes, but is not limited to, warranties of merchantability, fitness for a particular purpose, and non-infringement.</p>
-                    <p class="mt-4">The full MIT License applies:</p>
+                    <p class="mt-4">The <a href="https://github.com/kellygold/instapi/blob/main/LICENSE" class="text-green-400 hover:underline">full MIT License</a> applies, including its copyright-notice requirement. The following is a summary:</p>
                     <div class="mt-4 bg-white/5 border border-white/10 rounded-xl p-6 text-sm text-gray-400">
                         <p>Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files, to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software.</p>
                         <p class="mt-3">THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY.</p>
@@ -69,11 +69,11 @@
 
                 <section>
                     <h2 class="text-2xl font-bold text-white mb-4">3. Google Photos Connection</h2>
-                    <p>An InstaPi installation can use the developer’s existing Google OAuth registration or an owner-configured registration. Google sign-in authorizes the application running on the owner’s hardware; it does not create a central InstaPi photo account. By connecting Google Photos:</p>
+                    <p>Google Photos is an optional import source. Google sign-in authorizes the InstaPi installation running on your own hardware; it does not create an InstaPi account or connect to an InstaPi-hosted service. The installation must have a Google OAuth registration and callback configured for it. By connecting Google Photos:</p>
                     <ul class="mt-4 space-y-3 list-disc list-inside">
                         <li>You authorize InstaPi (running on your own hardware) to access photos you explicitly select via Google's Photo Picker.</li>
                         <li>The Google Photos connection is optional and depends on Google’s service and the registration configured for your installation.</li>
-                        <li>You may set up your own Google OAuth credentials at any time if you prefer not to use the shared service. Instructions are in the <a href="https://github.com/kellygold/instapi" class="text-green-400 hover:underline">project README</a>.</li>
+                        <li>You can configure your own Google OAuth registration. Setup instructions are in the <a href="https://github.com/kellygold/instapi" class="text-green-400 hover:underline">project README</a>.</li>
                     </ul>
                 </section>
 
@@ -88,7 +88,7 @@
 
                 <section>
                     <h2 class="text-2xl font-bold text-white mb-4">5. Limitation of Liability</h2>
-                    <p>In no event shall the InstaPi developer be liable for any direct, indirect, incidental, special, or consequential damages arising from the use of this software or the hosted OAuth service. This includes, but is not limited to, loss of data, unauthorized access to your Google account, or hardware issues with your Raspberry Pi.</p>
+                    <p>In no event shall the InstaPi developer be liable for any direct, indirect, incidental, special, or consequential damages arising from the use of this software, to the extent permitted by applicable law. This includes, but is not limited to, loss of data, unauthorized access to your Google account, or hardware issues with your Raspberry Pi.</p>
                 </section>
 
                 <section>
