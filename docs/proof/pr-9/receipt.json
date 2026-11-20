@@ -79,8 +79,30 @@
     "nonblockingLimit": "32 pending attempts may evict an active attempt during high unauthenticated traffic; a rescan recovers."
   },
   "cleanup": {
-    "temporaryHostedSecret": "pending demo completion",
+    "temporaryHostedSecret": "Deleted after demo; original Nov30 2025 secret remains enabled",
     "sampleGooglePhotos": "retained for ongoing OAuth verification recording",
-    "productionInstancesTouched": false
+    "productionInstancesTouched": false,
+    "temporaryHostedRedirect": "Removed127.0.0.1:3001 callback; both original redirects preserved",
+    "localInstancesStopped": true,
+    "instances": [
+      {
+        "instance": "private-instapi",
+        "deletedVerifiedSyntheticDownloads": 9,
+        "remainingPhotoRows": 0,
+        "remainingPhotosOnDisk": 0,
+        "storedCredentialsCleared": true
+      },
+      {
+        "instance": "private-instapi-hosted",
+        "deletedVerifiedSyntheticDownloads": 6,
+        "remainingPhotoRows": 0,
+        "remainingPhotosOnDisk": 0,
+        "storedCredentialsCleared": true
+      }
+    ],
+    "temporaryHostedSecretDeleted": true,
+    "originalProductionSecretPreserved": true,
+    "temporaryHostedRedirectRemoved": true,
+    "remoteSyntheticPhotoAlbum": "pending cleanup after upload"
   }
 }
