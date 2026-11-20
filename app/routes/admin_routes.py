@@ -9,7 +9,7 @@ from flask import render_template, jsonify, request, session, redirect, url_for,
 from app import app
 import db
 import config as _config
-from config import SCOPES, PHOTOS_DIR, SECRETS_PATH, load_slideshow_config, save_slideshow_config, get_redirect_uri
+from config import PHOTOS_DIR, load_slideshow_config, save_slideshow_config
 from frame_balance import (
     FRAME_BALANCE_ENABLED_KEY,
     FRAME_BALANCE_WEIGHTS_KEY,
@@ -19,15 +19,12 @@ from frame_balance import (
     validate_weights,
     clear_balanced_playlist,
 )
-from google_auth_oauthlib.flow import Flow
+from google_oauth import setup_url
 from utils import get_display_mode, get_upload_url
 from auth import require_admin, verify_password
 from photo_ops import delete_photo_files, notify_photos_changed, walk_photos
 from routes.sync_routes import mark_manifest_dirty
 from rate_limit import rate_limit, clear_rate_limit
-
-_FALLBACK_REDIRECT_URI = get_redirect_uri()
-
 
 @app.route("/admin/login", methods=["GET", "POST"])
 @rate_limit(max_attempts=5, window_seconds=300, message="Too many login attempts. Try again in 5 minutes.")
@@ -59,31 +56,8 @@ def admin():
     # Check display mode
     display_mode = get_display_mode()
 
-    # Generate auth URL for "Pick New Photos"
-    # Check forwarded headers for ngrok/reverse proxy, fall back to request.url_root
-    forwarded_host = request.headers.get('X-Forwarded-Host') or request.headers.get('Host')
-    forwarded_proto = request.headers.get('X-Forwarded-Proto', 'http')
-
-    if forwarded_host and 'ngrok' in forwarded_host:
-        # Behind ngrok - use forwarded headers
-        base_url = f"https://{forwarded_host}"
-    elif forwarded_host and 'localhost' not in forwarded_host:
-        # Behind some other proxy
-        base_url = f"{forwarded_proto}://{forwarded_host}"
-    else:
-        # Direct access
-        base_url = request.url_root.rstrip('/')
-
-    redirect_uri = base_url + '/oauth2callback'
-    # Google requires HTTPS for non-localhost redirect URIs
-    if redirect_uri.startswith("http://") and "localhost" not in redirect_uri:
-        redirect_uri = _FALLBACK_REDIRECT_URI
-    flow = Flow.from_client_secrets_file(
-        SECRETS_PATH,
-        scopes=SCOPES,
-        redirect_uri=redirect_uri
-    )
-    auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
+    # Generate an authorization attempt when clicked, not when this page loads.
+    auth_url = setup_url()
 
     upload_token = db.get_setting("upload_token", "")
     sync_role = db.get_setting("sync_role", "")

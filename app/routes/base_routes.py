@@ -2,12 +2,12 @@
 import io
 import qrcode
 from flask import render_template, jsonify, redirect, url_for, request, send_file, send_from_directory
-from google_auth_oauthlib.flow import Flow
 from datetime import datetime, timedelta
 from app import app
 import db
 
-from config import SCOPES, SECRETS_PATH, get_redirect_uri, get_base_url
+from config import get_base_url
+from google_oauth import start_authorization, setup_url, callback_flow
 from utils import get_upload_url
 import os
 
@@ -20,7 +20,6 @@ def favicon():
                                "favicon.ico", mimetype="image/x-icon")
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 
-REDIRECT_URI = get_redirect_uri()
 BASE_URL = get_base_url()
 
 
@@ -42,43 +41,21 @@ def index():
     if db.get_setting("done") and db.get_photo_count() > 0:
         return redirect(url_for("slideshow"))
 
-    # Generate new auth URL if needed
-    if not db.get_setting("auth_url"):
-        flow = Flow.from_client_secrets_file(
-            SECRETS_PATH,
-            scopes=SCOPES,
-            redirect_uri=REDIRECT_URI
-        )
-        auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
-        db.set_setting("auth_url", auth_url)
-
-    return render_template("index.html", auth_url=db.get_setting("auth_url"))
+    return render_template("index.html", auth_url=setup_url())
 
 
 @app.route("/auth")
 def auth():
     """Direct auth - skip setup page, go straight to Google."""
-    # Clear only auth-related state, preserve existing photos
-    db.delete_setting("credentials")
-    db.delete_setting("auth_url")
-    db.delete_setting("picking_session_id")
-    db.delete_setting("picker_url")
-    flow = Flow.from_client_secrets_file(
-        "secrets.json",
-        scopes=SCOPES,
-        redirect_uri=REDIRECT_URI
-    )
-    auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
-    db.set_setting("auth_url", auth_url)
+    # Keep the existing connection/photos until replacement consent succeeds.
+    auth_url = start_authorization()
     return redirect(auth_url)
 
 
 @app.route("/auth_qr")
 def auth_qr():
     """Generate a sign-in QR code."""
-    auth_url = db.get_setting("auth_url")
-    if not auth_url:
-        return "No auth URL found", 404
+    auth_url = setup_url()
 
     img_io = io.BytesIO()
     img = qrcode.make(auth_url)
@@ -90,11 +67,10 @@ def auth_qr():
 @app.route("/oauth2callback")
 def oauth2callback():
     """OAuth2 callback - immediately create picker session."""
-    flow = Flow.from_client_secrets_file(
-        "secrets.json",
-        scopes=SCOPES,
-        redirect_uri=REDIRECT_URI
-    )
+    try:
+        flow = callback_flow(request.args.get("state"))
+    except ValueError:
+        return "Google sign-in expired or was already used. Return to the frame and try again.", 400
     try:
         flow.fetch_token(authorization_response=request.url)
         credentials = flow.credentials
@@ -102,14 +78,16 @@ def oauth2callback():
         db.set_setting("credentials", {
             "token": credentials.token,
         })
+        db.delete_setting("auth_url")
+        db.delete_setting("picking_session_id")
+        db.delete_setting("picker_url")
 
         # Immediately create picker session and redirect to picker
         return redirect(url_for("launch_picker"))
-    except Exception as e:
-        import traceback
-        print(f"Error exchanging token: {e}")
-        traceback.print_exc()
-        return f"Failed to exchange token: {e}", 500
+    except Exception:
+        # OAuth exceptions can contain provider responses; keep them out of UI/logs.
+        app.logger.warning("Google sign-in could not be completed")
+        return "Google sign-in could not be completed. Return to the frame and try again.", 400
 
 
 @app.route("/choose_mode_qr")
