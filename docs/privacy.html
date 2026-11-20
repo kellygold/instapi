@@ -37,7 +37,7 @@
     <header class="py-6 px-6 border-b border-white/10">
         <div class="max-w-4xl mx-auto flex items-center gap-4">
             <a href="/" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                <img src="assets/logo.jpg" alt="InstaPi" class="w-10 h-10 rounded-xl">
+                <img src="/assets/instapi-mark.svg" alt="InstaPi" class="w-10 h-10 rounded-xl">
                 <span class="text-xl font-bold title-shimmer">InstaPi</span>
             </a>
             <span class="text-gray-500 ml-auto text-sm">Privacy Policy</span>
@@ -48,14 +48,14 @@
     <main class="py-16 px-6">
         <div class="max-w-3xl mx-auto">
             <h1 class="text-4xl font-bold mb-2">Privacy Policy</h1>
-            <p class="text-gray-500 mb-12">Last updated: March 8, 2026</p>
+            <p class="text-gray-500 mb-12">Last updated: November 21, 2026</p>
 
             <div class="space-y-10 text-gray-300 leading-relaxed">
 
                 <section>
                     <h2 class="text-2xl font-bold text-white mb-4">The Short Version</h2>
                     <div class="bg-green-500/10 border border-green-500/20 rounded-xl p-6">
-                        <p class="text-green-300 font-medium">InstaPi does not collect, store, or transmit any of your personal data. Everything runs locally on your own Raspberry Pi. We have no servers that process your information.</p>
+                        <p class="text-green-300 font-medium">InstaPi runs on your own hardware. It stores the photos you choose and settings on that device. Optional Google Photos access and sharing with your configured family frames send data only as needed for those features. The developer does not operate a central service that receives your photos or Google credentials.</p>
                     </div>
                 </section>
 
@@ -64,7 +64,7 @@
                     <p>InstaPi is open-source software that runs entirely on your own Raspberry Pi hardware. It connects to Google Photos so you can select photos to display on your picture frame. Here's what's important to understand:</p>
                     <ul class="mt-4 space-y-3 list-disc list-inside">
                         <li><strong class="text-white">No central server.</strong> There is no InstaPi server that processes your data. Your Raspberry Pi is both the client and the server.</li>
-                        <li><strong class="text-white">Your photos stay on your Pi.</strong> Selected photos are downloaded directly from Google to your Raspberry Pi and stored locally. They are never transmitted to us or any third party.</li>
+                        <li><strong class="text-white">You control photo storage and sharing.</strong> Selected photos are downloaded from Google to your Raspberry Pi and stored locally. If you enable family-frame sharing, photos and their associated metadata are transferred to the frames you configure. Remote access may route traffic through a tunnelling service you choose.</li>
                         <li><strong class="text-white">Open source.</strong> You can verify every claim in this policy by reviewing the <a href="https://github.com/kellygold/instapi" class="text-green-400 hover:underline">source code</a>.</li>
                     </ul>
                 </section>
@@ -73,8 +73,8 @@
                     <h2 class="text-2xl font-bold text-white mb-4">Google Account Access</h2>
                     <p>InstaPi uses Google OAuth to let you sign in with your Google account and select photos. Here's exactly what happens:</p>
                     <ul class="mt-4 space-y-3 list-disc list-inside">
-                        <li><strong class="text-white">Minimal permissions.</strong> InstaPi requests only the <code class="bg-white/10 px-2 py-0.5 rounded text-sm">photospicker.mediaitems.readonly</code> scope, which allows you to pick specific photos to share. It cannot browse your full library, upload, or delete anything.</li>
-                        <li><strong class="text-white">Tokens stay on your device.</strong> Your OAuth access token exists only in your Raspberry Pi's memory during the active session. It is never persisted to disk, never transmitted to any external server, and is lost when the Pi restarts.</li>
+                        <li><strong class="text-white">Minimal permissions.</strong> InstaPi requests only the <code class="bg-white/10 px-2 py-0.5 rounded text-sm">photospicker.mediaitems.readonly</code> scope, which allows you to pick specific photos to share. It cannot browse your full Google Photos library or upload, edit or delete items in Google Photos.</li>
+                        <li><strong class="text-white">Tokens stay on your device.</strong> InstaPi stores the OAuth access token and Picker session state in its local SQLite database. The token is sent to Google to authorize Picker requests. Protect access to your device, its database and backups. The developer does not receive these tokens.</li>
                         <li><strong class="text-white">No token storage by us.</strong> The InstaPi developer has no server that receives, processes, or stores your Google credentials. The OAuth flow happens directly between your Pi and Google.</li>
                         <li><strong class="text-white">Revoke anytime.</strong> You can revoke InstaPi's access to your Google account at any time from your <a href="https://myaccount.google.com/permissions" class="text-green-400 hover:underline">Google Account settings</a>.</li>
                     </ul>
@@ -82,7 +82,7 @@
 
                 <section>
                     <h2 class="text-2xl font-bold text-white mb-4">Data We Do Not Collect</h2>
-                    <p>To be explicit, InstaPi does <strong class="text-white">not</strong> collect:</p>
+                    <p>The InstaPi developer does <strong class="text-white">not</strong> receive the following through a central application service. Your own installation processes photos, local settings and authentication data to operate the features described above:</p>
                     <ul class="mt-4 space-y-2 list-disc list-inside">
                         <li>Personal information (name, email, phone number)</li>
                         <li>Usage analytics or telemetry</li>
@@ -99,23 +99,30 @@
                     <p>On your Raspberry Pi, InstaPi stores the following locally:</p>
                     <ul class="mt-4 space-y-3 list-disc list-inside">
                         <li><strong class="text-white">Downloaded photos</strong> in the Pi's local filesystem for display on your frame.</li>
-                        <li><strong class="text-white">Slideshow settings</strong> (duration, transition style) in a local JSON file.</li>
-                        <li><strong class="text-white">Device state</strong> (photo list, display status) in a local JSON file.</li>
+                        <li><strong class="text-white">Settings and photo metadata</strong>, including slideshow preferences, filenames, uploader labels and family-frame synchronization state, in a local SQLite database.</li>
+                        <li><strong class="text-white">Authentication and access settings</strong>, including Google access tokens, Picker session state and frame-sharing tokens, on your device. The admin interface uses a session cookie to keep you signed in.</li>
                     </ul>
-                    <p class="mt-4">All of this data is stored on your hardware, under your control. You can delete it at any time using the admin panel's Factory Reset feature.</p>
+                    <p class="mt-4">All of this data is stored on your hardware, under your control. You can remove photos through the admin interface or erase local application data on your device. Revoking Google access stops future authorized requests; it does not delete photos already downloaded or copies on other configured frames. Remove those copies separately when no longer wanted.</p>
                 </section>
 
                 <section>
                     <h2 class="text-2xl font-bold text-white mb-4">Third-Party Services</h2>
-                    <p>InstaPi interacts with one third-party service:</p>
+                    <p>Depending on the features you enable, your installation can interact with these services:</p>
                     <ul class="mt-4 space-y-3 list-disc list-inside">
                         <li><strong class="text-white">Google Photos Picker API</strong> — Used to let you select photos from your Google Photos library. This interaction is governed by <a href="https://policies.google.com/privacy" class="text-green-400 hover:underline">Google's Privacy Policy</a>. InstaPi uses the Picker API's limited access scope, meaning it can only access photos you explicitly select.</li>
+                        <li><strong class="text-white">Optional remote-access providers</strong> — A service such as ngrok can route traffic to your frame when you configure remote access. That provider processes traffic and connection information according to its own policies.</li>
+                        <li><strong class="text-white">Website assets</strong> — This public site loads fonts and styling from Google Fonts and Tailwind CDN. Those providers receive ordinary browser requests, which can include your IP address.</li>
                     </ul>
                 </section>
 
                 <section>
+                    <h2 class="text-2xl font-bold text-white mb-4">Google API Data Use</h2>
+                    <p>InstaPi uses Google Photos data to provide the photo-selection and display features described here, including sharing to frames you configure. Google user data is not sold, used for advertising, or used to train generalized AI models. InstaPi's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" class="text-green-400 hover:underline">Google API Services User Data Policy</a>, including its Limited Use requirements.</p>
+                </section>
+
+                <section>
                     <h2 class="text-2xl font-bold text-white mb-4">Children's Privacy</h2>
-                    <p>InstaPi does not collect any data from anyone, including children. Since no personal information is collected or processed, there are no age-specific concerns.</p>
+                    <p>The developer does not operate user accounts or a central photo collection service. Frame owners are responsible for choosing appropriate photos and access settings, including when photos include children or frames are shared with family members.</p>
                 </section>
 
                 <section>
