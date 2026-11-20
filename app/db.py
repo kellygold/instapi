@@ -15,6 +15,14 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT
 );
 
+CREATE TABLE IF NOT EXISTS oauth_attempts (
+    state TEXT PRIMARY KEY,
+    verifier TEXT NOT NULL,
+    redirect_uri TEXT NOT NULL,
+    client_id TEXT NOT NULL,
+    expires_at REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS photos (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     filename    TEXT UNIQUE NOT NULL,
@@ -91,6 +99,7 @@ def get_all_settings():
 def clear_all_settings():
     """Clear all settings (for factory reset)."""
     get_db().execute("DELETE FROM settings")
+    get_db().execute("DELETE FROM oauth_attempts")
     get_db().commit()
 
 
